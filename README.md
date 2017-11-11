@@ -1,5 +1,5 @@
 # nd.js
-nd.js is a small library for ND-Arrays in JavaScript. It is strongly inspired by [NumPy](http://www.numpy.org/). There are, however, some key differences. Broadcasting, slicing and reshape work in a similar way as in NumPy. Instead of the predefined operations (+, -, * /, sin, cos, ...), nd.js relies on a functional-style map- and zip-like methods.
+nd.js is a small library for ND-Arrays in JavaScript. It is strongly inspired by [NumPy](http://www.numpy.org/). There are, however, some key differences. Broadcasting, slicing and reshape work in a similar way as in NumPy. Instead of the predefined operations (+, -, * /, sin, cos, ...), nd.js relies on functional-style map- and zip-like methods.
 
 A function reference can be found [here](https://dirktoewe.github.io/ndjs/doc.html).
 
