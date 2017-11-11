@@ -1,0 +1,479 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>nd.js Documentation</title></head><body style="font-family: monospace;"><h1>nd.js Documentation</h1><ul><li><a href="#Array">Array</a></li><li><a href="#Array.length_STATIC">Array.length [STATIC]</a></li><li><a href="#Array.prototype_STATIC">Array.prototype [STATIC]</a></li><li><a href="#Array.from_STATIC">Array.from [STATIC]</a></li><li><a href="#Array.name_STATIC">Array.name [STATIC]</a></li><li><a href="#Array.constructor">Array.constructor</a></li><li><a href="#Array.set">Array.set</a></li><li><a href="#Array._flat_idx">Array._flat_idx</a></li><li><a href="#Array.toString">Array.toString</a></li><li><a href="#Array.forEach">Array.forEach</a></li><li><a href="#Array.entries">Array.entries</a></li><li><a href="#Array.forEntries">Array.forEntries</a></li><li><a href="#Array.valueOf">Array.valueOf</a></li><li><a href="#Array.map">Array.map</a></li><li><a href="#Array.reshape">Array.reshape</a></li><li><a href="#Array.reduce">Array.reduce</a></li><li><a href="#Array.slice">Array.slice</a></li><li><a href="#Array.apply">Array.apply</a></li><li><a href="#ellipsis">ellipsis</a></li><li><a href="#newaxis">newaxis</a></li><li><a href="#array">array</a></li><li><a href="#tabulate">tabulate</a></li><li><a href="#concat">concat</a></li><li><a href="#stack">stack</a></li><li><a href="#dtypes">dtypes</a></li><li><a href="#dtypeof">dtypeof</a></li><li><a href="#super_dtype">super_dtype</a></li><li><a href="#is_subdtype">is_subdtype</a></li><li><a href="#_check_dtype">_check_dtype</a></li><li><a href="#createDocHTML">createDocHTML</a></li><li><a href="#help">help</a></li><li><a href="#help_string">help_string</a></li></ul><h2 id="Array">nd.Array</h2><pre>An n-dimensional, axis-aligned grid of entries, very similar
+to NumPy ndarrays in Python.
+
+Attributes
+----------
+shape: int[]
+  The shape of the nd.Array.
+data : dtype[]
+  The flat data array backing this nd.Array. May be either
+  a standard JavaScript Array, or one of JavaScripts primitive
+  array types. See nd.dtypes for a list of supported data types.
+ndim: int
+  The number of dimensions in this nd.Array, i.e. the number of
+  indices used to address the entries. Equivalent to shape.length.
+  
+dtype: String
+  The data type of this nd.Array. Specifies which type of values
+  may be stored in the nd.Array. See nd.dtypes for the available
+  data types and their respective (primitive) array types.
+</pre><h2 id="Array.length_STATIC">nd.Array.length [STATIC]</h2><pre><doc n="" a=""></doc></pre><h2 id="Array.prototype_STATIC">nd.Array.prototype [STATIC]</h2><pre><doc n="" a=""></doc></pre><h2 id="Array.from_STATIC">nd.Array.from [STATIC]</h2><pre>Creates a new nd.Array from one or more nd.Arrays, using a function to
+map the values of the nd.Array(s) to the values of the new nd.Array.
+
+This can be used to perform unary (sin, cos, exp, ...) and binary
+(+, -, *, ...) operations.
+
+This method supports NumPy-style broadcasting of the nd.Array arguments.
+
+Parameters
+----------
+ndarray: nd.Array or nd.Array[]
+  The nd.Array or list of nd.Arrays from which the new nd.Array is built.
+dtype: String
+  [OPTIONAL] The data type of the new nd.Array.
+mapper: (...values, ...indices) =&gt; dtype
+  A function used to determine the entry values of the new nd.Array from
+  the entry values of the old nd.Array(s). May be omitted if only a single
+  nd.Array is given by ndarray, in which case the entry values are copied.
+
+Returns
+-------
+ndarray: nd.Array
+  The newly created nd.Array, where:
+  ndarray(i0,i1,...,i[n]) = mapper(ndarray[0](i0,i1,...,i[n]), ndarray[1](i0,i1,...,i[n]), ..., ndarray[m](i0,i1,...,i[n]), i0,i1,...,i[n]).
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([1,2,3,4])
+&gt;&gt;&gt; let b = nd.Array.from(a, x =&gt; x*x)
+&gt;&gt;&gt; console.log( b.toString() )
+  [1, 4, 9, 16]
+
+
+&gt;&gt;&gt; let c = nd.array([[1],[2]])
+&gt;&gt;&gt; let d = nd.array([1,2,3,4])
+&gt;&gt;&gt; let e = nd.Array.from([c,d], (x,y) =&gt; 10*x+y )
+&gt;&gt;&gt; console.log( e.toString() )
+  [[11,12,13,14],
+   [21,22,23,24]]
+</pre><h2 id="Array.name_STATIC">nd.Array.name [STATIC]</h2><pre><doc n="" a=""></doc></pre><h2 id="Array.constructor">nd.Array.constructor</h2><pre>An n-dimensional, axis-aligned grid of entries, very similar
+to NumPy ndarrays in Python.
+
+Attributes
+----------
+shape: int[]
+  The shape of the nd.Array.
+data : dtype[]
+  The flat data array backing this nd.Array. May be either
+  a standard JavaScript Array, or one of JavaScripts primitive
+  array types. See nd.dtypes for a list of supported data types.
+ndim: int
+  The number of dimensions in this nd.Array, i.e. the number of
+  indices used to address the entries. Equivalent to shape.length.
+  
+dtype: String
+  The data type of this nd.Array. Specifies which type of values
+  may be stored in the nd.Array. See nd.dtypes for the available
+  data types and their respective (primitive) array types.
+</pre><h2 id="Array.set">nd.Array.set</h2><pre>Sets the value of the specified entry to the given value.
+
+Parameters
+----------
+indices: int[]
+  The multi index of the entry that is to be changes.
+value: dtype
+  The new value for the entry at indices.
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([ [0,0,0], [0,0,0], [0,0,0] )
+&gt;&gt;&gt; a.set([0,0], 1)
+&gt;&gt;&gt; a.set([0,1], 2)
+&gt;&gt;&gt; a.set([1,1], 3)
+&gt;&gt;&gt; a.set([2,2], 4)
+&gt;&gt;&gt; console.log( a.toString() )
+  [[1,2,0],
+   [0,3,0],
+   [0,0,4]]
+</pre><h2 id="Array._flat_idx">nd.Array._flat_idx</h2><pre><doc n="" a=""></doc></pre><h2 id="Array.toString">nd.Array.toString</h2><pre>Returns a readable string representation of this nd.Array.
+
+Parameters
+----------
+max_len: int
+  [OPTIONAL] The maximum number of elements along each to be represented
+  in the String. If there is more elements along an axis than that, an
+  ellipsis (...) is inserted instead of the central elements.
+
+Returns
+-------
+repr: String
+  A readable string representation of this nd.Arrray.
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.tabulate([6,6], (i,j) =&gt; 10*(i+1) + (j+1) )
+&gt;&gt;&gt; console.log( a.toString() )
+  [[11,12,13,14,15,16],
+   [21,22,23,24,25,26],
+   [31,32,33,34,35,36],
+   [41,42,43,44,45,46],
+   [51,52,53,54,55,56],
+   [61,62,63,64,65,66]]
+
+&gt;&gt;&gt; console.log( a.toString(4) )
+  [[11, 12, ...2 more..., 15, 16],
+   [21, 22, ...2 more..., 25, 26],
+    ...2 more...,
+   [51, 52, ...2 more..., 55, 56],
+   [61, 62, ...2 more..., 65, 66]]
+</pre><h2 id="Array.forEach">nd.Array.forEach</h2><pre>Calls the given callback for each slice of this nd.Array along the
+first axis. Equivalent to:
+
+for( let i=0; i &lt; this.shape[0]; i++ )
+  consumer( this.slice(i), i )
+
+Parameters
+----------
+consumer: (slice: nd.Array, index: int) =&gt; ()
+  The callback to be called for each slice of this nd.Array along the first axis.
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([[1,2,3],[4,5,6]])
+&gt;&gt;&gt; a.forEach( (row,i) =&gt; console.log(`${i} -&gt; ${row}`) )
+  0 -&gt; [1,2,3]
+  1 -&gt; [4,5,6]
+</pre><h2 id="Array.entries">nd.Array.entries</h2><pre>Returns an iterator of all multiindex-value pairs of entries in
+this nd.Array.
+
+Returns
+-------
+iter: *[[...int], dtype]
+  An iterator of multiindex-value pairs, one for each entry in this
+  nd.Array.
+
+Examples
+--------
+&gt;&gt;&gt; a = nd.array([[1,2,3],[4,5,6]])
+&gt;&gt;&gt; for( let [[i,j],a_ij] of a.entries() )
+...   console.log(`a[${i},${j}] = ${val}`)
+  a[0,0] = 1
+  a[0,1] = 2
+  a[0,2] = 3
+  a[1,0] = 4
+  a[1,1] = 5
+  a[1,2] = 6
+</pre><h2 id="Array.forEntries">nd.Array.forEntries</h2><pre>Calls the given callback for each entry in this nd.Array.
+
+Parameters
+----------
+consumer: (val: dtype, indices: ...int) =&gt; ()
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([[1,2,3],[4,5,6]])
+&gt;&gt;&gt; a.forEntries( (a_ij,i,j) =&gt; console.log(`a[${i},${j}] = ${a_ij}`) )
+  a[0,0] = 1
+  a[0,1] = 2
+  a[0,2] = 3
+  a[1,0] = 4
+  a[1,1] = 5
+  a[1,2] = 6
+</pre><h2 id="Array.valueOf">nd.Array.valueOf</h2><pre><doc n="" a=""></doc></pre><h2 id="Array.map">nd.Array.map</h2><pre>Creates a new nd.Array by applying the given mapping function to each entry
+of this array and writing the results back into a new array.
+
+Equivalent to nd.Array.from(this, dtype, mapper).
+
+Parameters
+----------
+dtype: String
+  [OPTIONAL] The data type of the newly created nd.Array.
+mapper: (value, ...indices) =&gt; dtype
+  The function used to map the old nd.Array's entries to the values of the
+  new nd.Array.
+
+Returns
+-------
+mapped: nd.Array
+  The newly created nd.Array, where:
+  mapped(i0,i1,...,i[n]) = mapper(this(i0,i1,...,i[n]), i0,i1,...,i[n]).
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([[1,2],[3,4]])
+&gt;&gt;&gt; let b = a.map( x =&gt; x*x )
+&gt;&gt;&gt; console.log( b.toString() )
+  [[1, 4],
+   [9,16]]
+</pre><h2 id="Array.reshape">nd.Array.reshape</h2><pre>Returns view of this nd.Array with a different shape. This is similar
+to NumPy's reshape with a 'C'-order.
+
+Parameters
+----------
+shape: ...int
+  The shape of the view. May contain a single -1 entry, in which case
+  the respective axis' size is inferred.
+
+Returns
+-------
+reshaped: nd.Array
+  A reshaped view of this nd.Array.
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([1,2,3,4,5,6,7,8,9])
+&gt;&gt;&gt; let b = a.reshape(3,-1)
+&gt;&gt;&gt; console.log( b.toString() )
+  [[1,2,3],
+   [4,5,6],
+   [7,8,9]]
+</pre><h2 id="Array.reduce">nd.Array.reduce</h2><pre>Uses the given binary operator to reduce the entries of of this nd.Array
+along the specified axes. If no axes are specified all entries are reduce
+to a single value and said value is returned instead of an nd.Array.
+
+Parameters
+----------
+axes: int or int[]
+  [OPTIONAL] The axes along which the array is to be reduced. If not defined
+  the nd.Array is reduced along all axes and a scalar value is returned instead
+  of an nd.Array.
+dtype: String
+  The data type of the reduced nd.Array. Has to be a super-dtype of the original
+  nd.Array.
+reducer: (dtype,dtype) =&gt; dtype
+  The function used to reduce the entries along the axes.
+
+Returns
+-------
+reduced: nd.Array or dtype
+  The reduced nd.Array if axes were specified or the reduced value id no
+  axes were specified.
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([
+...   [1,2,3],
+...   [4,5,6]
+... ])
+&gt;&gt;&gt; console.log( a.reduce( (x,y) =&gt; x+y ) )
+  21
+
+
+&gt;&gt;&gt; console.log( a.reduce( [0,1], (x,y) =&gt; x+y ) )
+  { [NDArray: self] shape: [], data: [21] }
+
+&gt;&gt;&gt; console.log( a.reduce( 0, (x,y) =&gt; x+y ).toString() )
+  [5,7,9]
+
+&gt;&gt;&gt; console.log( a.reduce( [1], (x,y) =&gt; x+y ).toString() )
+  [6,15]
+</pre><h2 id="Array.slice">nd.Array.slice</h2><pre>Extracts a sub-region specified by combination of indices, ranges, newaxis symbols.
+
+Parameters
+----------
+slices: int or nd.newaxis or nd.ellipsis or [start,stop,step]
+  The slices to be taken along each axis, e.g 3 would only take the fourth entries
+  along an axis, [,,] would take all elements along and axis, [1,,] would take all
+  but the first entries along an axis, [,,3] would take ever third element along
+  an axis, [,-1,] would take all but the last entries along an axis, nd.newaxis
+  would insert a new axis of size 1.
+
+  nd.ellipsis can be used to fill up with [,,] for the remaining axes.
+
+Returns
+-------
+sliced: nd.Array
+  A sliced subregion of this nd.Array.
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([
+...   [11,12,13,14],
+...   [21,22,23,24],
+...   [31,32,33,34]
+... ])
+&gt;&gt;&gt; console.log( a.slice('...', -2).toString() )
+  [13, 23, 33]
+
+&gt;&gt;&gt; console.log( a.slice([,,2]).toString() )
+  [[11,12,13,14],
+   [31,32,33,34]]
+
+&gt;&gt;&gt; console.log( a.slice(2,[1,3,]).toString() )
+  [32,33]
+</pre><h2 id="Array.apply">nd.Array.apply</h2><pre>Returns the value of the entry specified by the given index.
+
+Parameters
+----------
+this: nd.Array
+  The array whose entry is being read.
+indices: ...int
+  The multi-index of the entry whose value is to be returned.
+
+Returns
+-------
+value: dtype
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([[1,2,3],[4,5,6]])
+&gt;&gt;&gt; console.log( a(0,0), a(0,1), a(0,2), a(1,0), a(1,1), a(1,2) )
+  1 2 3 4 5 6
+</pre><h2 id="ellipsis">nd.ellipsis</h2><pre>The "symbol" used in nd.Array.slice() to indicate that the
+missing slice indices are to be filled in in its stead.
+</pre><h2 id="newaxis">nd.newaxis</h2><pre>The "symbol" used in nd.Array.slice() to create an new axis
+of size 1.
+</pre><h2 id="array">nd.array</h2><pre>Tries to heuristically create an nd.Array from the input. This
+method is usually used to create nd.Arrays nested arrays, which
+allows for a creation of nd.Array which is well readable by
+humans.
+
+  * If the input is an object containing a 'shape' and 'data'
+    property, a new nd.Array is created using said shape and data
+    directly (without protection copy), unless a conversion is
+    necessary due to the dtype.
+  * If the input is a (possibly nested) JavaScript array-like, it
+    is converted to an nd.Array, copying the array data in the
+    process. The nesting defines the shape of the resulting
+    nd.Array. 
+  * Otherwise the data is interpreted as a scalar value and
+    is put into an nd.Array of shape [].
+
+Parameters
+----------
+dtype: String
+  [Optional] The dtype of the returned nd.Array.
+content: { length: int[], data: dtype[] } or dtype or dtype[] or dtype[][] or ...
+  The content of the returned nd.Array.
+
+Returns
+-------
+ndarray: nd.Array
+  An nd.Array representation of the content.
+
+Examples
+--------
+&gt;&gt;&gt; let content = { shape: [2,3], data: [1,2,3,4,5,6] }
+&gt;&gt;&gt; let a = nd.array(content)
+&gt;&gt;&gt; console.log( a.toString() )
+  [[1,2,3],
+   [4,5,6]]
+&gt;&gt;&gt; content.data[3] = 7
+&gt;&gt;&gt; console.log( a.toString() )
+  [[1,2,3],
+   [7,5,6]]
+
+
+&gt;&gt;&gt; let content = { shape: [2,3], data: [1,2,3,4,5,6] }
+&gt;&gt;&gt; let a = nd.array('int32',content)
+&gt;&gt;&gt; console.log( a.toString() )
+  [[1,2,3],
+   [4,5,6]]
+&gt;&gt;&gt; content.data[3] = 7
+&gt;&gt;&gt; console.log( a.toString() )
+  [[1,2,3],
+   [4,5,6]]
+
+
+&gt;&gt;&gt; let a = nd.array([
+...   [1,2,3,4],
+...   [5,6,7,8]
+... ])
+&gt;&gt;&gt; console.log( a.toString() )
+  [[1,2,3,4],
+   [5,6,7,8]]
+
+
+&gt;&gt;&gt; console.log( nd.array(12) )
+  { [NDArray: self] shape: [], data: Int32Array[12] }
+</pre><h2 id="tabulate">nd.tabulate</h2><pre>Creates a new nd.Array of the given shape, calling a function for
+each entry index and using the returned value as entry value of
+the new nd.Array.
+
+Parameters
+----------
+shape: int[]
+  The shape of the new nd.Array.
+dtype: String
+  [OPTIONAL] The data type of the newly created nd.Array.
+idx2val: (...int) =&gt; dtype
+  The function returning the entry value for a given entry index as input.
+
+Returns
+-------
+ndarray: nd.Array
+  The newly tabulated nd.Array, where:
+  ndarray(i0,i1,...,i[n]) = idx2val(i0,i1,...i[n])
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.tabulate([3,2], (i,j) =&gt; 10*(i+1) + (j+1) )
+&gt;&gt;&gt; console.log( a.toString() )
+  [[11,12],
+   [21,22],
+   [31,32]]
+</pre><h2 id="concat">nd.concat</h2><pre>Arranges a list of nd.Arrays into a new nd.Array. The nd.Arrays are concatenated
+along an existing specified axis. Aside from said axis, the shape of all nd.Arrays
+must be the same.
+
+Parameters
+----------
+axis: int
+  [OPTIONAL] The axis along which the nd.Arrays are concatenated. Default value: 0.
+dtype: String
+  [OPTIONAL] The type of the concatenated nd.Array. Should be a super-dtype of all nd.Arrays'
+  dtypes.
+ndarrays: nd.Array[]
+  The nd.Arrays that are to be concatenated. All nd.Arrays must have the same shape.
+
+Returns
+-------
+concatenated: nd.Array
+
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([[1,2],[3,4]])
+&gt;&gt;&gt; let b = nd.array([[5,6],[7,8]])
+&gt;&gt;&gt; console.log( nd.concat([a,b]).toString() )
+  [[1,2],
+   [3,4],
+   [5,6],
+   [7,8]]
+   
+&gt;&gt;&gt; console.log( nd.concat(1,[a,b]).toString() )
+  [[1,2,5,6],
+   [3,4,7,8]]
+</pre><h2 id="stack">nd.stack</h2><pre>Arranges a list of nd.Arrays into a new nd.Array. The nd.Arrays are stacked
+along a newly axis, inserted at the specified index. All stacked nd.Arrays
+must have the same shape.
+
+Parameters
+----------
+axis: int
+  [OPTIONAL] The index at which the new index is to be inserted. Default value: 0.
+dtype: String
+  [OPTIONAL] The type of the stacked nd.Array. Should be a super-dtype of all nd.Arrays'
+  dtypes.
+ndarrays: nd.Array[]
+  The nd.Arrays that are to be stacked. All nd.Arrays must have the same shape.
+
+Returns
+-------
+stacked: nd.Array
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([1,2,3])
+&gt;&gt;&gt; let b = nd.array([4,5,6])
+&gt;&gt;&gt; console.log( nd.stack([a,b]).toString )
+  [[1,2,3],
+   [4,5,6]]
+
+&gt;&gt;&gt; console.log( nd.stack(1,'float64',[a,b]).toString )
+  [[1.0, 4.0],
+   [2.0, 5.0],
+   [3.0, 6.0]]
+</pre><h2 id="dtypes">nd.dtypes</h2><pre>A mapping of all supported data types and their respective
+(primitive) array types.
+</pre><h2 id="dtypeof">nd.dtypeof</h2><pre><doc n="" a=""></doc></pre><h2 id="super_dtype">nd.super_dtype</h2><pre><doc n="" a=""></doc></pre><h2 id="is_subdtype">nd.is_subdtype</h2><pre><doc n="" a=""></doc></pre><h2 id="_check_dtype">nd._check_dtype</h2><pre><doc n="" a=""></doc></pre><h2 id="createDocHTML">nd.createDocHTML</h2><pre><doc n="" a=""></doc></pre><h2 id="help">nd.help</h2><pre><doc n="" a=""></doc></pre><h2 id="help_string">nd.help_string</h2><pre><doc n="" a=""></doc></pre></body></html>
