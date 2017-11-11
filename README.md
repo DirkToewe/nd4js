@@ -3,6 +3,11 @@ nd.js is a small library for ND-Arrays in JavaScript. It is strongly inspired by
 
 A function reference can be found [here](https://dirktoewe.github.io/ndjs/doc.html).
 
+  * [Array Instantiation](#array-instantiation)
+  * [Unary Operations (sin, cos, exp, ...)](#unary-operations-sin-cos-exp-)
+  * [Binary Operations (+, -, *, /, ...)](#binary-operations------)
+  * [Ternary Operations (?:, ...)](#ternary-operations--)
+
 # Array Instantiation
 [nd.array](https://dirktoewe.github.io/ndjs/doc.html#array) allows to create nd.Arrays in a well-readable and intuitive way, using nested JavaScript Arrays.
 
