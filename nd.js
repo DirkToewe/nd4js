@@ -14,7 +14,12 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 let nd = {}
-module.exports = nd
+try {
+  module.exports = nd
+}
+catch(err){
+  console.log(err)
+}
 {
   'use strict'
 
@@ -32,7 +37,7 @@ module.exports = nd
     constructor(shape, data)
     {
       if( shape.some(s => s < 1) )
-        throw new Error('Every entry of shape must be > 1.')
+        throw new Error('Every entry of shape must be >= 1.')
       function self(...indices) { return self.data[self._flat_idx(indices)] }
       Object.setPrototypeOf(self, NDArray.prototype)
       self.shape = shape
@@ -299,8 +304,16 @@ module.exports = nd
       if( ! nd.is_subdtype(this.dtype, dtype) )
         throw new Error('New dtype must be a super-dtype.')
 
+      const oldNDim = this.ndim
+
       if( 'number' === typeof axes ) axes = [axes]
-      axes = new Set(axes)
+      axes = new Set( function*() {
+        for( let ax of axes ) {
+          if( 0 > ax )  ax += oldNDim
+          if( 0 > ax || ax >= oldNDim ) throw new Error('Reduction axis '+ax+' out of bounds.')
+          yield ax
+        }
+      }() )
 
       const
         oldShape= this.shape,
@@ -1219,7 +1232,7 @@ Examples
   //
  // TRANSFORMATION
 //
-nd.Array.prototype.valueOf = `
+nd.Array.prototype.valueOf.__doc__ = `
 If this nd.Array is scalar (shape == []), the only entry's value is returned,
 otherwise this nd.Array itself is returned.
 
