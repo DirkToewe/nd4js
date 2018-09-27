@@ -1,9 +1,10 @@
 # nd.js
-nd.js is a small library for ND-Arrays in JavaScript. It is strongly inspired by [NumPy](http://www.numpy.org/). There are, however, some key differences. Broadcasting, slicing and reshape work in a similar way as in NumPy. Instead of the predefined operations (+, -, * /, sin, cos, ...), nd.js relies on functional-style map- and zip-like methods.
+`nd.js` is a small library for ND-Arrays in JavaScript. It is strongly inspired by [NumPy](http://www.numpy.org/). There are, however, some key differences. Broadcasting, slicing and reshape work in a similar way as in NumPy. Instead of the predefined operations (+, -, * /, sin, cos, ...), `nd.js` relies on functional-style map- and zip-like methods.
 
 A function reference can be found [here](https://dirktoewe.github.io/ndjs/doc.html).
 
   * [Array Instantiation](#array-instantiation)
+  * [Random Access](#random-access)
   * [Unary Operations (sin, cos, exp, ...)](#unary-operations-sin-cos-exp-)
   * [Binary Operations (+, -, *, /, ...)](#binary-operations------)
   * [Ternary Operations (?:, ...)](#ternary-operations--)
@@ -39,6 +40,48 @@ console.log( a.toString() )
  [ 0,  0,  0,  0,  0,  ...990 more...,  0,  0,  1,  0,  0],
  [ 0,  0,  0,  0,  0,  ...990 more...,  0,  0,  0,  1,  0],
  [ 0,  0,  0,  0,  0,  ...990 more...,  0,  0,  0,  0,  1]]
+```
+
+# Random Access
+Since nd.Array extends Function, elements can be read by calling the array object.
+
+*Input:*
+```js
+const a = nd.array([
+  [1,2],
+  [3,4]
+])
+
+console.log( a(0,0) )
+console.log( a(0,1) )
+console.log( a(1,0) )
+console.log( a(1,1) )
+```
+*Output:*
+```js
+1
+2
+3
+4
+```
+
+[nd.Array.set](https://dirktoewe.github.io/ndjs/doc.html#Array.set) allows writing array entries.
+const a = nd.tabulate([3,3], () => 0 )
+
+*Input:*
+```js
+for( let i=3; i-- > 0; )
+for( let j=3; j-- > 0; )
+  a.set( [i,j], 10*(i+1)+(j+1) );
+
+console.log( a.toString() );
+```
+
+*Output:*
+```js
+[[ 11, 12, 13 ],
+ [ 21, 22, 23 ],
+ [ 31, 32, 33 ]]
 ```
 
 # Unary Operations (sin, cos, exp, ...)
@@ -133,4 +176,25 @@ console.log( c.toString() )
  [        20,          2,          3,         20],
  [        30,          2,          3,         30],
  [        40,          2,          3,         40]]
+```
+
+# Linear Algebra
+`nd.js` now offers a fairly wide variety of Linear Algebra operations in the [nd.la](https://dirktoewe.github.io/ndjs/doc.html#nd.la) subpackage.
+[la.matmul](https://dirktoewe.github.io/ndjs/doc.html#nd.la.matmul) computes the matrix product of two or more matrices. The order of multiplication
+is automatically optimized to minimize the number of floating point operations.
+
+*Input:*
+```js
+const v = nd.array([[1,2,-3]]).T,
+      A = nd.array([
+        [1,2,3],
+        [4,5,6],
+        [7,8,9]
+      ]);
+
+console.log( nd.la.matmul(v.T, A, v) );
+```
+*Output:*
+```js
+[[ 144 ]]
 ```
