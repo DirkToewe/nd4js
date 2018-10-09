@@ -16,15 +16,8 @@
 {
   'use strict'
 
-  const nd = function(){
-    try {
-      return require('./nd.js')
-    }
-    catch(err) {
-      console.log(err);
-      return nd;
-    }
-  }();
+  if( undefined == nd )
+    nd = require('./nd.js');
 
    //
   // SETUP HOMEBREW TEST FRAMEWORK
