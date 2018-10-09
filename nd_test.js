@@ -16,7 +16,15 @@
 {
   'use strict'
 
-  const nd = require('./nd.js')
+  const nd = function(){
+    try {
+      return require('./nd.js')
+    }
+    catch(err) {
+      console.log(err);
+      return nd;
+    }
+  }();
 
    //
   // SETUP HOMEBREW TEST FRAMEWORK
@@ -130,7 +138,11 @@
 //      const [Q,T] = nd.la.schur_decomp(A);
 //      console.timeEnd('nd.la.schur_decomp');
 //
+//      assert.eq('float64', Q.dtype) 
+//      assert.eq('float64', T.dtype)
+//
 //      const a = nd.la.matmul(Q, T, Q.T);
+//      assert.eq('float64', a.dtype)
 //
 //      assert.ndarray_all_close( 0, nd.la.tril(T,-2) )
 //
@@ -148,32 +160,58 @@
 //    }
 //  });
 //  process.exit();
-/*
-  test('tf.linalg.qr#BENCHMARK', assert => {
-    const tf = require('../tfjs.js');
 
-    for( let run=1024; run-- > 0; )
-    {
-      const
-        N = 128,
-        M = 128;
-      let A = []
-      for( let i = 0; i < N; i++ ) { const row = []; A.push(row);
-      for( let j = 0; j < M; j++ ) {
-        row.push( Math.random()*2 - 1 );
-      }}
-      A = tf.tensor(A)
-      console.time('QR');
-      const [Q,R] = tf.linalg.qr(A);
-      console.timeEnd('QR');
+//  test('tf.linalg.qr#BENCHMARK', assert => {
+//    const tf = require('@tensorflow/tfjs');
+//
+//    for( let run=1024; run-- > 0; )
+//    {
+//      const
+//        N = 1024,
+//        M = N,
+//        L = Math.min(N,M),
+//        shape = [N,M];
+//      let A = Array.from({ length: N }, () =>
+//              Array.from({ length: M }, () => Math.random()*2 - 1 ))
+//      A = tf.tensor(A)
+//
+//      console.time('QR');
+//      let [Q,R] = tf.linalg.qr(A);
+//      console.timeEnd('QR');
+//
+//      A = nd.tabulate(A.shape, (...idx) => A.get(...idx) );
+//      Q = nd.tabulate(Q.shape, (...idx) => Q.get(...idx) );
+//      R = nd.tabulate(R.shape, (...idx) => R.get(...idx) );
+//      const a = nd.la.matmul(Q,R);
+//
+//      assert.array_eq([...shape.slice(0,-2), N, L], Q.shape)
+//      assert.array_eq([...shape.slice(0,-2), L, M], R.shape)
+//
+//      const is_close = (x,y) => {
+//        const atol = 1e-5,
+//              rtol = 1e-5,
+//               tol = atol + rtol * nd.math.max(
+//                nd.math.abs(x),
+//                nd.math.abs(y)
+//              );
+//        return nd.math.abs( nd.math.sub(x,y) ) <= tol;
+//      };
+//
+//      nd.Array.from([A,a], (A,a) => assert( is_close(A,a) )  )
+//      if( N < M ) {
+//           nd.Array.from([nd.la.eye(N), nd.la.matmul(Q,Q.T)], (x,y) => assert( is_close(x,y) ) )
+//           nd.Array.from([nd.la.eye(N), nd.la.matmul(Q.T,Q)], (x,y) => assert( is_close(x,y) ) )
+//      }
+//      else nd.Array.from([nd.la.eye(M), nd.la.matmul(Q.T,Q)], (x,y) => assert( is_close(x,y) ) )
+//
+//      R.forEntries( (x,...idx) => {
+//        const [i,j] = idx.slice(-2);
+//        if( i > j )
+//          assert( is_close(0,x), `R[${idx}] = ${x} != 0.0` )
+//      });
+//    }
+//  })
 
-      for( let i = 0; i < N; i++ ) {
-      for( let j = 0; j < M; j++ ) {
-        if( i > j && Math.abs( R.get(i,j) ) > 1e-6 ) throw new Error('Assertion failed.')
-      }}
-    }
-  })
-*/
 /*
   test('nd.la.qr_decomp#BENCHMARK', assert => {
     for( let run=32; run-- > 0; )
@@ -520,8 +558,8 @@
       //
       // => 0 == (a⋅sin(α) + c⋅cos(α))⋅cos(α) - (b⋅sin(α) + d⋅cos(α))⋅sin(α)
       // => 0 == (a-d)⋅sin(2⋅α) + (b+c)⋅cos(2⋅α) + (c-b) =: f(α)
-      //              !
-      // => abs(c-b) <= absmax{a-d,b+c}
+      //          !
+      // => |c-b| ≤ max{|a-d|,|b+c|}
       //
       // A simple and very numerically accurate solution would be Binary Search.
       // In order to do that, we have to bracket a solution. So let's determine
@@ -557,6 +595,119 @@
 
       assert( Math.abs(x0*x0 - b*x0 + c) <= 1e-8 );
       assert( Math.abs(x1*x1 - b*x1 + c) <= 1e-8 );
+    }
+  });
+
+
+  test('Givens Rotation Backpropagation', assert => {
+    const is_close = (x,y) => {
+      const atol = 1e-4,
+            rtol = 1e-4,
+             tol = atol + rtol * Math.max(
+              Math.abs(x),
+              Math.abs(y)
+            );
+      return Math.abs( x - y ) <= tol;
+    };
+
+    /** Numeric differentiation.
+     */
+    const numdiff = f => (x,y) => {
+      const d = Math.sqrt(Number.EPSILON);
+      x = Float64Array.from(x);
+      y = Float64Array.from(y);
+      const df_dx = new Float64Array(x.length),
+            df_dy = new Float64Array(y.length);
+      const f0 = f(x,y);
+      for( let i=x.length; i-- > 0; )
+      {
+        const x_i = x[i];
+                    x[i] += d; df_dx[i] = ( f(x,y) - f0 ) / (x[i] - x_i);
+                    x[i] = x_i;
+        const y_i = y[i];
+                    y[i] += d; df_dy[i] = ( f(x,y) - f0 ) / (y[i] - y_i);
+                    y[i] = y_i;
+      }
+      return [df_dx, df_dy];
+    }
+
+    /** Test functions that is some weighted sum of a Givens Rotation.
+     */
+    const f = (x,y) => {
+      x = Float64Array.from(x);
+      y = Float64Array.from(y);
+      if( x.length != y.length )
+        throw new Error('Assertion failed!');
+
+      const norm = Math.hypot(x[0],y[0]),
+        c = x[0] / norm,
+        s = y[0] / norm;
+
+      for( let i=x.length; i-- > 0; ) {
+        const x_i = x[i],
+              y_i = y[i];
+        x[i] = s*y_i + c*x_i;
+        y[i] = c*y_i - s*x_i;
+      }
+      let sum=0.0;
+      for( let i=x.length; i-- > 0; ) {
+        sum += (i+1)*x[i];
+        sum -= (i+1)*y[i];
+      }
+      return sum;
+    };
+
+    /** The analytic gradients (via backpropagation)
+     */
+    const f_grad = (x,y) => {
+      x = Float64Array.from(x);
+      y = Float64Array.from(y);
+      if( x.length != y.length )
+        throw new Error('Assertion failed!');
+
+      const norm = Math.hypot(x[0],y[0]),
+        c = x[0] / norm,
+        s = y[0] / norm;
+
+      // there's almost certainly some underflow issues here that need to be fixed
+      const dc_dx0 =   y[0]*y[0] / Math.pow(norm,3),
+            dc_dy0 = - y[0]*x[0] / Math.pow(norm,3),
+            ds_dx0 = - x[0]*y[0] / Math.pow(norm,3),
+            ds_dy0 =   x[0]*x[0] / Math.pow(norm,3);
+
+      // thats what usually fed to as "input" to the backpropagation
+      const df_dout1 =  Float64Array.from( x, (_,i) => +i+1 ),
+            df_dout2 =  Float64Array.from( y, (_,i) => -i-1 );
+      const df_dx = new Float64Array(x.length),
+            df_dy = new Float64Array(y.length);
+
+      for( let i=x.length; i-- > 0; )
+      {
+        df_dx[i] += df_dout1[i]*c - df_dout2[i]*s;
+        df_dy[i] += df_dout1[i]*s + df_dout2[i]*c;
+
+        df_dx[0] += df_dout1[i]*(ds_dx0*y[i] + dc_dx0*x[i])  +  df_dout2[i]*(dc_dx0*y[i] - ds_dx0*x[i]);
+        df_dy[0] += df_dout1[i]*(ds_dy0*y[i] + dc_dy0*x[i])  +  df_dout2[i]*(dc_dy0*y[i] - ds_dy0*x[i]);
+      }
+      return [df_dx, df_dy];
+    };
+
+    const f_num = numdiff(f);
+
+    for( let run=1024; run-- > 0; )
+    {
+      const N = 4,
+        x = Float64Array.from({ length: N }, () => Math.random()*2 - 1 ),
+        y = Float64Array.from({ length: N }, () => Math.random()*2 - 1 );
+
+      const [u,v] = f_grad(x,y);
+      const [s,t] = f_num (x,y);
+
+      for( let i=N; i-- > 0; )
+      {
+        assert( is_close(u[i],s[i]), `\n  [${u}]\n   =/=\n  [${s}]` );
+        assert( is_close(v[i],t[i]), `\n  [${v}]\n   =/=\n  [${t}]` );
+      }
     }
   });
 
@@ -691,7 +842,7 @@
 //    }
 //  })
 
-//  process.exit()
+
 //  test('nd.la.srrqr_decomp', assert => {
 //    for( let run=1024; run-- > 0; )
 //    {
@@ -839,13 +990,16 @@
       assert.array_eq( shape.slice(0,-1), Λ.shape )
 
       // ASSERT THAT THE EIGENVECTORS ARE NORMALIZED
-      assert.ndarray_all_close( 1, V.mapEntries(nd.math.abs).reduce(-2,nd.math.hypot) );
+      assert.ndarray_all_close( 1, V.mapEntries('float64',nd.math.abs).reduce(-2,'float64',nd.math.hypot) );
 
       const ΛV = nd.la.matmul2(A,V);
 
-      const λ = nd.Array.from([ΛV,V], (x,y) => nd.math.mul( nd.math.conj(x), y ) ).reduce( -2, nd.math.add );
-
+      const λ = nd.Array.from([ΛV,V], (x,y) => nd.math.mul( x, nd.math.conj(y) ) ).reduce( -2, nd.math.add );
       assert.ndarray_all_close(Λ,λ);
+
+
+      const λv = nd.Array.from([V,Λ.sliceEntries('...','new',[])], 'complex128', nd.math.mul );
+      assert.ndarray_all_close(ΛV,λv);
     }
   });
 
@@ -1310,6 +1464,11 @@
         assert.ndarray_all_close( nd.la.eye(N+1), nd.la.matmul2(V,V.T) );
       }
       assert.ndarray_all_close( a, A );
+      B.forEntries( (B,...idx) => {
+        const [i,j] = idx.slice(-2);
+        if( i > j   ) assert( B == 0.0 );
+        if( i < j-1 ) assert( B == 0.0 );
+      });
     }
   })
 

@@ -1394,9 +1394,12 @@ catch(err){
   {
     'use strict'
     la.eye = (...shape) => { // TODO: Add dtype
+      const dtype = shape[0] in nd.dtypes ? shape.shift() : 'float64';
+
       if( shape.length <  1 ) throw new Error('Size parameter missing.');
       if( shape.length == 1 ) shape.push( shape[shape.length-1] );
-      return nd.tabulate(shape, 'float64', (...idx) => {
+
+      return nd.tabulate(shape, dtype, (...idx) => {
         const [i,j] = idx.slice(-2);
         return i==j ? 1 : 0;
       });
@@ -2118,15 +2121,15 @@ catch(err){
         // INIT Q TO IDENTITY MATRIX
         for( let i=0; i < N; i++ ) Q[Q_off+N*i+i] = 1.0;
 
-        for( let i=0; i < N; i++ ) { const I = Math.min(i,M); // <- TODO: i could start at 1 ?
+        for( let i=1; i < N; i++ ) { const I = Math.min(i,M); // <- TODO: i could start at 1 ?
         for( let j=0; j < I; j++ )
         {
           // USE GIVENS ROTATION TO ELIMINATE ELEMENT R_ji
           const R_ij = R[R_off+M*i+j]; if( R_ij == 0.0 ) continue;
           const R_jj = R[R_off+M*j+j],
-             norm = Math.hypot(R_jj,R_ij),
-             c = R_jj / norm,
-             s = R_ij / norm;
+                       norm = Math.hypot(R_jj,R_ij),
+            c = R_jj / norm,
+            s = R_ij / norm;
           R[R_off+M*i+j] = 0;
           R[R_off+M*j+j] = norm;
           // ROTATE ROW i AND j IN R
@@ -4336,8 +4339,8 @@ catch(err){
               V[V_off + N*k+i] = v1[k];
               V[V_off + N*k+j] = v2[k];
             }
-            Λ[Λ_off + j--] = λ1;
-            Λ[Λ_off + j  ] = λ2;
+            Λ[Λ_off + i  ] = λ1;
+            Λ[Λ_off + j--] = λ2;
           }
         }
 
@@ -4410,7 +4413,7 @@ catch(err){
       A = DTypeArray.from(A.data); // <- protection copy
 
       const D = new DTypeArray(A.length/N),
-          TOL = Math.pow(0.95,1/p);
+          TOL = 0.95 ** (1/p);
       D.fill(1.0);
 
       for( let A_off=A.length,
@@ -4427,24 +4430,24 @@ catch(err){
             {{const A_ij = Math.abs(A[A_off + N*i+j]);
               if(   A_ij > 0 ) {
                 if( A_ij > r_max ) {
-                  const scale = r_max / A_ij ; r_max = A_ij; r *= Math.pow(scale,p);
-                } const ratio =         A_ij / r_max;        r += Math.pow(ratio,p);
+                  const scale = r_max / A_ij ; r_max = A_ij; r *= scale**p;
+                } const ratio =         A_ij / r_max;        r += ratio**p;
               }
             }{const A_ji = Math.abs(A[A_off + N*j+i]);
               if(   A_ji > 0 ) {
                 if( A_ji > c_max ) {
-                  const scale = c_max / A_ji ; c_max = A_ji; c *= Math.pow(scale,p);
-                } const ratio =         A_ji / c_max;        c += Math.pow(ratio,p);
+                  const scale = c_max / A_ji ; c_max = A_ji; c *= scale**p;
+                } const ratio =         A_ji / c_max;        c += ratio**p;
               }
             }}
-          r = ! isFinite(r) ? r : Math.pow(r,1/p)*r_max;
-          c = ! isFinite(c) ? c : Math.pow(c,1/p)*c_max;
+          r = ! isFinite(r) ? r : r**(1/p) * r_max;
+          c = ! isFinite(c) ? c : c**(1/p) * c_max;
 
           if( r*c == 0.0 ) continue;
           if( ! isFinite(r*c) ) throw new Error('NaN encountered.');
           let old_norm = ( c >= r
-            ? Math.pow( 1 + Math.pow(r/c,p), 1/p )*c
-            : Math.pow( 1 + Math.pow(c/r,p), 1/p )*r
+            ? ( 1 + (r/c)**p )**(1/p) * c
+            : ( 1 + (c/r)**p )**(1/p) * r
           );
 
           // FIND A POWER OF TWO THAT MORE OR LESS BALANCES r AND c
@@ -4453,8 +4456,8 @@ catch(err){
           while( c >= r*2 ) { c/=2; r*=2; scale/=2; }
 
           let new_norm = ( c >= r
-            ? Math.pow( 1 + Math.pow(r/c,p), 1/p )*c
-            : Math.pow( 1 + Math.pow(c/r,p), 1/p )*r
+            ? ( 1 + (r/c)**p )**(1/p) * c
+            : ( 1 + (c/r)**p )**(1/p) * r
           );
 
           if( new_norm >= TOL*old_norm ) continue
@@ -6186,7 +6189,9 @@ Returns
 Λ: nd.Array[...,N]
   A matrix containing all eigenvalues.
 V: nd.Array[...,N,N]
-  A matrix containing the eigenvectors corresponding to Λ as columns, i.e. \`Λ[i]*V[j,i] == (A @ V)[j,i]\`. 
+  A matrix containing the eigenvectors corresponding to Λ as columns, i.e.:
+  \`Λ[i]*V[j,i] == (A @ V)[j,i]\`.
+  The columns are normalized using the 2-norm. 
 `
 
 
