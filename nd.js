@@ -1,3 +1,4 @@
+'use strict';
 /* This file is part of ND.JS.
  *
  * ND.JS is free software: you can redistribute it and/or modify
@@ -15,15 +16,13 @@
  */
 let nd = {}
 try {
-  module.exports = nd
+  module.exports = nd;
 }
 catch(err){
-  console.log(err)
+  console.log(err);
 }
 {
-  'use strict'
-//  ℂ = Complex
-  Complex = class Complex
+  nd.Complex = class Complex
   {
     constructor( re, im ) {
       if( null == re ) re = 0.0;
@@ -36,7 +35,7 @@ catch(err){
       this.re = re * 1;
       this.im = im * 1;
       // TODO: remove these assertions
-      if( isNaN(re) ) throw new Error('Real value is NaN.');
+      if( isNaN(re) ) throw new Error(     'Real value is NaN.');
       if( isNaN(im) ) throw new Error('Imaginary value is NaN.');
       Object.seal(this);
     }
@@ -142,7 +141,8 @@ catch(err){
       );
     }
 
-    inspect() { return this.toString(); }
+    // https://nodejs.org/api/util.html#util_util_inspect_custom
+    [Symbol.for('nodejs.util.inspect.custom')]() { return this.toString(); }
 
     toString() {
       if( this.im == 0 ) return this.re.toString();
@@ -296,7 +296,7 @@ catch(err){
       return flat_idx;
     }
 
-    inspect( depth, options ) {
+    [Symbol.for('nodejs.util.inspect.custom')]( depth, options ) {
       return this.toString();
     }
 
@@ -379,7 +379,7 @@ catch(err){
         consumer( new nd.Array( shape, this.data.slice(idx,idx+stride) ), i )
     }
     
-    *entries() {
+    *elems() {
       const
         shape= this.shape,
         data = this.data,
@@ -399,7 +399,7 @@ catch(err){
       yield* entries(0)
     }
 
-    forEntries( consumer ) {
+    forElems( consumer ) {
       const
         shape= this.shape,
         data = this.data,
@@ -428,11 +428,11 @@ catch(err){
       return this;
     }
 
-    mapEntries( dtype, mapper ) { return NDArray.from(this, dtype, mapper) }
+    mapElems( dtype, mapper ) { return NDArray.from(this, dtype, mapper) }
 
     get T() {
-      if( this.ndim == 0 ) return this.sliceEntries() // <- TODO maybe [[]]
-      if( this.ndim == 1 ) return this.sliceEntries([],'new')
+      if( this.ndim == 0 ) return this.sliceElems() // <- TODO maybe [[]]
+      if( this.ndim == 1 ) return this.sliceElems([],'new')
       return this.transpose()
     }
 
@@ -440,7 +440,7 @@ catch(err){
       const result = this.T;
       if( this.dtype != 'object' &&
           this.dtype != 'complex128' ) return result;
-      return result.mapEntries(math.conj);
+      return result.mapElems(math.conj);
     }
 
     transpose( ...axes ) // <- TODO allow for ellipsis '...' as input
@@ -458,7 +458,7 @@ catch(err){
 
       // BY DEFAULT THE LAST 2 AXES ARE SWAPPED
       if( axes.length == 0 ) {
-        if( ndim <= 1 ) return this.sliceEntries()
+        if( ndim <= 1 ) return this.sliceElems()
         newShape[ndim-2] = this.shape[ndim-1]
         newShape[ndim-1] = this.shape[ndim-2]
         let tmp = strides[ndim-2]; strides[ndim-2] = strides[ndim-1]; strides[ndim-1] = tmp
@@ -532,7 +532,7 @@ catch(err){
       return new NDArray(shape, this.data)
     }
 
-    reduce( axes, dtype, reducer )
+    reduceElems( axes, dtype, reducer )
     {
       if( null == reducer )
       {
@@ -599,7 +599,7 @@ catch(err){
       return new NDArray(newShape,newData)
     }
 
-    sliceEntries(...slices)
+    sliceElems(...slices)
     {
       const
         oldNdim = this.ndim,
@@ -660,7 +660,7 @@ catch(err){
                   break
                 default:
                   --d;
-                  if( (typeof slc) === 'number' )
+                  if( 'number' === typeof slc )
                   {
                     if( 0 > slc )  slc += oldShape[d]
                     if( 0 > slc || slc >= oldShape[d] ) throw new Error('Index out of bounds.')
@@ -983,7 +983,6 @@ catch(err){
   const util = {}
   nd.util = util
   {
-    'use strict'
     const ComplexArrayType = FloatArray => {
   
       const HANDLER = {
@@ -1115,7 +1114,7 @@ catch(err){
   
         fill( value, start, end )
         {
-          if( ! (value instanceof Complex) ) value = new Complex(value);
+          if( ! (value instanceof nd.Complex) ) value = new nd.Complex(value);
   
           if( null == start ) start = 0;
           if( null == end   ) end   = this.length;
@@ -1130,7 +1129,7 @@ catch(err){
   
         get( index ) {
           return Object.freeze(
-            new Complex(
+            new nd.Complex(
               this._array[2*index+0],
               this._array[2*index+1]
             )
@@ -1138,7 +1137,7 @@ catch(err){
         }
   
         set( index, value ) {
-          if( ! (value instanceof Complex) )
+          if( ! (value instanceof nd.Complex) )
           {
             if( value % 1 === 0 )
             {
@@ -1146,13 +1145,13 @@ catch(err){
               this._array[2*index+1] = 0;
               return;
             }
-            else value = new Complex(value);
+            else value = new nd.Complex(value);
           }
           this._array[2*index+0] = value.re;
           this._array[2*index+1] = value.im;
         }
   
-        inspect( depth, options ) {
+        [Symbol.for('nodejs.util.inspect.custom')]( depth, options ) {
           return this.toString(options.maxArrayLength);
         }
   
@@ -1225,7 +1224,7 @@ catch(err){
       return 'object'
     }
     if( value * 1 == value ) return 'float64'
-    if( value instanceof Complex ) return 'complex128';
+    if( value instanceof nd.Complex ) return 'complex128';
     return 'object'
   }
 
@@ -1263,7 +1262,6 @@ catch(err){
   const math = {}
   nd.math = math
   {
-    'use strict'
     math.nextUp = x => {
       // FIXME implement this completely
       // https://gist.github.com/Yaffle/4654250
@@ -1280,27 +1278,27 @@ catch(err){
     };
 
     math.add = (x,y) => {
-      if( x instanceof Complex ) return x.add(y);
-      if( y instanceof Complex ) return y.add(x);
+      if( x instanceof nd.Complex ) return x.add(y);
+      if( y instanceof nd.Complex ) return y.add(x);
       return x + y;
     }
 
     math.sub = (x,y) => {
-      if( x instanceof Complex ) return             x .sub(y);
-      if( y instanceof Complex ) return new Complex(x).sub(y);
+      if( x instanceof nd.Complex ) return                x .sub(y);
+      if( y instanceof nd.Complex ) return new nd.Complex(x).sub(y);
       return x - y;
     }
 
     math.mul = (x,y) => {
-      if( x instanceof Complex ) return x.mul(y);
-      if( y instanceof Complex ) return y.mul(x);
+      if( x instanceof nd.Complex ) return x.mul(y);
+      if( y instanceof nd.Complex ) return y.mul(x);
       return x * y;
     }
 
     math.cast = (x,dtype) => {
       if( dtype ===      'int32' ) return x & 0xFFFFFFFF;
       if( dtype ===    'float32' ) return Math.fround(x);
-      if( dtype === 'complex128' ) return x instanceof Complex ? x : new Complex(x);
+      if( dtype === 'complex128' ) return x instanceof nd.Complex ? x : new nd.Complex(x);
       return x;
     }
 
@@ -1308,23 +1306,23 @@ catch(err){
     math.one  = dtype => math.cast(1,dtype);
 
     math.div = (x,y) => {
-      if( x instanceof Complex ) return x.div(y);
-      if( y instanceof Complex ) return new Complex(x).div(y);
+      if( x instanceof nd.Complex ) return                x .div(y);
+      if( y instanceof nd.Complex ) return new nd.Complex(x).div(y);
       return x / y;
     }
 
-    math.neg = x => x instanceof Complex ? x.neg() : -x;
+    math.neg = x => x instanceof nd.Complex ? x.neg() : -x;
 
-    math.abs = x => x instanceof Complex ? x.abs() : Math.abs(x);
+    math.abs = x => x instanceof nd.Complex ? x.abs() : Math.abs(x);
 
-    math.sqrt = x => x instanceof Complex
+    math.sqrt = x => x instanceof nd.Complex
       ?   x.sqrt()
       : ( x >= 0
-        ?           Math.sqrt(x)
-        : new Complex(x).sqrt()
+        ?              Math.sqrt(x)
+        : new nd.Complex(x).sqrt()
       );
 
-    math.exp = x => x instanceof Complex ? x.exp() : Math.exp(x);
+    math.exp = x => x instanceof nd.Complex ? x.exp() : Math.exp(x);
 
     math.min = (x,y) => Math.min(x,y);
     math.max = (x,y) => Math.max(x,y);
@@ -1333,11 +1331,11 @@ catch(err){
 
     math.atan2 = (x,y) => Math.atan2(x,y);
 
-    math.conj = x => x instanceof Complex ? x.conj() : x;
+    math.conj = x => x instanceof nd.Complex ? x.conj() : x;
 
     math.is_equal = (x,y) => {
-      if( x instanceof Complex ) return x.equals(y);
-      if( y instanceof Complex ) return y.equals(x);
+      if( x instanceof nd.Complex ) return x.equals(y);
+      if( y instanceof nd.Complex ) return y.equals(x);
       return x == y;
     }
 
@@ -1392,7 +1390,6 @@ catch(err){
   const la = {}
   nd.la = la
   {
-    'use strict'
     la.eye = (...shape) => { // TODO: Add dtype
       const dtype = shape[0] in nd.dtypes ? shape.shift() : 'float64';
 
@@ -1409,7 +1406,7 @@ catch(err){
       if( undefined == k ) k = 0;
       m = nd.asarray(m);
       if( m.ndim < 2 ) throw new Error('Input must be at least 2D.');
-      return m.mapEntries( m.dtype, (x,...indices) => {
+      return m.mapElems( m.dtype, (x,...indices) => {
         const [i,j] = indices.slice(-2);
         return i < j-k ? 0 : x
       });
@@ -1420,7 +1417,7 @@ catch(err){
       if( undefined == k ) k = 0;
       m = nd.asarray(m);
       if( m.ndim < 2 ) throw new Error('Input must be at least 2D.');
-      return m.mapEntries( m.dtype, (x,...indices) => {
+      return m.mapElems( m.dtype, (x,...indices) => {
         const [i,j] = indices.slice(-2);
         return i > j-k ? 0 : x
       });
@@ -1512,8 +1509,8 @@ catch(err){
        *  matrix multiply two arrays of the given shapes.
        */
       function nOps( shapeA, shapeB ) {
-        [I,K] = shapeA.slice(-2),
-         J    = shapeB[shapeB.length-1];
+        const [I,K] = shapeA.slice(-2),
+               J    = shapeB[shapeB.length-1];
         if( shapeB[shapeB.length-2] != K )
           throw new Error('Shape mismatch.');
 
@@ -1965,9 +1962,8 @@ catch(err){
                 p=j;
             if( i != p )
             {
-              const
-                P_p = P_dat[P_off+i]; P_dat[P_off+i] = P_dat[P_off+p]; P_dat[P_off+p] = P_p, // KEEP TRACK OF ROW SWAPS
-                row_p = LU_off + p*N;
+              const   P_p = P_dat[P_off+i]; P_dat[P_off+i] = P_dat[P_off+p]; P_dat[P_off+p] = P_p; // KEEP TRACK OF ROW SWAPS
+              const row_p = LU_off + p*N;
               // SWAP ROWS
               for( let j=0; j < N; j++ ) {
                 const tmp = LU_dat[row_i+j]; LU_dat[row_i+j] = LU_dat[row_p+j]; LU_dat[row_p+j] = tmp;
@@ -1988,7 +1984,7 @@ catch(err){
       }
 
       return [
-        new nd.Array(A.shape,LU_dat),
+        new nd.Array(A.shape,           LU_dat),
         new nd.Array(A.shape.slice(0,-1),P_dat)
       ];
     }
@@ -3568,8 +3564,8 @@ catch(err){
             let max = -Infinity;
             const hyp = (s,t) => {
               s += i;
-              t += j; D_st = D[N*s+t],
-                      D_ts = D[N*t+s]; return D_st*D_st + D_ts*D_ts;
+              t += j; const D_st = D[N*s+t],
+                            D_ts = D[N*t+s]; return D_st*D_st + D_ts*D_ts;
             };
             if( i+1 < N ) { const h10 = hyp(1,0); if( h10 > max ) { max=h10; k=i+1; l=j  ; } }
             if( j+1 < N ) { const h01 = hyp(0,1); if( h01 > max ) { max=h01; k=i  ; l=j+1; } }
@@ -3621,7 +3617,7 @@ catch(err){
           const [cα,sα,cβ,sβ] = function() {
             let Cα,Sα,Cβ,Sβ; {
               const m = Math.atan2(D_lk - D_kl, D_ll + D_kk),// = α - β
-                    p = Math.atan2(D_lk + D_kl, D_ll - D_kk);// = α + β
+                    p = Math.atan2(D_lk + D_kl, D_ll - D_kk),// = α + β
                     α = (p+m)/2,
                     β = (p-m)/2;
               Cα = Math.cos(α); Sα = Math.sin(α);
@@ -3701,7 +3697,7 @@ catch(err){
           if( sv_i < 0.0 ) {
             sv_i *= -1;
             sv[sv_off + i] *= -1;
-            for( k=0; k < N; k++ ) U[UV_off + N*i+k] *= -1;
+            for( let k=0; k < N; k++ ) U[UV_off + N*i+k] *= -1;
           }
           // merge sort
           for( let j=i; j-- > 0; ) {
@@ -4237,7 +4233,7 @@ catch(err){
           {  //
             // 1x1 BLOCK
            //
-            V_jj = math.sub( V[V_off + N*j+j], λ );
+            const V_jj = math.sub( V[V_off + N*j+j], λ );
             if( V_jj == 0 ) {
               if( math.is_close(v[j],0) ) { // <- FIXME find a better estimation of near-zeroness (e.g. the norm of the summands?)
                 // v is already a valid eigenvalue, let's return it
@@ -4544,7 +4540,7 @@ catch(err){
      */
     la._schur_decomp_qrfrancis_INPLACE = (Q,H) =>
     {
-      const N = Q.shape[Q.ndim-1]
+      const N = Q.shape[Q.ndim-1],
             DTypeArray = nd.dtypes[Q.dtype],
             tmp = new DTypeArray(N);
       if( Q.shape[Q.ndim-2] != N ) throw new Error('Q is not square.');
@@ -4823,7 +4819,7 @@ catch(err){
   nd.createDocHTML = () => {
     const
       jsdom= require('jsdom'),
-      dom  = new jsdom.JSDOM('<!DOCTYPE html>')
+      dom  = new jsdom.JSDOM('<!DOCTYPE html>'),
       doc  = dom.window.document,
       meta = doc.createElement('meta'),
       title= doc.createElement('title'),
@@ -4839,8 +4835,7 @@ catch(err){
     doc.body.appendChild(h1)
     doc.body.appendChild(ul)
 
-    const ND = {}
-    Object.assign(ND,nd)
+    const ND = {...nd};
     delete ND.Array
 
     function addSection( key, val )
@@ -4915,14 +4910,17 @@ of size 1.
       case undefined:
         return '<Doc N/A>'
       default:
-        if( obj.hasOwnProperty('__doc__') )
-          return obj.__doc__
-        else
-          return '<Doc N/A>'
+        return obj.__doc__ || '<Doc N/A>';
     }
   }
 
 
+
+nd.Complex.__doc__ = `\
+A very rudimentary implementation of the Complex number type,
+used mainly for the calculation of eigenvalues. Other than that,
+a complex dtype is not yet supported.
+`
 
   //
  // FACTORY METHODS
@@ -5323,7 +5321,7 @@ Examples
 
 
 
-nd.Array.prototype.entries.__doc__ = `\
+nd.Array.prototype.elems.__doc__ = `\
 Returns an iterator of all multiindex-value pairs of entries in
 this nd.Array.
 
@@ -5348,7 +5346,7 @@ Examples
 
 
 
-nd.Array.prototype.forEntries.__doc__ = `\
+nd.Array.prototype.forElems.__doc__ = `\
 Calls the given callback for each entry in this nd.Array.
 
 Parameters
@@ -5393,7 +5391,7 @@ Example
 
 
 
-nd.Array.prototype.mapEntries.__doc__ = `\
+nd.Array.prototype.mapElems.__doc__ = `\
 Creates a new nd.Array by applying the given mapping function to each entry
 of this array and writing the results back into a new array.
 
@@ -5416,7 +5414,7 @@ mapped: nd.Array
 Examples
 --------
 >>> let a = nd.array([[1,2],[3,4]])
->>> let b = a.mapEntries( x => x*x )
+>>> let b = a.mapElems( x => x*x )
 >>> console.log( b.toString() )
   [[1, 4],
    [9,16]]
@@ -5488,7 +5486,7 @@ Examples
 
 
 
-nd.Array.prototype.reduce.__doc__ = `\
+nd.Array.prototype.reduceElems.__doc__ = `\
 Uses the given binary operator to reduce the entries of of this nd.Array
 along the specified axes. If no axes are specified all entries are reduce
 to a single value and said value is returned instead of an nd.Array.
@@ -5533,7 +5531,7 @@ Examples
 
 
 
-nd.Array.prototype.sliceEntries.__doc__ = `\
+nd.Array.prototype.sliceElems.__doc__ = `\
 Extracts a sub-region specified by combination of indices, ranges, newaxis symbols.
 
 Parameters
@@ -5559,14 +5557,14 @@ Examples
 ...   [21,22,23,24],
 ...   [31,32,33,34]
 ... ])
->>> console.log( a.slice('...', -2).toString() )
+>>> console.log( a.sliceElems('...', -2).toString() )
   [13, 23, 33]
 
->>> console.log( a.slice([,,2]).toString() )
+>>> console.log( a.sliceElems([,,2]).toString() )
   [[11,12,13,14],
    [31,32,33,34]]
 
->>> console.log( a.slice(2,[1,3,]).toString() )
+>>> console.log( a.sliceElems(2,[1,3,]).toString() )
   [32,33]
 `
 

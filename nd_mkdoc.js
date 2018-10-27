@@ -1,6 +1,5 @@
+'use strict';
 {
-  'use strict';
-
   const
     fs = require('fs'),
     nd = require('./nd.js'),

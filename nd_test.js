@@ -1,3 +1,4 @@
+//'use strict';
 /* This file is part of ND.JS.
  *
  * ND.JS is free software: you can redistribute it and/or modify
@@ -14,10 +15,7 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 {
-  'use strict'
-
-  if( undefined == nd )
-    nd = require('./nd.js');
+  try{ nd; } catch(e) { nd = require('./nd.js'); }
 
    //
   // SETUP HOMEBREW TEST FRAMEWORK
@@ -197,7 +195,7 @@
 //      }
 //      else nd.Array.from([nd.la.eye(M), nd.la.matmul(Q.T,Q)], (x,y) => assert( is_close(x,y) ) )
 //
-//      R.forEntries( (x,...idx) => {
+//      R.forElems( (x,...idx) => {
 //        const [i,j] = idx.slice(-2);
 //        if( i > j )
 //          assert( is_close(0,x), `R[${idx}] = ${x} != 0.0` )
@@ -216,7 +214,7 @@
       console.time('QR');
       const [Q,R] = nd.la.qr_decomp_full(A);
       console.timeEnd('QR');
-      R.forEntries( (R_ij,...indices) => {
+      R.forElems( (R_ij,...indices) => {
         const [i,j] = indices.slice(-2);
         if( i > j && ! (Math.abs(R_ij) < 1e-8) )
           throw new Error(`R is not triangular:\n${R}`);
@@ -235,7 +233,7 @@
       console.time('bidiag');
       const [U,B,V] = nd.la.bidiag_decomp(A);
       console.timeEnd('bidiag');
-      B.forEntries( (R_ij,...indices) => {
+      B.forElems( (R_ij,...indices) => {
         const [i,j] = indices.slice(-2);
         if( i > j && ! (Math.abs(R_ij) < 1e-8) )
           throw new Error(`R is not triangular:\n${R}`);
@@ -255,7 +253,7 @@
       A = nd.tabulate( [N,N], (i,j) => A(P(i),j) );
 
       const
-        L = nd.la.tril(LU).mapEntries( (x,i,j) => i==j ? 1 : (i<j ? 0 : x) ),
+        L = nd.la.tril(LU).mapElems( (x,i,j) => i==j ? 1 : (i<j ? 0 : x) ),
         U = nd.la.triu(LU),
         a = nd.la.matmul(L,U);
 
@@ -354,17 +352,17 @@
 
     console.log(
       EV.dtype,
-      EV.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) )
+      EV.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) )
     );
 
     console.log('T:')
-    console.log( T.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) ) )
+    console.log( T.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) ) )
 
     const [VALS,VECS] = nd.la.schur_eigen(Q,T);
 
-    console.log('VALS:\n',VALS.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) ) );
+    console.log('VALS:\n',VALS.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) ) );
     console.log('VECS:')
-    console.log( VECS.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) ) );
+    console.log( VECS.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) ) );
   });
 
 
@@ -379,17 +377,17 @@
 
     console.log(
       EV.dtype,
-      EV.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) )
+      EV.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) )
     );
 
     console.log('T:')
-    console.log( T.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) ) )
+    console.log( T.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) ) )
 
     const [VALS,VECS] = nd.la.schur_eigen(Q,T);
 
-    console.log('VALS:\n',VALS.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) ) );
+    console.log('VALS:\n',VALS.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) ) );
     console.log('VECS:')
-    console.log( VECS.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) ) );
+    console.log( VECS.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) ) );
   });
 
 
@@ -405,21 +403,21 @@
 
     console.log(
       EV.dtype,
-      EV.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) )
+      EV.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) )
     );
 
     console.log('T:')
-    console.log( T.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) ) )
+    console.log( T.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) ) )
 
     const [VALS,VECS] = nd.la.schur_eigen(nd.la.eye(3),T);
 
-    console.log('VALS:\n',VALS.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) ) );
+    console.log('VALS:\n',VALS.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) ) );
     for( let i=0; i < 3; i++ ) {
       VECS.modify([i,1], x => x.div( VECS(2,1) ) );
       VECS.modify([i,2], x => x.div( VECS(2,2) ) );
     }
     console.log('VECS:')
-    console.log( VECS.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) ) );
+    console.log( VECS.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) ) );
   });
 
 
@@ -431,23 +429,23 @@
     ]);
 
     console.log('T:')
-    console.log( T.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) ) )
+    console.log( T.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) ) )
 
     const [Λ,V] = nd.la.schur_eigen(nd.la.eye(3),T);
 
     console.log('Λ:')
-    console.log( Λ.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) ) );
+    console.log( Λ.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) ) );
     for( let i=0; i < 3; i++ ) {
 //      VECS.modify([i,0], x => x.div( VECS(1,0) ) );
 //      VECS.modify([i,1], x => x.div( VECS(1,1) ) );
     }
     console.log('V:')
-    console.log( V.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) ) );
+    console.log( V.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) ) );
     console.log('colNorms(V):')
     console.log(
-      V.mapEntries('float64', nd.math.abs)
-       .reduce(-2,nd.math.hypot)
-       .mapEntries('float64', x => nd.math.mul( x.toFixed(6), 1 ) )
+      V.mapElems('float64', nd.math.abs)
+       .reduceElems(-2,nd.math.hypot)
+       .mapElems('float64', x => nd.math.mul( x.toFixed(6), 1 ) )
     );
   });
 
@@ -464,21 +462,21 @@
 
     console.log(
       EV.dtype,
-      EV.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) )
+      EV.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) )
     );
 
     console.log('T:')
-    console.log( T.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) ) )
+    console.log( T.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) ) )
 
     const [VALS,VECS] = nd.la.schur_eigen(Q,T);
 
-    console.log('VALS:\n',VALS.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) ) );
+    console.log('VALS:\n',VALS.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) ) );
 //    for( let i=0; i < 3; i++ ) {
 //      VECS.modify([i,1], x => x.div( VECS(2,1) ) );
 //      VECS.modify([i,2], x => x.div( VECS(2,2) ) );
 //    }
     console.log('VECS:')
-    console.log( VECS.mapEntries( x => nd.math.mul( x.toFixed(6), 1 ) ) );
+    console.log( VECS.mapElems( x => nd.math.mul( x.toFixed(6), 1 ) ) );
   });
 
 
@@ -594,8 +592,8 @@
 
   test('Givens Rotation Backpropagation', assert => {
     const is_close = (x,y) => {
-      const atol = 1e-4,
-            rtol = 1e-4,
+      const atol = 1e-7,
+            rtol = 1e-5,
              tol = atol + rtol * Math.max(
               Math.abs(x),
               Math.abs(y)
@@ -644,8 +642,8 @@
       }
       let sum=0.0;
       for( let i=x.length; i-- > 0; ) {
-        sum += (i+1)*x[i];
-        sum -= (i+1)*y[i];
+        sum += w1[i]*x[i];
+        sum += w2[i]*y[i];
       }
       return sum;
     };
@@ -663,18 +661,18 @@
         s = y[0] / norm;
 
       // there's almost certainly some underflow issues here that need to be fixed
-      const dc_dx0 =   y[0]*y[0] / Math.pow(norm,3),
-            dc_dy0 = - y[0]*x[0] / Math.pow(norm,3),
-            ds_dx0 = - x[0]*y[0] / Math.pow(norm,3),
-            ds_dy0 =   x[0]*x[0] / Math.pow(norm,3);
+      const dc_dx0 =   y[0]*y[0] / norm**3,
+            dc_dy0 = - y[0]*x[0] / norm**3,
+            ds_dx0 = - x[0]*y[0] / norm**3,
+            ds_dy0 =   x[0]*x[0] / norm**3;
 
       // thats what usually fed to as "input" to the backpropagation
-      const df_dout1 =  Float64Array.from( x, (_,i) => +i+1 ),
-            df_dout2 =  Float64Array.from( y, (_,i) => -i-1 );
-      const df_dx = new Float64Array(x.length),
+      const df_dout1 =  Float64Array.from(w1),
+            df_dout2 =  Float64Array.from(w2),
+            df_dx = new Float64Array(x.length),
             df_dy = new Float64Array(y.length);
 
-      for( let i=x.length; i-- > 0; )
+      for( let i=0; i < x.length; i++ )
       {
         df_dx[i] += df_dout1[i]*c - df_dout2[i]*s;
         df_dy[i] += df_dout1[i]*s + df_dout2[i]*c;
@@ -687,14 +685,17 @@
 
     const f_num = numdiff(f);
 
+    let w1,w2;
     for( let run=1024; run-- > 0; )
     {
-      const N = 4,
+      const N = Math.trunc(Math.random()*9)+4,
         x = Float64Array.from({ length: N }, () => Math.random()*2 - 1 ),
         y = Float64Array.from({ length: N }, () => Math.random()*2 - 1 );
+      w1  = Float64Array.from({ length: N }, () => Math.random()*2 - 1 );
+      w2  = Float64Array.from({ length: N }, () => Math.random()*2 - 1 );
 
-      const [u,v] = f_grad(x,y);
-      const [s,t] = f_num (x,y);
+      const [u,v] = f_grad(x,y),
+            [s,t] = f_num (x,y);
 
       for( let i=N; i-- > 0; )
       {
@@ -983,15 +984,15 @@
       assert.array_eq( shape.slice(0,-1), Λ.shape )
 
       // ASSERT THAT THE EIGENVECTORS ARE NORMALIZED
-      assert.ndarray_all_close( 1, V.mapEntries('float64',nd.math.abs).reduce(-2,'float64',nd.math.hypot) );
+      assert.ndarray_all_close( 1, V.mapElems('float64',nd.math.abs).reduceElems(-2,'float64',nd.math.hypot) );
 
       const ΛV = nd.la.matmul2(A,V);
 
-      const λ = nd.Array.from([ΛV,V], (x,y) => nd.math.mul( x, nd.math.conj(y) ) ).reduce( -2, nd.math.add );
+      const λ = nd.Array.from([ΛV,V], (x,y) => nd.math.mul( x, nd.math.conj(y) ) ).reduceElems( -2, nd.math.add );
       assert.ndarray_all_close(Λ,λ);
 
 
-      const λv = nd.Array.from([V,Λ.sliceEntries('...','new',[])], 'complex128', nd.math.mul );
+      const λv = nd.Array.from([V,Λ.sliceElems('...','new',[])], 'complex128', nd.math.mul );
       assert.ndarray_all_close(ΛV,λv);
     }
   });
@@ -1045,14 +1046,14 @@
              return Math.random() < 0.1 ? 8*result : result;
            });
 
-      const before = A.reduce( (x,y) => Math.hypot(x,y) );
+      const before = A.reduceElems( (x,y) => Math.hypot(x,y) );
       let D; [D,S] = nd.la._schur_preprocess_balance(A,2)
-      const after = S.reduce( (x,y) => Math.hypot(x,y) );
+      const after = S.reduceElems( (x,y) => Math.hypot(x,y) );
       assert( after <= before );
 
       const a = nd.Array.from(
-        [D.sliceEntries('...',[],'new'   ), S,
-         D.sliceEntries('...',   'new',[])],
+        [D.sliceElems('...',[],'new'   ), S,
+         D.sliceElems('...',   'new',[])],
         (D_i,S_ij,D_j) => D_i * S_ij / D_j
       );
 
@@ -1077,14 +1078,14 @@
              return Math.random() < 0.1 ? 8*result : result;
            });
 
-      const before = A.reduce(absMax);
+      const before = A.reduceElems(absMax);
       let D; [D,S] = nd.la._schur_preprocess_balance(A,Infinity)
-      const after = S.reduce(absMax);
+      const after = S.reduceElems(absMax);
       assert( after <= before );
 
       const a = nd.Array.from(
-        [D.sliceEntries('...',[],'new'   ), S,
-         D.sliceEntries('...',   'new',[])],
+        [D.sliceElems('...',[],'new'   ), S,
+         D.sliceElems('...',   'new',[])],
         (D_i,S_ij,D_j) => D_i * S_ij / D_j
       );
 
@@ -1184,7 +1185,7 @@
 
       for( sv of SV.reshape(-1,L) )
       {
-        sv.forEntries( x => assert(x >= -0.0) )
+        sv.forElems( x => assert(x >= -0.0) )
         for( let i=1; i < sv.shape[0]; i++ )
           assert( sv(i-1) >= sv(i) )
       }
@@ -1248,7 +1249,7 @@
       assert.ndarray_all_close(A,a);
       assert.ndarray_all_close( 0, nd.la.tril(R,-1) );
 
-      R.forEntries( (x,...idx) => {
+      R.forElems( (x,...idx) => {
         const [i,j] = idx.slice(-2);
         if( i > j )
           assert( 0.0 == x, `R[${idx}] = ${x} != 0.0` )
@@ -1283,7 +1284,7 @@
       }
       else assert.ndarray_all_close( nd.la.eye(M), nd.la.matmul(Q.T,Q) );
 
-      R.forEntries( (x,...idx) => {
+      R.forElems( (x,...idx) => {
         const [i,j] = idx.slice(-2);
         if( i > j )
           assert( 0.0 == x, `R[${idx}] = ${x} != 0.0` )
@@ -1342,7 +1343,7 @@
           visits.modify([j,i], v => v+1);
         }
       }
-      visits.forEntries( (v,i,j) => {
+      visits.forElems( (v,i,j) => {
         if(i==j) assert.eq(v,0);
         else     assert.eq(v,1);
       });
@@ -1362,7 +1363,7 @@
         D      = nd.tabulate(shape, 'float64', () => Math.random()*2 - 1 ),
         d      = nd.la.diag(D,off);
 
-      d.forEntries( (d_k, ...idx) => {
+      d.forElems( (d_k, ...idx) => {
         const [k] = idx.slice(-1);
         assert.eq( d_k, D(
           ...idx.slice(0,-1),
@@ -1385,7 +1386,7 @@
          d      = nd.tabulate(shape, 'float64', () => Math.random()*2 - 1 ),
          D      = nd.la.diag_mat(d);
       assert.array_eq([...shape,N], D.shape);
-      D.forEntries( (D_ij,...idx) => {
+      D.forElems( (D_ij,...idx) => {
         const [i,j] = idx.slice(-2);
         if( i != j ) assert( D_ij == 0 );
         else         assert( D_ij == d(...idx.slice(0,-1)) )
@@ -1444,8 +1445,8 @@
         nd.math.abs(x),
         nd.math.abs(y)
       );
-      assert.eq( 0, nd.la.tril(B,-1).reduce(absMax) );
-      assert.eq( 0, nd.la.triu(B,+2).reduce(absMax) );
+      assert.eq( 0, nd.la.tril(B,-1).reduceElems(absMax) );
+      assert.eq( 0, nd.la.triu(B,+2).reduceElems(absMax) );
       if( N >= M ) {
         assert.ndarray_all_close( nd.la.eye(M), nd.la.matmul2(U.T,U) );
         assert.ndarray_all_close( nd.la.eye(M), nd.la.matmul2(V.T,V) );
@@ -1457,7 +1458,7 @@
         assert.ndarray_all_close( nd.la.eye(N+1), nd.la.matmul2(V,V.T) );
       }
       assert.ndarray_all_close( a, A );
-      B.forEntries( (B,...idx) => {
+      B.forElems( (B,...idx) => {
         const [i,j] = idx.slice(-2);
         if( i > j   ) assert( B == 0.0 );
         if( i < j-1 ) assert( B == 0.0 );
@@ -1577,13 +1578,13 @@
           if( i< j ) return 0;
           return Math.random()*2e-1 - 1e-1;
         }),
-        L = LU.mapEntries( (LU_ij,...indices) => {
+        L = LU.mapElems( (LU_ij,...indices) => {
           [i,j] = indices.slice(-2);
           if( i == j ) return 1;
           if( i >  j ) return LU_ij;
           return 0;
         }),
-        U = LU.mapEntries( (LU_ij,...indices) => {
+        U = LU.mapElems( (LU_ij,...indices) => {
           [i,j] = indices.slice(-2);
           if( i <= j ) return LU_ij;
           return 0;
@@ -1591,8 +1592,8 @@
         x = nd.la.lu_solve(LU,P,y),
         Y = nd.la.matmul(L,U,x);
 
-      y = nd.Array.from([y,P.sliceEntries('...','new')], (y) => y)
-      P = nd.Array.from([P,y.sliceEntries('...', 0   )], (P) => P)
+      y = nd.Array.from([y,P.sliceElems('...','new')], (y) => y)
+      P = nd.Array.from([P,y.sliceElems('...', 0   )], (P) => P)
       y = nd.tabulate( y.shape, 'float64', (...idx) => {
         idx[idx.length-2] = P( ...idx.slice(0,-1) );
         return y(...idx);
@@ -1611,7 +1612,7 @@
         [0,  2,-10]
       ]),
       [LU,P] = nd.la.lu_decomp(A),
-       L     = nd.la.tril(LU).mapEntries( (x, ...idx) => idx[0] == idx[1] ? 1 : x ),
+       L     = nd.la.tril(LU).mapElems( (x, ...idx) => idx[0] == idx[1] ? 1 : x ),
         U    = nd.la.triu(LU);
     A = nd.tabulate( A.shape, (i,j) => A(P(i),j) );
 
@@ -1638,7 +1639,7 @@
       });
 
       const
-        L = LU.mapEntries( (x, ...idx) => { const [i,j] = idx.slice(-2); return i<j ? 0 : (i==j ? 1 : x) } ),
+        L = LU.mapElems( (x, ...idx) => { const [i,j] = idx.slice(-2); return i<j ? 0 : (i==j ? 1 : x) } ),
         U = nd.la.triu(LU),
         a = nd.la.matmul2(L,U);
 
@@ -1658,11 +1659,10 @@
         y_shape = U_shape.slice( randInt(0,U_shape.length-2) );
       if( Math.random() < 0.5 )
       {
-        y_shape = Array.from({ length: randInt(2,8) }, () => randInt(1,8) );
+        y_shape = Int32Array.from({ length: randInt(2,8) }, () => randInt(1,8) );
         U_shape = y_shape.slice( randInt(0,y_shape.length-2) );
       }
-      U_shape[U_shape.length-2] = U_shape[U_shape.length-1];
-      y_shape[y_shape.length-2] = U_shape[U_shape.length-1];
+      U_shape[U_shape.length-1] = U_shape[U_shape.length-2];
 
       for( let U=U_shape.length-2, y=y_shape.length-2; U-- > 0 && y-- > 0; )
         switch( randInt(0,3) )
@@ -1697,11 +1697,10 @@
         y_shape = L_shape.slice( randInt(0,L_shape.length-2) );
       if( Math.random() < 0.5 )
       {
-        y_shape = Array.from({ length: randInt(2,8) }, () => randInt(1,8) );
+        y_shape = Int32Array.from({ length: randInt(2,8) }, () => randInt(1,8) );
         L_shape = y_shape.slice( randInt(0,y_shape.length-2) );
       }
-      L_shape[L_shape.length-2] = L_shape[L_shape.length-1];
-      y_shape[y_shape.length-2] = L_shape[L_shape.length-1];
+      L_shape[L_shape.length-1] = L_shape[L_shape.length-2];
 
       for( let L=L_shape.length-2, y=y_shape.length-2; L-- > 0 && y-- > 0; )
         switch( randInt(0,3) )
@@ -1740,8 +1739,7 @@
         y_shape = Array.from({ length: randInt(2,8) }, () => randInt(1,8) );
         L_shape = y_shape.slice( randInt(0,y_shape.length-2) );
       }
-      L_shape[L_shape.length-2] = L_shape[L_shape.length-1];
-      y_shape[y_shape.length-2] = L_shape[L_shape.length-1];
+      L_shape[L_shape.length-1] = L_shape[L_shape.length-2];
 
       for( let L=L_shape.length-2, y=y_shape.length-2; L-- > 0 && y-- > 0; )
         switch( randInt(0,3) )
@@ -1849,9 +1847,9 @@
         b = nd.tabulate(bShape, 'float64', () => Math.random()*2 - 1 ),
         c = nd.la.matmul(a,b),
         C = nd.Array.from([
-          a.sliceEntries('...','new'),
-          b.sliceEntries('...','new',[],[])
-        ], 'float64', (x,y) => x*y ).reduce([-2], (x,y) => x+y );
+          a.sliceElems('...','new'),
+          b.sliceElems('...','new',[],[])
+        ], 'float64', (x,y) => x*y ).reduceElems([-2], (x,y) => x+y );
 
       assert.ndarray_all_close(C,c)
     }
@@ -2203,7 +2201,7 @@
   // TRANSFORMATIONS
  //
 
-  test('nd.Array.sliceEntries#1', assert => {
+  test('nd.Array.sliceElems#1', assert => {
     const a = new nd.Array(Int32Array.of(3,4), [
       11, 12, 13, 14,
       21, 22, 23, 24,
@@ -2215,7 +2213,7 @@
       
       for( row of [0,1,2] )
       {
-        b = a.sliceEntries(row)
+        b = a.sliceElems(row)
         assert.strict_eq(a.dtype, b.dtype)
         assert.array_eq([4], b.shape)
         assert.array_eq([a(row,0),a(row,1),a(row,2),a(row,3)], b.data)
@@ -2224,7 +2222,7 @@
       for( rest of ['...', [], [,,], [,,1], [,4,], [,4,1], [0,,], [0,,1], [0,4,], [0,4,1]])
         for( row of [0,1,2] )
         {
-          b = a.sliceEntries(row,rest)
+          b = a.sliceElems(row,rest)
           assert.strict_eq(a.dtype, b.dtype)
           assert.array_eq([4], b.shape)
           assert.array_eq([a(row,0),a(row,1),a(row,2),a(row,3)], b.data)
@@ -2233,23 +2231,23 @@
       for( rest of ['...',[], [,,], [,,1], [,3,], [,3,1], [0,,], [0,,1], [0,3,], [0,3,1]])
         for( col of [0,1,2,3] )
         {
-          b = a.sliceEntries(rest,col)
+          b = a.sliceElems(rest,col)
           assert.strict_eq(a.dtype, b.dtype)
           assert.array_eq([3], b.shape)
           assert.array_eq([a(0,col),a(1,col),a(2,col)], b.data)
         }
   
-      b = a.sliceEntries([1,,],[1,3])
+      b = a.sliceElems([1,,],[1,3])
       assert.strict_eq(a.dtype, b.dtype)
       assert.array_eq([2,2], b.shape)
       assert.array_eq([22,23,32,33], b.data)
 
-      b = a.sliceEntries([,,2],[1,3])
+      b = a.sliceElems([,,2],[1,3])
       assert.strict_eq(a.dtype, b.dtype)
       assert.array_eq([2,2], b.shape)
       assert.array_eq([12,13,32,33], b.data)
 
-      b = a.sliceEntries([,,2],[1,,2])
+      b = a.sliceElems([,,2],[1,,2])
       assert.strict_eq(a.dtype, b.dtype)
       assert.array_eq([2,2], b.shape)
       assert.array_eq([12,14,32,34], b.data)
@@ -2260,61 +2258,61 @@
     test()
   })
 
-  test('nd.Array.reduce#1', assert => {
+  test('nd.Array.reduceElems#1', assert => {
     const a = nd.array([
       [[1,2], [3,4]],
       [[5,6], [7,8]]
     ])
-    assert.strict_eq(36, a.reduce( (a,b) => a+b ) )
+    assert.strict_eq(36, a.reduceElems( (a,b) => a+b ) )
     let
-    b = a.reduce([0,1,2], (a,b) => a+b)
+    b = a.reduceElems([0,1,2], (a,b) => a+b)
     assert.array_strict_eq([], b.shape)
     assert.array_strict_eq([36], b.data)
 
-    b = a.reduce([], (a,b) => a+b )
+    b = a.reduceElems([], (a,b) => a+b )
     assert.array_strict_eq(a.shape, b.shape)
     assert.array_strict_eq(a.data,  b.data )
 
-    b = a.reduce(0, (a,b) => a+b)
+    b = a.reduceElems(0, (a,b) => a+b)
     assert.array_strict_eq([2,2], b.shape)
     assert.array_strict_eq([6,8,10,12], b.data)
-    b = a.reduce(1, (a,b) => a+b)
+    b = a.reduceElems(1, (a,b) => a+b)
     assert.array_strict_eq([2,2], b.shape)
     assert.array_strict_eq([4,6,12,14], b.data)
-    b = a.reduce(2, (a,b) => a+b)
+    b = a.reduceElems(2, (a,b) => a+b)
     assert.array_strict_eq([2,2], b.shape)
     assert.array_strict_eq([3,7,11,15], b.data)
 
-    b = a.reduce([0,1], (a,b) => a+b)
+    b = a.reduceElems([0,1], (a,b) => a+b)
     assert.array_strict_eq([2], b.shape)
     assert.array_strict_eq([16,20], b.data)
-    b = a.reduce([0,2], (a,b) => a+b)
+    b = a.reduceElems([0,2], (a,b) => a+b)
     assert.array_strict_eq([2], b.shape)
     assert.array_strict_eq([14,22], b.data)
-    b = a.reduce([1,2], (a,b) => a+b)
+    b = a.reduceElems([1,2], (a,b) => a+b)
     assert.array_strict_eq([2], b.shape)
     assert.array_strict_eq([10,26], b.data)
   })
 
-  test('nd.Array.reduce#2', assert => {
+  test('nd.Array.reduceElems#2', assert => {
     const a = nd.array([
       [1,2,3],
       [4,5,6]
     ])
-    assert.strict_eq(21, a.reduce( (a,b) => a+b ) )
+    assert.strict_eq(21, a.reduceElems( (a,b) => a+b ) )
     let
-    b = a.reduce([0,1], (a,b) => a+b)
+    b = a.reduceElems([0,1], (a,b) => a+b)
     assert.array_strict_eq([], b.shape)
     assert.array_strict_eq([21], b.data)
 
-    b = a.reduce([], (a,b) => a+b )
+    b = a.reduceElems([], (a,b) => a+b )
     assert.array_strict_eq(a.shape, b.shape)
     assert.array_strict_eq(a.data,  b.data )
 
-    b = a.reduce(0, (a,b) => a+b)
+    b = a.reduceElems(0, (a,b) => a+b)
     assert.array_strict_eq([3], b.shape)
     assert.array_strict_eq([5,7,9], b.data)
-    b = a.reduce(1, (a,b) => a+b)
+    b = a.reduceElems(1, (a,b) => a+b)
     assert.array_strict_eq([2], b.shape)
     assert.array_strict_eq([6,15], b.data)
   })
@@ -2401,10 +2399,10 @@
 
   test('nd.dtypeof', assert => {
     assert.strict_eq(     'int32', nd.dtypeof( 1337) )
-    assert.strict_eq(     'int32', nd.dtypeof(new Complex(1337)) )
+    assert.strict_eq(     'int32', nd.dtypeof(new nd.Complex(1337)) )
     assert.strict_eq(   'float64', nd.dtypeof(1.337) )
-    assert.strict_eq(   'float64', nd.dtypeof(new Complex(1.337)) )
-    assert.strict_eq('complex128', nd.dtypeof(new Complex(1,2)) )
+    assert.strict_eq(   'float64', nd.dtypeof(new nd.Complex(1.337)) )
+    assert.strict_eq('complex128', nd.dtypeof(new nd.Complex(1,2)) )
     assert.strict_eq(   'object' , nd.dtypeof('str') )
     assert.strict_eq(   'object' , nd.dtypeof({x:2}) )
     assert.strict_eq(   'object' , nd.dtypeof([1,2]) )
