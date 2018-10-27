@@ -1957,9 +1957,10 @@ catch(err){
           {
             let p=i;
             for( let j=i+1; j < N; j++ )
-              if( Math.abs( LU_dat[LU_off+P_dat[P_off+j]*N+i] )
-                > Math.abs( LU_dat[LU_off+P_dat[P_off+p]*N+i] ) )
+              if( Math.abs( LU_dat[LU_off + N*j+i] )
+                > Math.abs( LU_dat[LU_off + N*p+i] ) )
                 p=j;
+
             if( i != p )
             {
               const   P_p = P_dat[P_off+i]; P_dat[P_off+i] = P_dat[P_off+p]; P_dat[P_off+p] = P_p; // KEEP TRACK OF ROW SWAPS

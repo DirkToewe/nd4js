@@ -1614,6 +1614,14 @@
       [LU,P] = nd.la.lu_decomp(A),
        L     = nd.la.tril(LU).mapElems( (x, ...idx) => idx[0] == idx[1] ? 1 : x ),
         U    = nd.la.triu(LU);
+
+    const absMax = L.reduceElems( (x,y) => Math.max(
+      nd.math.abs(x),
+      nd.math.abs(y)
+    ) );
+
+    assert( absMax == 1 );
+
     A = nd.tabulate( A.shape, (i,j) => A(P(i),j) );
 
     assert.array_eq( A.shape, LU.shape );
