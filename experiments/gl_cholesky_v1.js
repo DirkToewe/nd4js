@@ -38,9 +38,8 @@ const gl_cholesky/*: nd.Array => nd.Array*/ = function() {
     void main() {
       // 1
       //  |\
-      //  | \
-      //  |__\
-      // 2     3
+      //  |_\
+      // 2   3
       if( 1.0 == cornerIndex ) { index = vec2(-0.5+offset, -1.0+offset); }
       if( 2.0 == cornerIndex ) { index = vec2(-0.5+offset,  0.5+ size ); }
       if( 3.0 == cornerIndex ) { index = vec2( 1.0+  size,  0.5+ size ); }

@@ -29,7 +29,7 @@ const gl_cholesky/*: nd.Array => nd.Array*/ = function() {
     precision highp float;
   
     // INPUTS
-    attribute float cornerIndex;
+    attribute vec2 pos;
 
     uniform float NaN,
                   size,  // <- the number of rows/columns in the matrix
