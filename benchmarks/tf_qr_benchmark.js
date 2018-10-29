@@ -18,9 +18,11 @@ function main()
 
     const t0 = performance.now();
 
-    const [q,r] = tf.linalg.qr(a);
-    q.dataSync();
-    r.dataSync();
+    tf.tidy( () => {
+      const [q,r] = tf.linalg.qr(a);
+      q.dataSync();
+      r.dataSync();
+    });
 
     const dt = performance.now() - t0;
 
