@@ -13,7 +13,6 @@ function main()
         Ts = [];
   for( let N=1; N < 512; N++ )
   {
-    const label = `N = ${N}`;
     const a = nd.tabulate([N,N], 'float64', () => Math.random()*2 - 1 );
 
     const t0 = performance.now();

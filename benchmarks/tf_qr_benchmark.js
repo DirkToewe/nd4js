@@ -11,26 +11,25 @@ function main()
 
   const Ns = [],
         Ts = [];
-  for( let N=1; N < 256; N++ )
-  {
-    const label = `N = ${N}`;
-    const a = tf.randomUniform([N,N],-1,+1);
-
-    const t0 = performance.now();
-
+  for( let N=1; N < 512; N++ )
     tf.tidy( () => {
-      const [q,r] = tf.linalg.qr(a);
-      q.dataSync();
-      r.dataSync();
+      const a = tf.randomUniform([N,N],-1,+1);
+  
+      const t0 = performance.now();
+  
+      tf.tidy( () => {
+        const [q,r] = tf.linalg.qr(a);
+        q.dataSync();
+        r.dataSync();
+      });
+  
+      const dt = performance.now() - t0;
+  
+      console.log(`N = ${N}: ${(dt/1000).toFixed(3)}sec`);
+  
+      Ns.push(N);
+      Ts.push(dt);
     });
-
-    const dt = performance.now() - t0;
-
-    console.log(`N = ${N}: ${(dt/1000).toFixed(3)}sec`);
-
-    Ns.push(N);
-    Ts.push(dt);
-  }
 
   const results = JSON.stringify({
     n : Ns,
