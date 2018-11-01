@@ -42,18 +42,20 @@ const bandPartWithoutBackend = ( a, numLower, numUpper ) =>
   if( numLower < 0 ) numLower = M;
   if( numUpper < 0 ) numUpper = N;
 
-  numLower = tf.scalar(numLower, a.dtype);
-  numUpper = tf.scalar(numUpper, a.dtype);
-
-  const i = tf.range(0, M, 1, a.dtype).reshape([-1,1]),
-        j = tf.range(0, N, 1, a.dtype);
-
-  const inBand = tf.logicalAnd(
-    tf.sub(i,j).lessEqual(numLower),
-    tf.sub(j,i).lessEqual(numUpper)
-  );
-
-  return tf.mul(a, inBand.cast(a.dtype) );
+  return tf.tidy( () => {
+    numLower = tf.scalar(numLower, a.dtype);
+    numUpper = tf.scalar(numUpper, a.dtype);
+  
+    const i = tf.range(0, M, 1, a.dtype).reshape([-1,1]),
+          j = tf.range(0, N, 1, a.dtype);
+  
+    const inBand = tf.logicalAnd(
+      tf.sub(i,j).lessEqual(numLower),
+      tf.sub(j,i).lessEqual(numUpper)
+    );
+  
+    return tf.mul(a, inBand.cast(a.dtype) );
+  });
 }
 
 /** Quick benchmark of TFJS 0.13.3.

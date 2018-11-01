@@ -21,6 +21,9 @@ try {
 catch(err){
   console.log(err);
 }
+
+nd.version = '0.1.0';
+
 {
   nd.Complex = class Complex
   {
@@ -2118,7 +2121,7 @@ catch(err){
         // INIT Q TO IDENTITY MATRIX
         for( let i=0; i < N; i++ ) Q[Q_off+N*i+i] = 1.0;
 
-        for( let i=1; i < N; i++ ) { const I = Math.min(i,M); // <- TODO: i could start at 1 ?
+        for( let i=1; i < N; i++ ) { const I = Math.min(i,M);
         for( let j=0; j < I; j++ )
         {
           // USE GIVENS ROTATION TO ELIMINATE ELEMENT R_ji
@@ -2175,98 +2178,72 @@ catch(err){
 
       const Q = DTypeArray.from(A.data); // <- we could encourage GC by setting `A = undefined` after this line
       A = undefined
-      const
-        R  = new DTypeArray(Q.length/N*M),
-        cs = new DTypeArray(M*2),// <- CACHE cos AND sin VALUES TO APPLY M COLUMN ROTATIONS TO Q AT ONCE
-        r  = function(){
-      	  try      { return    cs.subarray(M); }
-      	  catch(e) { return new DTypeArray(M); }
-        }();  // <- additional space to temp. store rows of R not contained in the result
+      const R = new DTypeArray(Q.length/N*M),
+           cs = new DTypeArray( N*M - (M*(M+1) >>> 1) ),
+            r = function(){
+      	      try      { return    cs.subarray(M); }
+      	      catch(e) { return new DTypeArray(M); }
+            }();  // <- additional space to temp. store rows of R not contained in the result
 
       for(
-        let Q_off=0,
-            R_off=0;
-        Q_off < Q.length;
-        Q_off += N*M,
-        R_off += M*M
+        let R_off=0,
+            Q_off=0; Q_off < Q.length; Q_off += N*M,
+                                       R_off += M*M
       )
       {
-        // HANDLE ENTRIES CONTAINED IN THE RESULT
+        let csi=0;
+
+        // COMPUTE R (inside of Q)
+        for( let i=1; i < N; i++ ) { const I = Math.min(i,M);
+        for( let j=0; j < I; j++ )
+        { // USE GIVENS ROTATION TO ELIMINATE ELEMENT R_ji
+          const R_ij = Q[Q_off + M*i+j]; if( R_ij === 0.0 ) { cs[csi++] = 0.0; continue; }
+          const R_jj = Q[Q_off + M*j+j];
+          let          norm = Math.hypot(R_jj,R_ij),
+            c = R_jj / norm,
+            s = R_ij / norm;
+          if( c < 0 ) {
+               c *= -1;
+               s *= -1;
+            norm *= -1;
+          }
+          cs[csi++] = s;
+          Q[Q_off + M*i+j] = 0;
+          Q[Q_off + M*j+j] = norm;
+          // ROTATE ROW i AND j IN R
+          for( let k=j; ++k < M; ) {
+            const ik = Q_off + M*i+k, R_ik = Q[ik],
+                  jk = Q_off + M*j+k, R_jk = Q[jk];
+            Q[ik] = c*R_ik - s*R_jk;
+            Q[jk] = s*R_ik + c*R_jk;
+          }
+        }}
+
+        if( csi != cs.length ) throw new Error('Assertion failed!');
+
+        // MOVE R FROM Q -> R AND INIT Q TO I
         for( let i=0; i < M; i++ )
-        {
-          // COPY FROM Q TO R AND INIT Q
-          for( let j=0; j < M; j++ ) {
-            R[R_off+M*i+j] = Q[Q_off+M*i+j]; Q[Q_off+M*i+j] = i != j ? 0.0 : 1.0
-          }
-
-          for( let j=0; j < i; j++ )
-          { // USE GIVENS ROTATION TO ELIMINATE ELEMENT R_ji
-            const R_ij = R[R_off+M*i+j]; if( R_ij == 0.0 ) { cs[2*j+0]=1.0; cs[2*j+1]=0.0; continue };
-            const R_jj = R[R_off+M*j+j],
-                         norm = Math.hypot(R_jj,R_ij),
-              c = R_jj / norm,
-              s = R_ij / norm;
-            cs[2*j+0] = c;
-            cs[2*j+1] = s;
-            R[R_off + M*i+j] = 0.0;
-            R[R_off + M*j+j] = norm;
-            // ROTATE ROW i AND j IN R
-            for( let k=j; ++k < M; ) {
-              const ik = R_off+M*i+k, R_ik = R[ik],
-                    jk = R_off+M*j+k, R_jk = R[jk];
-              R[ik] = c*R_ik - s*R_jk;
-              R[jk] = s*R_ik + c*R_jk;
-            }
-          }
-
-          // ROTATE COLUMNS IN Q (BUNDLED FOR BETTER CACHE LOCALITY)
-          for( let k=0; k <= i; k++ )
-          for( let j=0; j <  i; j++ ) {
-            const c = cs[2*j+0],
-                  s = cs[2*j+1],
-                 ki = Q_off+M*k+i, Q_ki = Q[ki],
-                 kj = Q_off+M*k+j, Q_kj = Q[kj];
-            Q[ki] = c*Q_ki - s*Q_kj;
-            Q[kj] = s*Q_ki + c*Q_kj;
-          }
+        for( let j=i; j < M; j++ ) {
+          R[R_off + M*i+j] = Q[Q_off + M*i+j];
+                             Q[Q_off + M*i+j] = i !== j ? 0.0 : 1.0;
         }
-        // HANDLE REMAINING ENTRIES NOT CONTAINED IN THE RESULT
-        for( let i=M; i < N; i++ )
+
+        // COMPUTE Q
+        for( let i=N; --i > 0; ) { const I = Math.min(i,M);
+        for( let j=I; j-- > 0; )
         {
-          // INIT r
-          for( let j=0; j < M; j++ ) {
-            r[j] = Q[Q_off+M*i+j]; Q[Q_off+M*i+j] = 0.0;
+          const s = cs[--csi]; if( 0.0 === s ) continue;
+          const c = Math.sqrt( (1-s)*(1+s) );
+          // ROTATE ROW i AND j IN Q
+          for( let k=j; k < M; k++ ) {
+            const ik = Q_off + M*i+k, R_ik = Q[ik],
+                  jk = Q_off + M*j+k, R_jk = Q[jk];
+            Q[ik] = s*R_jk + c*R_ik;
+            Q[jk] = c*R_jk - s*R_ik;
           }
+        }}
 
-          // USE GIVENS ROTATIONS TO ELIMINATE ELEMENT r completely
-          for( let j=0; j < M; j++ )
-          {
-            const r_j  = r[j]; if( r_j == 0.0 ) { cs[2*j+0]=1.0; cs[2*j+1]=0.0; continue };
-            const R_jj = R[R_off+M*j+j],
-                         norm = Math.hypot(R_jj,r_j),
-              c = R_jj / norm,
-              s = r_j  / norm;
-            R[R_off+M*j+j] = norm;
-            // ROTATE ROW i AND j IN R
-            for( let k=j; ++k < M; ) {
-              const jk = R_off + M*j+k, R_jk = R[jk];
-              R[jk] = s*r[k] + c*R_jk;
-              r[ k] = c*r[k] - s*R_jk;
-            }
-            cs[2*j+0] = c;
-            cs[2*j+1] = s;
-          }
-
-          // ROTATE COLUMNS IN Q
-          for( let k=0; k <= i; k++ ) { let Q_k = i != k ? 0.0 : 1.0;
-          for( let j=0; j <  M; j++ ) {
-            const c = cs[2*j+0],
-                  s = cs[2*j+1],     q_k  = Q_k,
-                 kj = Q_off + M*k+j, Q_kj = Q[kj];
-            Q_k  = c*q_k - s*Q_kj;
-            Q[kj]= s*q_k + c*Q_kj;
-          }}
-        }
+        if( csi != 0 ) throw new Error('Assertion failed!');
       }
 
       return [
@@ -2378,17 +2355,17 @@ catch(err){
       R_shape[R_shape.length-2] = M;
       P_shape[P_shape.length-1] = M;
 
-      if( N < M ) throw new Error('Not yet implemented for A.shape[ndim-2] < A.shape[ndim-1].');
+      if( N < M ) throw new Error('Not yet implemented for A.shape[-2] < A.shape[-1].');
 
       const Q = DTypeArray.from(A.data); // <- we could encourage GC by setting `A = undefined` after this line
       A = undefined
       const
         norm_sum = new DTypeArray(M), // <─┬─ underflow-safe representation of the column norm
         norm_max = new DTypeArray(M), // <─╯  (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/hypot#Polyfill)
-        P  = new Int32Array(Q.length/N), // <- tracks column permutations
-        R  = new DTypeArray(Q.length/N*M),
-        cs = new DTypeArray( M * (N-1 + N-M) ),// <- cache cos() and sin() values to apply M column rotations to Q at once
-        q  = new DTypeArray(N-M); // <- caches the part of Q that is not contained in the result
+        P = new Int32Array(Q.length/N), // <- tracks column permutations
+        R = new DTypeArray(Q.length/N*M),
+        cs= new DTypeArray( 2*N*M - M*(M+1) ),// <- cache cos() and sin() values to apply M column rotations to Q at once
+        q = new DTypeArray(N-M); // <- caches the part of Q that is not contained in the result
       const norm = i => {
         let max = norm_max[i];
         return isFinite(max) ? Math.sqrt(norm_sum[i])*max : max;
@@ -2397,10 +2374,9 @@ catch(err){
       for(
         let Q_off=0,
             R_off=0,
-            P_off=0; Q_off < Q.length;
-            Q_off += N*M,
-            R_off += M*M,
-            P_off +=   M
+            P_off=0; Q_off < Q.length; Q_off += N*M,
+                                       R_off += M*M,
+                                       P_off +=   M
       )
       {
         // INIT P
@@ -2422,7 +2398,7 @@ catch(err){
         }
 
         let csi = 0;
-        // ELIMINATE COLUMN BY COLUMN
+        // ELIMINATE COLUMN BY COLUMN OF R (WHICH IS CURRENTLY STORED IN Q)
         for( let i=0; i < M; i++ )
         { // FIND PIVOT COLUMN THAT (HOPEFULLY) ENSURES RANK REVEAL (RRQR is inherently not guaranteed to do that)
           let
@@ -2446,7 +2422,8 @@ catch(err){
           // REMOVE ENTRIES BELOW DIAGONAL
           for( let j=i+1; j < N; j++ )
           { // compute Given's rotation 
-            const A_ji = Q[Q_off + M*j+i]; if( A_ji == 0.0 ) { cs[csi++]=1.0; cs[csi++]=0.0; continue };
+            const A_ji = Q[Q_off + M*j+i]; if( A_ji == 0.0 ) { cs[csi++]=1.0;
+                                                               cs[csi++]=0.0; continue };
             const A_ii = Q[Q_off + M*i+i],
                          norm = Math.hypot(A_ii,A_ji),
               c = A_ii / norm,
@@ -2481,36 +2458,32 @@ catch(err){
 
         if( csi != cs.length ) throw new Error('Assertion failed!')
 
-        // MOVE Q -> R
+        // MOVE R FROM Q -> R
         for( let i=0; i < M; i++ )
-        for( let j=0; j < M; j++ ) R[R_off + M*i+j] = Q[Q_off + M*i+j];
+        for( let j=i; j < M; j++ ) {
+          R[R_off + M*i+j] = Q[Q_off + M*i+j];
+                             Q[Q_off + M*i+j] = i !== j ? 0.0 : 1.0;
+        }
 
         // COMPUTE Q
-        for( let k = 0; k < N; k++ )
-        { csi = 0
-          for( let i=0; i < N-M; i++ )           q[i] = k != (i+M) ? 0.0 : 1.0;
-          for( let i=0; i <   M; i++ ) Q[Q_off+M*k+i] = k !=  i    ? 0.0 : 1.0;
-          for( let i=0; i <   M; i++ ) {
-            const skip = Math.max(1,k-i);
-            csi += 2*(skip-1)
-            for( let j = i+skip; j < M; j++ ) {
-              const c = cs[csi++],
-                    s = cs[csi++],
-                   ki = Q_off + M*k+i, Q_ki = Q[ki],
-                   kj = Q_off + M*k+j, Q_kj = Q[kj];
-              Q[ki] = Q_kj*s + Q_ki*c;
-              Q[kj] = Q_kj*c - Q_ki*s;              
-            }
-            for( let j = Math.max(0,i+skip-M); j < (N-M); j++ ) {
-              const c = cs[csi++],
-                    s = cs[csi++], ki = Q_off + M *k+i, Q_ki = Q[ki];
-              Q[ki] = q[j]*s + Q_ki*c;
-              q[ j] = q[j]*c - Q_ki*s;
+        for( let i=M; i-- > 0; )
+        for( let j=N; --j > i; )
+        {
+          const s = cs[--csi],
+                c = cs[--csi];
+          for( let k=M; k-- > i;) {
+            // Given's rotation
+            const jk = Q_off + M*j+k; {
+            const ik = Q_off + M*i+k, 
+                A_ik = Q[ik],
+                A_jk = Q[jk];
+              Q[jk] = s*A_ik + c*A_jk;
+              Q[ik] = c*A_ik - s*A_jk;
             }
           }
         }
 
-        if( csi != cs.length ) throw new Error('Assertion failed!')
+        if( csi != 0 ) throw new Error('Assertion failed!')
       }
 
       return [

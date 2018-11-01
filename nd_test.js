@@ -661,10 +661,10 @@
         s = y[0] / norm;
 
       // there's almost certainly some underflow issues here that need to be fixed
-      const dc_dx0 =   y[0]*y[0] / norm**3,
-            dc_dy0 = - y[0]*x[0] / norm**3,
-            ds_dx0 = - x[0]*y[0] / norm**3,
-            ds_dy0 =   x[0]*x[0] / norm**3;
+      const dc_dx0 =   y[0]/norm * y[0]/norm**2,
+            dc_dy0 = - y[0]/norm * x[0]/norm**2,
+            ds_dx0 = - x[0]/norm * y[0]/norm**2,
+            ds_dy0 =   x[0]/norm * x[0]/norm**2;
 
       // thats what usually fed to as "input" to the backpropagation
       const df_dout1 =  Float64Array.from(w1),
@@ -965,6 +965,96 @@
 //  });
 
 
+  test('nd.la.rrqr_decomp', assert => {
+    for( let run=1024; run-- > 0; )
+    {
+      let
+        randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from,
+        ndim = randInt(2,5),
+        shape = Int32Array.from({ length: ndim }, () => randInt(1,24) );
+
+      if( shape[ndim-2] < shape[ndim-1] ) {
+        const tmp = shape[ndim-2]; shape[ndim-2] = shape[ndim-1]; shape[ndim-1] = tmp;
+      }
+
+      let
+        [N,M] = shape.slice(-2),
+         L    = Math.min(N,M),
+         A    = nd.tabulate(shape, 'float64', () => Math.random()*2 - 1 ),
+        [Q,R,P] = nd.la.rrqr_decomp(A),
+         a = nd.la.matmul(Q,R);
+
+      // apply column permutations
+      A = nd.tabulate( shape, (...idx) => {
+        idx[ndim-1] = P(...idx.slice(0,-2), idx[ndim-1])
+        return A(...idx)
+      });
+
+      for( const diag of nd.la.diag(R).reshape(-1,L) ) {
+        for( let i=1; i < L; i++ )
+          assert( diag(i-1) >= diag(i) );
+      }
+
+      assert.array_eq([...shape.slice(0,-2), N, L], Q.shape);
+      assert.array_eq([...shape.slice(0,-2), L, M], R.shape);
+      if( N < M ) {
+        assert.ndarray_all_close( nd.la.eye(N), nd.la.matmul(Q,Q.T) );
+        assert.ndarray_all_close( nd.la.eye(N), nd.la.matmul(Q.T,Q) );
+      }
+      else assert.ndarray_all_close( nd.la.eye(M), nd.la.matmul(Q.T,Q) );
+      assert.ndarray_all_close(A,a);
+      assert.ndarray_all_close( 0, nd.la.tril(R,-1) );
+
+      R.forElems( (x,...idx) => {
+        const [i,j] = idx.slice(-2);
+        if( i > j )
+          assert( 0.0 == x, `R[${idx}] = ${x} != 0.0` )
+      });
+    }
+  });
+
+
+  test('nd.la.qr_decomp', assert => {
+    for( let run=1024; run-- > 0; )
+    {
+      let
+        randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from,
+        ndim = randInt(2,5),
+        shape = Int32Array.from({ length: ndim }, () => randInt(1,24) );
+        
+      const
+        [N,M] = shape.slice(-2),
+         L    = Math.min(N,M),
+         A    = nd.tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2 - 1 ),
+        [Q,R] = nd.la.qr_decomp(A),
+         a = nd.la.matmul(Q,R);
+
+      assert.array_eq([...shape.slice(0,-2), N, L], Q.shape)
+      assert.array_eq([...shape.slice(0,-2), L, M], R.shape)
+
+      const absMax = (x,y) => nd.math.max(
+        nd.math.abs(x),
+        nd.math.abs(y)
+      );
+      assert.eq( 0, nd.la.tril(R,-1).reduceElems(absMax) );
+
+      if( N < M ) {
+        assert.ndarray_all_close( nd.la.eye(N), nd.la.matmul(Q,Q.T) );
+        assert.ndarray_all_close( nd.la.eye(N), nd.la.matmul(Q.T,Q) );
+      }
+      else assert.ndarray_all_close( nd.la.eye(M), nd.la.matmul(Q.T,Q) );
+
+      assert.ndarray_all_close(A,a);
+
+      R.forElems( (x,...idx) => {
+        const [i,j] = idx.slice(-2);
+        if( i > j )
+          assert( 0.0 == x, `R[${idx}] = ${x} != 0.0` )
+      });
+    }
+  });
+
+
   test('nd.la.eigen', assert => {
     for( let run=1024; run-- > 0; )
     {
@@ -1205,90 +1295,6 @@
       assert.ndarray_all_close( 0, nd.la.tril(D,-1) );
       assert.ndarray_all_close( 0, nd.la.triu(D,+1) );
       assert.ndarray_all_close( A, a );
-    }
-  });
-
-
-  test('nd.la.rrqr_decomp', assert => {
-    for( let run=1024; run-- > 0; )
-    {
-      let
-        randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from,
-        ndim = randInt(2,5),
-        shape = Int32Array.from({ length: ndim }, () => randInt(1,24) );
-
-      if( shape[ndim-2] < shape[ndim-1] ) {
-        const tmp = shape[ndim-2]; shape[ndim-2] = shape[ndim-1]; shape[ndim-1] = tmp;
-      }
-
-      let
-        [N,M] = shape.slice(-2),
-         L    = Math.min(N,M),
-         A    = nd.tabulate(shape, 'float64', () => Math.random()*2 - 1 ),
-        [Q,R,P] = nd.la.rrqr_decomp(A),
-         a = nd.la.matmul(Q,R);
-
-      // apply column permutations
-      A = nd.tabulate( shape, (...idx) => {
-        idx[ndim-1] = P(...idx.slice(0,-2), idx[ndim-1])
-        return A(...idx)
-      });
-
-      for( const diag of nd.la.diag(R).reshape(-1,L) ) {
-        for( let i=1; i < L; i++ )
-          assert( diag(i-1) >= diag(i) );
-      }
-
-      assert.array_eq([...shape.slice(0,-2), N, L], Q.shape);
-      assert.array_eq([...shape.slice(0,-2), L, M], R.shape);
-      if( N < M ) {
-        assert.ndarray_all_close( nd.la.eye(N), nd.la.matmul(Q,Q.T) );
-        assert.ndarray_all_close( nd.la.eye(N), nd.la.matmul(Q.T,Q) );
-      }
-      else assert.ndarray_all_close( nd.la.eye(M), nd.la.matmul(Q.T,Q) );
-      assert.ndarray_all_close(A,a);
-      assert.ndarray_all_close( 0, nd.la.tril(R,-1) );
-
-      R.forElems( (x,...idx) => {
-        const [i,j] = idx.slice(-2);
-        if( i > j )
-          assert( 0.0 == x, `R[${idx}] = ${x} != 0.0` )
-      });
-    }
-  });
-
-
-  test('nd.la.qr_decomp', assert => {
-    for( let run=1024; run-- > 0; )
-    {
-      let
-        randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from,
-        ndim = randInt(2,5),
-        shape = Int32Array.from({ length: ndim }, () => randInt(1,24) );
-        
-      const
-        [N,M] = shape.slice(-2),
-         L    = Math.min(N,M),
-         A    = nd.tabulate(shape, 'float64', () => Math.random()*2 - 1 ),
-        [Q,R] = nd.la.qr_decomp(A),
-         a = nd.la.matmul(Q,R);
-
-      assert.array_eq([...shape.slice(0,-2), N, L], Q.shape)
-      assert.array_eq([...shape.slice(0,-2), L, M], R.shape)
-      assert.ndarray_all_close( 0, nd.la.tril(R,-1) )
-
-      assert.ndarray_all_close(A,a);
-      if( N < M ) {
-        assert.ndarray_all_close( nd.la.eye(N), nd.la.matmul(Q,Q.T) );
-        assert.ndarray_all_close( nd.la.eye(N), nd.la.matmul(Q.T,Q) );
-      }
-      else assert.ndarray_all_close( nd.la.eye(M), nd.la.matmul(Q.T,Q) );
-
-      R.forElems( (x,...idx) => {
-        const [i,j] = idx.slice(-2);
-        if( i > j )
-          assert( 0.0 == x, `R[${idx}] = ${x} != 0.0` )
-      });
     }
   });
 
