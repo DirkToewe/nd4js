@@ -113,7 +113,7 @@ const gl_rgba_to_float/*: nd.Array => nd.Array*/ = function() {
         return vec4(0, 0, 128, float(sign | 127)) / 255.0;
 
       val = abs(val);
-
+/*
       // USE BINARY SEARCH TO FIND THE EXPONENT
       highp int lo = -127,
                 hi = +128;
@@ -124,6 +124,10 @@ const gl_rgba_to_float/*: nd.Array => nd.Array*/ = function() {
         if( midVal <  2.0 ) hi = mid;
       };
       highp int exponent = lo + 127;
+      val *= exp2( float(23-lo) );
+*/
+      highp int lo = int(floor(log2(val))),
+          exponent = lo + 127;
       val *= exp2( float(23-lo) );
 
       highp int mantissa = int(val) - (1<<23);
@@ -315,8 +319,8 @@ async function main()
     await sleep(); // <- keeps the browser responsive
 
     console.log(`Run${run.toString().padStart(4)}`);
-    const N = 4*1024;
-    const a = nd.tabulate([N,N], 'float32', (i,j) => Math.random()*2e37 - 1e37 );
+    const N = 1024;
+    const a = nd.tabulate([N,N], 'float32', (i,j) => Math.random()*2e2 - 1e2 );
     const b = gl_rgba_to_float(a);
     nd.Array.from([a,b], 'float32', (a,b) => {
       if( a != b ) throw new Error(`Assertion error: ${a} != ${b}`);

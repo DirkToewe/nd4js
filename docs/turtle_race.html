@@ -109,7 +109,7 @@
 
   let boxplotData = [];
 
-  const limit = (m,n) => {
+  let upperLim = (m,n) => {
 //    if( n > m/2 )
 //      return m*2 - Math.ceil( Math.log2(m) ) - Math.max(0,m-n);
 //    return Math.ceil( Math.log2(m) ) + (n-1)*3;
@@ -167,7 +167,7 @@
       },{
         type: 'scattergl',
         mode: 'lines',
-        x, y: x.map( n => limit(in_m.value,n) ),
+        x, y: x.map( n => upperLim(in_m.value,n) ),
         name: 'Estimated upper limit'
       }],
       /*layout=*/{
@@ -204,10 +204,20 @@
     );
   };
 
+  const replot_upperLim = () => {
+    try {
+      upperLim = new Function('m', 'n', in_upperLim.value);
+      console.log(upperLim);
+      replot_mn();
+    } catch(err) {
+      console.error(err);
+    }
+  };
+
   const plot1 = document.createElement('div');
   document.body.appendChild(plot1);
 
-  const [in_m,in_n,in_t] = function*(){
+  const [in_m,in_n,in_t,in_upperLim] = function*(){
     const table = document.createElement('table');
     document.body.appendChild(table);
 
@@ -242,17 +252,39 @@
 
       yield input;
     }
+
+    const td = document.createElement('td'),
+          txtArea = document.createElement('textarea');
+    td.rowSpan = 3;
+    txtArea.rows = 7;
+    txtArea.cols = 64;
+
+    td.appendChild(txtArea);
+    table.childNodes[0].appendChild(td);
+
+    yield txtArea;
   }();
   in_m.value=23;
   in_n.value=24;
   in_t.value=5;
   in_t.onchange = replot_t;
+  in_upperLim.onchange = replot_upperLim;
+
+  in_upperLim.value = `\
+return Math.min(
+  Math.ceil( Math.log2(m) )*n,
+  Math.ceil( Math.log2(m) )**2 /3 + 2*n,
+  m*2 - Math.ceil( Math.log2(m) ) - Math.max(m-n,0),
+  m*2 - Math.ceil( Math.log2(m) )
+);
+`;
 
   const plot2 = document.createElement('div');
   document.body.appendChild(plot2);
 
-  replot_mn();
+  replot_upperLim();
 
+/*
   async function loop()
   {
     const sleep = dt => new Promise( f => setTimeout(f,dt) );
@@ -283,7 +315,7 @@
     }
   }
   loop();
-
+*/
 }
    </script>
  </body>
