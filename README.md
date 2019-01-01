@@ -85,7 +85,7 @@ console.log( a.toString() );
 ```
 
 # Unary Operations (sin, cos, exp, ...)
-[nd.Array.map](https://dirktoewe.github.io/ndjs/doc.html#Array.map) is used to apply unary operations on an nd.Array.
+[nd.NDArray.mapElems](https://dirktoewe.github.io/ndjs/doc.html#nd.NDArray.mapElems) is used to apply unary operations on an nd.Array.
 
 *Input:*
 ```js
@@ -94,7 +94,7 @@ const a = nd.array([
   [3,4]
 ])
 
-const b = a.map( (a_ij, i,j) => i==j ? a_ij : a_ij*a_ij )
+const b = a.mapElems( (a_ij, i,j) => i==j ? a_ij : a_ij*a_ij )
 console.log( b.toString() )
 ```
 *Output:*
