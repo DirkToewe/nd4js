@@ -104,7 +104,7 @@ console.log( b.toString() )
 ```
 
 # Binary Operations (+, -, *, /, ...)
-[nd.Array.from](https://dirktoewe.github.io/ndjs/doc.html#Array.from_STATIC) can be used to apply binary operations on two nd.Arrays.
+[nd.zip_elems](https://dirktoewe.github.io/ndjs/doc.html#nd.zip_elems) can be used to apply binary operations on two nd.Arrays.
 
 *Input:*
 ```js
@@ -120,7 +120,7 @@ const
     [7,8,9]
   ])
 
-const c = nd.Array.from([a,b], (a_ij,b_ij, i,j) => i==j ? a_ij : b_ij )
+const c = nd.zip_elems([a,b], (a_ij,b_ij, i,j) => i==j ? a_ij : b_ij )
 console.log( c.toString() )
 ```
 *Output:*
@@ -130,7 +130,7 @@ console.log( c.toString() )
  [         7,          8,         33]]
 ```
 
-[nd.Array.from](https://dirktoewe.github.io/ndjs/doc.html#Array.from_STATIC) supports [NumPy-style broadcasting](https://docs.scipy.org/doc/numpy/user/basics.broadcasting.html).
+[nd.zip_elems](https://dirktoewe.github.io/ndjs/doc.html#nd.zip_elems) supports [NumPy-style broadcasting](https://docs.scipy.org/doc/numpy/user/basics.broadcasting.html).
 
 *Input:*
 ```js
@@ -142,7 +142,7 @@ const
   ]),
   b = nd.array([1,2,3])
 
-const c = nd.Array.from([a,b], (x,y) => 10*x + y )
+const c = nd.zip_elems([a,b], (x,y) => 10*x + y )
 console.log( c.toString() )
 ```
 *Output:*
@@ -153,7 +153,7 @@ console.log( c.toString() )
 ```
 
 # Ternary Operations (?:, ...)
-[nd.Array.from](https://dirktoewe.github.io/ndjs/doc.html#Array.from_STATIC) can also be used for any n-ary operation, such as ternary conditional operator in JavaScript.
+[nd.zip_elems](https://dirktoewe.github.io/ndjs/doc.html#nd.zip_elems) can also be used for any n-ary operation, such as ternary conditional operator in JavaScript.
 
 *Input:*
 ```js
@@ -167,7 +167,7 @@ const
   ]),
   b = nd.array([1,2,3,4])
 
-const c = nd.Array.from([flags,a,b], (f,x,y) => f ? x : y )
+const c = nd.zip_elems([flags,a,b], (f,x,y) => f ? x : y )
 console.log( c.toString() )
 ```
 *Output:*

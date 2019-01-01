@@ -1,446 +1,79 @@
-<!DOCTYPE html><html><head><meta charset="utf-8"><title>nd.js Documentation</title></head><body style="font-family: monospace;"><h1>nd.js Documentation</h1><ul><li><a href="#nd.Array">nd.Array</a></li><li><a href="#nd.Array.length_STATIC">nd.Array.length [STATIC]</a></li><li><a href="#nd.Array.prototype_STATIC">nd.Array.prototype [STATIC]</a></li><li><a href="#nd.Array.from_STATIC">nd.Array.from [STATIC]</a></li><li><a href="#nd.Array.name_STATIC">nd.Array.name [STATIC]</a></li><li><a href="#nd.Array.constructor">nd.Array.constructor</a></li><li><a href="#nd.Array.set">nd.Array.set</a></li><li><a href="#nd.Array.modify">nd.Array.modify</a></li><li><a href="#nd.Array._flat_idx">nd.Array._flat_idx</a></li><li><a href="#nd.Array.inspect">nd.Array.inspect</a></li><li><a href="#nd.Array.toString">nd.Array.toString</a></li><li><a href="#nd.Array.forEach">nd.Array.forEach</a></li><li><a href="#nd.Array.elems">nd.Array.elems</a></li><li><a href="#nd.Array.forElems">nd.Array.forElems</a></li><li><a href="#nd.Array.valueOf">nd.Array.valueOf</a></li><li><a href="#nd.Array.mapElems">nd.Array.mapElems</a></li><li><a href="#nd.Array.transpose">nd.Array.transpose</a></li><li><a href="#nd.Array.reshape">nd.Array.reshape</a></li><li><a href="#nd.Array.reduceElems">nd.Array.reduceElems</a></li><li><a href="#nd.Array.sliceElems">nd.Array.sliceElems</a></li><li><a href="#nd.Array.apply">nd.Array.apply</a></li><li><a href="#nd.Complex">nd.Complex</a></li><li><a href="#nd.ellipsis">nd.ellipsis</a></li><li><a href="#nd.newaxis">nd.newaxis</a></li><li><a href="#nd.arrayFromB64">nd.arrayFromB64</a></li><li><a href="#nd.asarray">nd.asarray</a></li><li><a href="#nd.array">nd.array</a></li><li><a href="#nd.tabulate">nd.tabulate</a></li><li><a href="#nd.concat">nd.concat</a></li><li><a href="#nd.stack">nd.stack</a></li><li><a href="#nd.util">nd.util</a></li><li><a href="#nd.dtypes">nd.dtypes</a></li><li><a href="#nd.eps">nd.eps</a></li><li><a href="#nd.dtypeof">nd.dtypeof</a></li><li><a href="#nd.super_dtype">nd.super_dtype</a></li><li><a href="#nd.is_subdtype">nd.is_subdtype</a></li><li><a href="#nd._check_dtype">nd._check_dtype</a></li><li><a href="#nd.math">nd.math</a></li><li><a href="#nd.opt">nd.opt</a></li><li><a href="#nd.la">nd.la</a></li><li><a href="#nd.createDocHTML">nd.createDocHTML</a></li><li><a href="#nd.help">nd.help</a></li><li><a href="#nd.help_string">nd.help_string</a></li><li><a href="#nd.la.eye">nd.la.eye</a></li><li><a href="#nd.la.tril">nd.la.tril</a></li><li><a href="#nd.la.triu">nd.la.triu</a></li><li><a href="#nd.la.diag_mat">nd.la.diag_mat</a></li><li><a href="#nd.la.diag">nd.la.diag</a></li><li><a href="#nd.la._transpose_inplace">nd.la._transpose_inplace</a></li><li><a href="#nd.la.matmul">nd.la.matmul</a></li><li><a href="#nd.la.matmul2">nd.la.matmul2</a></li><li><a href="#nd.la.cholesky_decomp">nd.la.cholesky_decomp</a></li><li><a href="#nd.la.cholesky_solve">nd.la.cholesky_solve</a></li><li><a href="#nd.la.tril_solve">nd.la.tril_solve</a></li><li><a href="#nd.la.triu_solve">nd.la.triu_solve</a></li><li><a href="#nd.la.lu_decomp">nd.la.lu_decomp</a></li><li><a href="#nd.la.lu_solve">nd.la.lu_solve</a></li><li><a href="#nd.la.qr_decomp_full">nd.la.qr_decomp_full</a></li><li><a href="#nd.la.solve">nd.la.solve</a></li><li><a href="#nd.la.qr_decomp">nd.la.qr_decomp</a></li><li><a href="#nd.la.qr_solve">nd.la.qr_solve</a></li><li><a href="#nd.la.rrqr_decomp">nd.la.rrqr_decomp</a></li><li><a href="#nd.la.hessenberg_decomp">nd.la.hessenberg_decomp</a></li><li><a href="#nd.la.bidiag_decomp">nd.la.bidiag_decomp</a></li><li><a href="#nd.la._svd_decomp_jac_1sided">nd.la._svd_decomp_jac_1sided</a></li><li><a href="#nd.la._svd_decomp_jac_classic">nd.la._svd_decomp_jac_classic</a></li><li><a href="#nd.la._svd_decomp_jac_round_robin">nd.la._svd_decomp_jac_round_robin</a></li><li><a href="#nd.la.svd_decomp">nd.la.svd_decomp</a></li><li><a href="#nd.la.schur_eigenvals">nd.la.schur_eigenvals</a></li><li><a href="#nd.la.schur_eigen">nd.la.schur_eigen</a></li><li><a href="#nd.la.eigen">nd.la.eigen</a></li><li><a href="#nd.la.schur_decomp">nd.la.schur_decomp</a></li><li><a href="#nd.la._schur_preprocess_balance">nd.la._schur_preprocess_balance</a></li><li><a href="#nd.la._schur_preprocess_balance_inf">nd.la._schur_preprocess_balance_inf</a></li><li><a href="#nd.la._schur_decomp_unbalance_INPLACE">nd.la._schur_decomp_unbalance_INPLACE</a></li><li><a href="#nd.la._schur_decomp_qrfrancis_INPLACE">nd.la._schur_decomp_qrfrancis_INPLACE</a></li></ul><h2 id="nd.Array">nd.Array</h2><pre>An n-dimensional, axis-aligned grid of entries, very similar
-to NumPy ndarrays in Python.
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>ND.JS v0.4.0 Documentation</title></head><body style="font-family: monospace;"><h1>ND.JS v0.4.0 Documentation</h1><ul><li><a href="#nd.help">nd.help</a></li><li><a href="#nd.help_str">nd.help_str</a></li><li><a href="#nd.math">nd.math</a></li><li><a href="#nd.dt">nd.dt</a></li><li><a href="#nd.opt">nd.opt</a></li><li><a href="#nd.la">nd.la</a></li><li><a href="#nd.io">nd.io</a></li><li><a href="#nd.array">nd.array</a></li><li><a href="#nd.asarray">nd.asarray</a></li><li><a href="#nd.NDArray">nd.NDArray</a></li><li><a href="#nd.tabulate">nd.tabulate</a></li><li><a href="#nd.zip_elems">nd.zip_elems</a></li><li><a href="#nd.concat">nd.concat</a></li><li><a href="#nd.stack">nd.stack</a></li><li><a href="#nd.la.bidiag_decomp">nd.la.bidiag_decomp</a></li><li><a href="#nd.la.cholesky_decomp">nd.la.cholesky_decomp</a></li><li><a href="#nd.la.cholesky_solve">nd.la.cholesky_solve</a></li><li><a href="#nd.la.diag_mat">nd.la.diag_mat</a></li><li><a href="#nd.la.diag">nd.la.diag</a></li><li><a href="#nd.la.eigen">nd.la.eigen</a></li><li><a href="#nd.la.eigen_balance_pre">nd.la.eigen_balance_pre</a></li><li><a href="#nd.la.eigen_balance_post">nd.la.eigen_balance_post</a></li><li><a href="#nd.la.eye">nd.la.eye</a></li><li><a href="#nd.la.hessenberg_decomp">nd.la.hessenberg_decomp</a></li><li><a href="#nd.la.lstsq">nd.la.lstsq</a></li><li><a href="#nd.la.lu_decomp">nd.la.lu_decomp</a></li><li><a href="#nd.la.lu_solve">nd.la.lu_solve</a></li><li><a href="#nd.la.matmul2">nd.la.matmul2</a></li><li><a href="#nd.la.matmul">nd.la.matmul</a></li><li><a href="#nd.la.permute_rows">nd.la.permute_rows</a></li><li><a href="#nd.la.permute_cols">nd.la.permute_cols</a></li><li><a href="#nd.la.unpermute_rows">nd.la.unpermute_rows</a></li><li><a href="#nd.la.unpermute_cols">nd.la.unpermute_cols</a></li><li><a href="#nd.la.qr_decomp_full">nd.la.qr_decomp_full</a></li><li><a href="#nd.la.qr_decomp">nd.la.qr_decomp</a></li><li><a href="#nd.la.qr_lstsq">nd.la.qr_lstsq</a></li><li><a href="#nd.la.rank">nd.la.rank</a></li><li><a href="#nd.la.rrqr_decomp">nd.la.rrqr_decomp</a></li><li><a href="#nd.la.rrqr_decomp_full">nd.la.rrqr_decomp_full</a></li><li><a href="#nd.la.rrqr_rank">nd.la.rrqr_rank</a></li><li><a href="#nd.la.rrqr_lstsq">nd.la.rrqr_lstsq</a></li><li><a href="#nd.la.rrqr_solve">nd.la.rrqr_solve</a></li><li><a href="#nd.la.schur_eigenvals">nd.la.schur_eigenvals</a></li><li><a href="#nd.la.schur_eigen">nd.la.schur_eigen</a></li><li><a href="#nd.la.schur_decomp">nd.la.schur_decomp</a></li><li><a href="#nd.la.SingularMatrixSolveError">nd.la.SingularMatrixSolveError</a></li><li><a href="#nd.la.solve">nd.la.solve</a></li><li><a href="#nd.la.svd_decomp">nd.la.svd_decomp</a></li><li><a href="#nd.la.svd_rank">nd.la.svd_rank</a></li><li><a href="#nd.la.svd_solve">nd.la.svd_solve</a></li><li><a href="#nd.la.svd_lstsq">nd.la.svd_lstsq</a></li><li><a href="#nd.la.svd_jac_1sided">nd.la.svd_jac_1sided</a></li><li><a href="#nd.la.svd_jac_classic">nd.la.svd_jac_classic</a></li><li><a href="#nd.la.tril">nd.la.tril</a></li><li><a href="#nd.la.triu">nd.la.triu</a></li><li><a href="#nd.la.tril_solve">nd.la.tril_solve</a></li><li><a href="#nd.la.triu_solve">nd.la.triu_solve</a></li><li><a href="#nd.opt.line_search">nd.opt.line_search</a></li><li><a href="#nd.opt.num_grad">nd.opt.num_grad</a></li><li><a href="#nd.opt.root1d_bisect">nd.opt.root1d_bisect</a></li><li><a href="#nd.opt.min_lbfgs_gen">nd.opt.min_lbfgs_gen</a></li><li><a href="#nd.opt.line_search.strong_wolfe">nd.opt.line_search.strong_wolfe</a></li><li><a href="#nd.opt.line_search.LineSearchError">nd.opt.line_search.LineSearchError</a></li><li><a href="#nd.opt.line_search.LineSearchNoProgressError">nd.opt.line_search.LineSearchNoProgressError</a></li><li><a href="#nd.io.IS_LITTLE_ENDIAN">nd.io.IS_LITTLE_ENDIAN</a></li><li><a href="#nd.io.WHITESPACES">nd.io.WHITESPACES</a></li><li><a href="#nd.io.b64_decode">nd.io.b64_decode</a></li><li><a href="#nd.io.b64_encode">nd.io.b64_encode</a></li><li><a href="#nd.io.istr_to_nd">nd.io.istr_to_nd</a></li><li><a href="#nd.io.nd_to_istr">nd.io.nd_to_istr</a></li><li><a href="#nd.dt.ARRAY_TYPES">nd.dt.ARRAY_TYPES</a></li><li><a href="#nd.dt.eps">nd.dt.eps</a></li><li><a href="#nd.dt._check_dtype">nd.dt._check_dtype</a></li><li><a href="#nd.dt.dtypeof">nd.dt.dtypeof</a></li><li><a href="#nd.dt.super_dtype">nd.dt.super_dtype</a></li><li><a href="#nd.dt.is_subdtype">nd.dt.is_subdtype</a></li><li><a href="#nd.dt.Complex">nd.dt.Complex</a></li><li><a href="#nd.dt.Complex128Array">nd.dt.Complex128Array</a></li><li><a href="#nd.NDArray.length_STATIC">nd.NDArray.length [STATIC]</a></li><li><a href="#nd.NDArray.name_STATIC">nd.NDArray.name [STATIC]</a></li><li><a href="#nd.NDArray.prototype_STATIC">nd.NDArray.prototype [STATIC]</a></li><li><a href="#nd.NDArray.constructor">nd.NDArray.constructor</a></li><li><a href="#nd.NDArray.set">nd.NDArray.set</a></li><li><a href="#nd.NDArray.modify">nd.NDArray.modify</a></li><li><a href="#nd.NDArray._flat_idx">nd.NDArray._flat_idx</a></li><li><a href="#nd.NDArray.toString">nd.NDArray.toString</a></li><li><a href="#nd.NDArray.forEach">nd.NDArray.forEach</a></li><li><a href="#nd.NDArray.elems">nd.NDArray.elems</a></li><li><a href="#nd.NDArray.forElems">nd.NDArray.forElems</a></li><li><a href="#nd.NDArray.valueOf">nd.NDArray.valueOf</a></li><li><a href="#nd.NDArray.mapElems">nd.NDArray.mapElems</a></li><li><a href="#nd.NDArray.transpose">nd.NDArray.transpose</a></li><li><a href="#nd.NDArray.reshape">nd.NDArray.reshape</a></li><li><a href="#nd.NDArray.reduceElems">nd.NDArray.reduceElems</a></li><li><a href="#nd.NDArray.sliceElems">nd.NDArray.sliceElems</a></li><li><a href="#nd.dt.Complex.length_STATIC">nd.dt.Complex.length [STATIC]</a></li><li><a href="#nd.dt.Complex.name_STATIC">nd.dt.Complex.name [STATIC]</a></li><li><a href="#nd.dt.Complex.prototype_STATIC">nd.dt.Complex.prototype [STATIC]</a></li><li><a href="#nd.dt.Complex.constructor">nd.dt.Complex.constructor</a></li><li><a href="#nd.dt.Complex.add">nd.dt.Complex.add</a></li><li><a href="#nd.dt.Complex.sub">nd.dt.Complex.sub</a></li><li><a href="#nd.dt.Complex.mul">nd.dt.Complex.mul</a></li><li><a href="#nd.dt.Complex.div">nd.dt.Complex.div</a></li><li><a href="#nd.dt.Complex.equals">nd.dt.Complex.equals</a></li><li><a href="#nd.dt.Complex.abs">nd.dt.Complex.abs</a></li><li><a href="#nd.dt.Complex.arg">nd.dt.Complex.arg</a></li><li><a href="#nd.dt.Complex.conj">nd.dt.Complex.conj</a></li><li><a href="#nd.dt.Complex.toFixed">nd.dt.Complex.toFixed</a></li><li><a href="#nd.dt.Complex.sqrt">nd.dt.Complex.sqrt</a></li><li><a href="#nd.dt.Complex.toString">nd.dt.Complex.toString</a></li><li><a href="#nd.dt.Complex.valueOf">nd.dt.Complex.valueOf</a></li></ul><h2 id="nd.help">nd.help</h2><pre>Outputs a documentation string for the given method ND.JS method to the console. This method
+is intended to be used in interactive mode to explore and learn the ND.JS API.
 
-Attributes
-----------
-shape: int[]
-  The shape of the nd.Array.
-data : dtype[]
-  The flat data array backing this nd.Array. May be either
-  a standard JavaScript Array, or one of JavaScripts primitive
-  array types. See nd.dtypes for a list of supported data types.
-ndim: int
-  The number of dimensions in this nd.Array, i.e. the number of
-  indices used to address the entries. Equivalent to shape.length.
-  
-dtype: String
-  The data type of this nd.Array. Specifies which type of values
-  may be stored in the nd.Array. See nd.dtypes for the available
-  data types and their respective (primitive) array types.
-</pre><h2 id="nd.Array.length_STATIC">nd.Array.length [STATIC]</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.Array.prototype_STATIC">nd.Array.prototype [STATIC]</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.Array.from_STATIC">nd.Array.from [STATIC]</h2><pre>Creates a new nd.Array from one or more nd.Arrays, using a function to
-map the values of the nd.Array(s) to the values of the new nd.Array.
-
-This can be used to perform unary (sin, cos, exp, ...) and binary
-(+, -, *, ...) operations.
-
-This method supports NumPy-style broadcasting of the nd.Array arguments.
+This method is only available in the non-minfied version of ND.JS.
 
 Parameters
 ----------
-ndarray: nd.Array or nd.Array[]
-  The nd.Array or list of nd.Arrays from which the new nd.Array is built.
-dtype: String
-  [OPTIONAL] The data type of the new nd.Array.
-mapper: (...values, ...indices) =&gt; dtype
-  A function used to determine the entry values of the new nd.Array from
-  the entry values of the old nd.Array(s). May be omitted if only a single
-  nd.Array is given by ndarray, in which case the entry values are copied.
-
-Returns
--------
-ndarray: nd.Array
-  The newly created nd.Array, where:
-  ndarray(i0,i1,...,i[n]) = mapper(ndarray[0](i0,i1,...,i[n]), ndarray[1](i0,i1,...,i[n]), ..., ndarray[m](i0,i1,...,i[n]), i0,i1,...,i[n]).
+fun: Function
+  The function or package ND.JS API method for which the documentation is to be retrieved.
 
 Examples
 --------
-&gt;&gt;&gt; let a = nd.array([1,2,3,4])
-&gt;&gt;&gt; let b = nd.Array.from(a, x =&gt; x*x)
-&gt;&gt;&gt; console.log( b.toString() )
-  [1, 4, 9, 16]
+&gt;&gt;&gt; nd.help(nd.la)
+  The Linear Algebra subpackage of ND.JS. Contains methods for the handling and decomposition
+  of matrices as well as solvers for linear equations and linear least square systems.
 
+  As convention the last two axes of an `NDArray` are considered as the matrix dimensions.
+  Higher dimensional arrays are considered "arrays of matrices" and the broadcasting rules
+  apply for the leading dimenions, i.e. for all dimensions of the shape except the last two.
+</pre><h2 id="nd.help_str">nd.help_str</h2><pre>Returns a documentation string for the given method ND.JS method to the console. This method
+is used by `create_doc_jsdom()` to create the documentation and by `nd.help()` to
+print help to the console.
 
-&gt;&gt;&gt; let c = nd.array([[1],[2]])
-&gt;&gt;&gt; let d = nd.array([1,2,3,4])
-&gt;&gt;&gt; let e = nd.Array.from([c,d], (x,y) =&gt; 10*x+y )
-&gt;&gt;&gt; console.log( e.toString() )
-  [[11,12,13,14],
-   [21,22,23,24]]
-</pre><h2 id="nd.Array.name_STATIC">nd.Array.name [STATIC]</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.Array.constructor">nd.Array.constructor</h2><pre>An n-dimensional, axis-aligned grid of entries, very similar
-to NumPy ndarrays in Python.
-
-Attributes
-----------
-shape: int[]
-  The shape of the nd.Array.
-data : dtype[]
-  The flat data array backing this nd.Array. May be either
-  a standard JavaScript Array, or one of JavaScripts primitive
-  array types. See nd.dtypes for a list of supported data types.
-ndim: int
-  The number of dimensions in this nd.Array, i.e. the number of
-  indices used to address the entries. Equivalent to shape.length.
-  
-dtype: String
-  The data type of this nd.Array. Specifies which type of values
-  may be stored in the nd.Array. See nd.dtypes for the available
-  data types and their respective (primitive) array types.
-</pre><h2 id="nd.Array.set">nd.Array.set</h2><pre>Sets the value of the specified entry to the given value.
+This method is only available in the non-minfied version of ND.JS.
 
 Parameters
 ----------
-indices: int[]
-  The multi index of the entry that is to be changed.
-value: dtype
-  The new value for the entry at indices.
-
-Examples
---------
-&gt;&gt;&gt; let a = nd.array([ [0,0,0], [0,0,0], [0,0,0] )
-&gt;&gt;&gt; a.set([0,0], 1)
-&gt;&gt;&gt; a.set([0,1], 2)
-&gt;&gt;&gt; a.set([1,1], 3)
-&gt;&gt;&gt; a.set([2,2], 4)
-&gt;&gt;&gt; console.log( a.toString() )
-  [[1,2,0],
-   [0,3,0],
-   [0,0,4]]
-</pre><h2 id="nd.Array.modify">nd.Array.modify</h2><pre>Modifies an array entriy by applying the given functions to it.
-This method call is equivalent to:
-`ndarray.set( indices, modifier(ndarray(...indices), ...indices) )`
-
-Parameters
-----------
-indices: int[]
-  The multi index of the entry that is to modified.
-modifier: (dtype, ...int) =&gt; dtype
-  The function that is applied to the nd.Array entry.
-</pre><h2 id="nd.Array._flat_idx">nd.Array._flat_idx</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.Array.inspect">nd.Array.inspect</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.Array.toString">nd.Array.toString</h2><pre>Returns a readable string representation of this nd.Array.
-
-Parameters
-----------
-max_len: int
-  [OPTIONAL] The maximum number of elements along each to be represented
-  in the String. If there is more elements along an axis than that, an
-  ellipsis (...) is inserted instead of the central elements.
+fun: Function
+  The function or package ND.JS API method for which the documentation is to be retrieved.
 
 Returns
 -------
-repr: String
-  A readable string representation of this nd.Arrray.
+help: String
+  A documentation String for the given method or package.
 
 Examples
 --------
-&gt;&gt;&gt; let a = nd.tabulate([6,6], (i,j) =&gt; 10*(i+1) + (j+1) )
-&gt;&gt;&gt; console.log( a.toString() )
-  [[11,12,13,14,15,16],
-   [21,22,23,24,25,26],
-   [31,32,33,34,35,36],
-   [41,42,43,44,45,46],
-   [51,52,53,54,55,56],
-   [61,62,63,64,65,66]]
+&gt;&gt;&gt; console.log( nd.help(nd.la) )
+  "The Linear Algebra subpackage of ND.JS. Contains methods for the handling and decomposition
+   of matrices as well as solvers for linear equations and linear least square systems.
 
-&gt;&gt;&gt; console.log( a.toString(4) )
-  [[11, 12, ...2 more..., 15, 16],
-   [21, 22, ...2 more..., 25, 26],
-    ...2 more...,
-   [51, 52, ...2 more..., 55, 56],
-   [61, 62, ...2 more..., 65, 66]]
-</pre><h2 id="nd.Array.forEach">nd.Array.forEach</h2><pre>Calls the given callback for each slice of this nd.Array along the
-first axis. Equivalent to:
+   As convention the last two axes of an `NDArray` are considered as the matrix dimensions.
+   Higher dimensional arrays are considered "arrays of matrices" and the broadcasting rules
+   apply for the leading dimenions, i.e. for all dimensions of the shape except the last two."
+</pre><h2 id="nd.math">nd.math</h2><pre>No documentation available.</pre><h2 id="nd.dt">nd.dt</h2><pre>No documentation available.</pre><h2 id="nd.opt">nd.opt</h2><pre>No documentation available.</pre><h2 id="nd.la">nd.la</h2><pre>The Linear Algebra subpackage of ND.JS. Contains methods for the handling and decomposition
+of matrices as well as solvers for linear equations and linear least square systems.
 
-for( let i=0; i &lt; this.shape[0]; i++ )
-  consumer( this.slice(i), i )
-
-Parameters
-----------
-consumer: (slice: nd.Array, index: int) =&gt; ()
-  The callback to be called for each slice of this nd.Array along the first axis.
-
-Examples
---------
-&gt;&gt;&gt; let a = nd.array([[1,2,3],[4,5,6]])
-&gt;&gt;&gt; a.forEach( (row,i) =&gt; console.log(`${i} -&gt; ${row}`) )
-  0 -&gt; [1,2,3]
-  1 -&gt; [4,5,6]
-</pre><h2 id="nd.Array.elems">nd.Array.elems</h2><pre>Returns an iterator of all multiindex-value pairs of entries in
-this nd.Array.
-
-Returns
--------
-iter: *[[...int], dtype]
-  An iterator of multiindex-value pairs, one for each entry in this
-  nd.Array.
-
-Examples
---------
-&gt;&gt;&gt; a = nd.array([[1,2,3],[4,5,6]])
-&gt;&gt;&gt; for( let [[i,j],a_ij] of a.entries() )
-...   console.log(`a[${i},${j}] = ${val}`)
-  a[0,0] = 1
-  a[0,1] = 2
-  a[0,2] = 3
-  a[1,0] = 4
-  a[1,1] = 5
-  a[1,2] = 6
-</pre><h2 id="nd.Array.forElems">nd.Array.forElems</h2><pre>Calls the given callback for each entry in this nd.Array.
-
-Parameters
-----------
-consumer: (val: dtype, indices: ...int) =&gt; ()
-
-Examples
---------
-&gt;&gt;&gt; let a = nd.array([[1,2,3],[4,5,6]])
-&gt;&gt;&gt; a.forEntries( (a_ij,i,j) =&gt; console.log(`a[${i},${j}] = ${a_ij}`) )
-  a[0,0] = 1
-  a[0,1] = 2
-  a[0,2] = 3
-  a[1,0] = 4
-  a[1,1] = 5
-  a[1,2] = 6
-</pre><h2 id="nd.Array.valueOf">nd.Array.valueOf</h2><pre>
-If this nd.Array is scalar (shape == []), the only entry's value is returned,
-otherwise this nd.Array itself is returned.
-
-This method rarely has to be called explicitly but is used by JavaScript
-whenever it deems it appropriate.
-
-Returns
--------
-value: dtype or nd.Array
-  Returns the only entry if this nd.Array is scalar. Returns this otherwise.
-
-Example
--------
-&gt;&gt;&gt; a = nd.array(12)
-&gt;&gt;&gt; console.log( a+1 )
-  13
-</pre><h2 id="nd.Array.mapElems">nd.Array.mapElems</h2><pre>Creates a new nd.Array by applying the given mapping function to each entry
-of this array and writing the results back into a new array.
-
-Equivalent to nd.Array.from(this, dtype, mapper).
-
-Parameters
-----------
-dtype: String
-  [OPTIONAL] The data type of the newly created nd.Array.
-mapper: (value, ...indices) =&gt; dtype
-  The function used to map the old nd.Array's entries to the values of the
-  new nd.Array.
-
-Returns
--------
-mapped: nd.Array
-  The newly created nd.Array, where:
-  mapped(i0,i1,...,i[n]) = mapper(this(i0,i1,...,i[n]), i0,i1,...,i[n]).
-
-Examples
---------
-&gt;&gt;&gt; let a = nd.array([[1,2],[3,4]])
-&gt;&gt;&gt; let b = a.mapElems( x =&gt; x*x )
-&gt;&gt;&gt; console.log( b.toString() )
-  [[1, 4],
-   [9,16]]
-</pre><h2 id="nd.Array.transpose">nd.Array.transpose</h2><pre>Reorders the axes of this nd.Array. By default the last two axes are
-swapped.
-
-Parameters
-----------
-axes: ...int
-  The order in which the axes of the this nd.Array appear in the
-  transposed array. If indices are missing from `axes`, they are
-  appended to `axes` in order.
-
-Returns
--------
-transposed: nd.Array
-  A transposed copy A of this nd.Array, where:
-  `A[i[0], i[1], ...]  =  this[i[axes[0]], i[axes[1], ...]`
-
-Examples
---------
-&gt;&gt;&gt; let a = nd.array([[1,2,3]])
-&gt;&gt;&gt; console.log( a.transpose() )
-  [[1],
-   [2],
-   [3]]
-
-&gt;&gt;&gt; let a = nd.array([ [[1,2,3], [4,5,6]], [[7,8,9], [10,11,12]] ])
-&gt;&gt;&gt; console.log( a.transpose(2).toString() )
-  [[[ 1,  4],
-    [ 7, 10]],
-   [[ 2,  5],
-    [ 8, 11]],
-   [[ 3,  6],
-    [ 9, 12]]]
-</pre><h2 id="nd.Array.reshape">nd.Array.reshape</h2><pre>Returns view of this nd.Array with a different shape. This is similar
-to NumPy's reshape with a 'C'-order.
-
-Parameters
-----------
-shape: ...int
-  The shape of the view. May contain a single -1 entry, in which case
-  the respective axis' size is inferred.
-
-Returns
--------
-reshaped: nd.Array
-  A reshaped view of this nd.Array.
-
-Examples
---------
-&gt;&gt;&gt; let a = nd.array([1,2,3,4,5,6,7,8,9])
-&gt;&gt;&gt; let b = a.reshape(3,-1)
-&gt;&gt;&gt; console.log( b.toString() )
-  [[1,2,3],
-   [4,5,6],
-   [7,8,9]]
-</pre><h2 id="nd.Array.reduceElems">nd.Array.reduceElems</h2><pre>Uses the given binary operator to reduce the entries of of this nd.Array
-along the specified axes. If no axes are specified all entries are reduce
-to a single value and said value is returned instead of an nd.Array.
-
-Parameters
-----------
-axes: int or int[]
-  [OPTIONAL] The axes along which the array is to be reduced. If not defined
-  the nd.Array is reduced along all axes and a scalar value is returned instead
-  of an nd.Array.
-dtype: String
-  The data type of the reduced nd.Array. Has to be a super-dtype of the original
-  nd.Array.
-reducer: (dtype,dtype) =&gt; dtype
-  The function used to reduce the entries along the axes.
-
-Returns
--------
-reduced: nd.Array or dtype
-  The reduced nd.Array if axes were specified or the reduced value id no
-  axes were specified.
-
-Examples
---------
-&gt;&gt;&gt; let a = nd.array([
-...   [1,2,3],
-...   [4,5,6]
-... ])
-&gt;&gt;&gt; console.log( a.reduce( (x,y) =&gt; x+y ) )
-  21
-
-
-&gt;&gt;&gt; console.log( a.reduce( [0,1], (x,y) =&gt; x+y ) )
-  { [NDArray: self] shape: [], data: [21] }
-
-&gt;&gt;&gt; console.log( a.reduce( 0, (x,y) =&gt; x+y ).toString() )
-  [5,7,9]
-
-&gt;&gt;&gt; console.log( a.reduce( [1], (x,y) =&gt; x+y ).toString() )
-  [6,15]
-</pre><h2 id="nd.Array.sliceElems">nd.Array.sliceElems</h2><pre>Extracts a sub-region specified by combination of indices, ranges, newaxis symbols.
-
-Parameters
-----------
-slices: int or nd.newaxis or nd.ellipsis or [start,stop,step]
-  The slices to be taken along each axis, e.g 3 would only take the fourth entries
-  along an axis, [,,] would take all elements along and axis, [1,,] would take all
-  but the first entries along an axis, [,,3] would take ever third element along
-  an axis, [,-1,] would take all but the last entries along an axis, nd.newaxis
-  would insert a new axis of size 1.
-
-  nd.ellipsis can be used to fill up with [,,] for the remaining axes.
-
-Returns
--------
-sliced: nd.Array
-  A sliced subregion of this nd.Array.
-
-Examples
---------
-&gt;&gt;&gt; let a = nd.array([
-...   [11,12,13,14],
-...   [21,22,23,24],
-...   [31,32,33,34]
-... ])
-&gt;&gt;&gt; console.log( a.sliceElems('...', -2).toString() )
-  [13, 23, 33]
-
-&gt;&gt;&gt; console.log( a.sliceElems([,,2]).toString() )
-  [[11,12,13,14],
-   [31,32,33,34]]
-
-&gt;&gt;&gt; console.log( a.sliceElems(2,[1,3,]).toString() )
-  [32,33]
-</pre><h2 id="nd.Array.apply">nd.Array.apply</h2><pre>Returns the value of the entry specified by the given index.
-
-Parameters
-----------
-this: nd.Array
-  The array whose entry is being read.
-indices: ...int
-  The multi-index of the entry whose value is to be returned.
-
-Returns
--------
-value: dtype
-
-Examples
---------
-&gt;&gt;&gt; let a = nd.array([[1,2,3],[4,5,6]])
-&gt;&gt;&gt; console.log( a(0,0), a(0,1), a(0,2), a(1,0), a(1,1), a(1,2) )
-  1 2 3 4 5 6
-</pre><h2 id="nd.Complex">nd.Complex</h2><pre>A very rudimentary implementation of the Complex number type,
-used mainly for the calculation of eigenvalues. Other than that,
-a complex dtype is not yet supported.
-</pre><h2 id="nd.ellipsis">nd.ellipsis</h2><pre>The "symbol" used in nd.Array.slice() to indicate that the
-missing slice indices are to be filled in in its stead.
-</pre><h2 id="nd.newaxis">nd.newaxis</h2><pre>The "symbol" used in nd.Array.slice() to create an new axis
-of size 1.
-</pre><h2 id="nd.arrayFromB64">nd.arrayFromB64</h2><pre>Creates an array reading Base64 encoded data. This currently only works on
-big endian machines.
-
-Parameters
-----------
-dtype: String
-  The data type of this nd.Array. Specifies which type of values is read.
-  See nd.dtypes for the available data types and their respective (primitive)
-  array types.
-shape: int[]
-  The shape of the array. Must match the content length.
-content: String
-  The flattened nd.Array data encoded in Base64.
-
-Returns
--------
-A: nd.Array
-  The array initialized with the given Base64 data as content.
-</pre><h2 id="nd.asarray">nd.asarray</h2><pre>Similar to `nd.array(content)` except that input is not copied if
-it already is an `nd.Array`.
-
-Parameters
-----------
-content: { length: int[], data: dtype[] } or dtype or dtype[] or dtype[][] or ...
-  The content of the returned nd.Array.
-
-Returns
--------
-ndarray: nd.Array
-  `ndarray = content instanceof nd.Array ? content : nd.array(content);`
-</pre><h2 id="nd.array">nd.array</h2><pre>Tries to heuristically create an nd.Array from the input. This
-method is usually used to create nd.Arrays nested arrays, which
-allows for a creation of nd.Array which is well readable by
+As convention the last two axes of an `NDArray` are considered as the matrix dimensions.
+Higher dimensional arrays are considered "arrays of matrices" and the broadcasting rules
+apply for the leading dimenions, i.e. for all dimensions of the shape except the last two.
+</pre><h2 id="nd.io">nd.io</h2><pre>No documentation available.</pre><h2 id="nd.array">nd.array</h2><pre>Tries to heuristically create an NDArray from the input. This
+method is usually used to create NDArrays nested arrays, which
+allows for a creation of NDArray which is well readable by
 humans.
 
   * If the input is an object containing a 'shape' and 'data'
-    property, a new nd.Array is created using said shape and data
+    property, a new NDArray is created using said shape and data
     directly (creating a protection copy of data).
   * If the input is a (possibly nested) JavaScript array-like, it
-    is converted to an nd.Array, copying the array data in the
+    is converted to an NDArray, copying the array data in the
     process. The nesting defines the shape of the resulting
-    nd.Array. 
+    NDArray. 
   * Otherwise the data is interpreted as a scalar value and
-    is put into an nd.Array of shape [].
+    is put into an NDArray of shape [].
 
 Parameters
 ----------
 dtype: String
-  [Optional] The dtype of the returned nd.Array.
+  [Optional] The dtype of the returned NDArray.
 content: { length: int[], data: dtype[] } or dtype or dtype[] or dtype[][] or ...
-  The content of the returned nd.Array.
+  The content of the returned NDArray.
 
 Returns
 -------
-ndarray: nd.Array
-  An nd.Array representation of the content.
+ndarray: NDArray
+  An NDArray representation of the content.
 
 Examples
 --------
@@ -477,23 +110,54 @@ Examples
 
 &gt;&gt;&gt; console.log( nd.array(12) )
   { [NDArray: self] shape: [], data: Int32Array[12] }
-</pre><h2 id="nd.tabulate">nd.tabulate</h2><pre>Creates a new nd.Array of the given shape, calling a function for
+</pre><h2 id="nd.asarray">nd.asarray</h2><pre>Similar to `nd.array(content)` except that input is not copied if
+it already is an `NDArray`.
+
+Parameters
+----------
+content: { length: int[], data: dtype[] } or dtype or dtype[] or dtype[][] or ...
+  The content of the returned NDArray.
+
+Returns
+-------
+ndarray: NDArray
+  `ndarray = content instanceof NDArray ? content : nd.array(content);`
+</pre><h2 id="nd.NDArray">nd.NDArray</h2><pre>An n-dimensional, axis-aligned grid of entries, very similar
+to NumPy ndarrays in Python.
+
+Attributes
+----------
+shape: int[]
+  The shape of the NDArray.
+data : dtype[]
+  The flat data array backing this NDArray. May be either
+  a standard JavaScript Array, or one of JavaScripts primitive
+  array types. See nd.dtypes for a list of supported data types.
+ndim: int
+  The number of dimensions in this NDArray, i.e. the number of
+  indices used to address the entries. Equivalent to shape.length.
+  
+dtype: String
+  The data type of this NDArray. Specifies which type of values
+  may be stored in the NDArray. See nd.dtypes for the available
+  data types and their respective (primitive) array types.
+</pre><h2 id="nd.tabulate">nd.tabulate</h2><pre>Creates a new NDArray of the given shape, calling a function for
 each entry index and using the returned value as entry value of
-the new nd.Array.
+the new NDArray.
 
 Parameters
 ----------
 shape: int[]
-  The shape of the new nd.Array.
+  The shape of the new NDArray.
 dtype: String
-  [OPTIONAL] The data type of the newly created nd.Array.
+  [OPTIONAL] The data type of the newly created NDArray.
 idx2val: (...int) =&gt; dtype
   The function returning the entry value for a given entry index as input.
 
 Returns
 -------
-ndarray: nd.Array
-  The newly tabulated nd.Array, where:
+ndarray: NDArray
+  The newly tabulated NDArray, where:
   ndarray(i0,i1,...,i[n]) = idx2val(i0,i1,...i[n])
 
 Examples
@@ -503,23 +167,62 @@ Examples
   [[11,12],
    [21,22],
    [31,32]]
-</pre><h2 id="nd.concat">nd.concat</h2><pre>Arranges a list of nd.Arrays into a new nd.Array. The nd.Arrays are concatenated
-along an existing specified axis. Aside from said axis, the shape of all nd.Arrays
+</pre><h2 id="nd.zip_elems">nd.zip_elems</h2><pre>Creates a new NDArray from one or more NDArrays, using a function to
+merge the values of the NDArray(s) to the values of the new NDArray.
+
+This can be used to perform unary (sin, cos, exp, ...) and binary
+(+, -, *, ...) operations.
+
+This method supports NumPy-style broadcasting of the NDArray arguments.
+
+Parameters
+----------
+ndarray: NDArray or NDArray[]
+  The NDArray or list of NDArrays from which the new NDArray is built.
+dtype: String
+  [OPTIONAL] The data type of the new NDArray.
+mapper: (...values, ...indices) =&gt; dtype
+  A function used to determine the entry values of the new NDArray from
+  the entry values of the old NDArray(s). May be omitted if only a single
+  NDArray is given by ndarray, in which case the entry values are copied.
+
+Returns
+-------
+ndarray: NDArray
+  The newly created NDArray, where:
+  ndarray(i0,i1,...,i[n]) = mapper(ndarray[0](i0,i1,...,i[n]), ndarray[1](i0,i1,...,i[n]), ..., ndarray[m](i0,i1,...,i[n]), i0,i1,...,i[n]).
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([1,2,3,4])
+&gt;&gt;&gt; let b = nd.zip_elems(a, x =&gt; x*x)
+&gt;&gt;&gt; console.log( b.toString() )
+  [1, 4, 9, 16]
+
+
+&gt;&gt;&gt; let c = nd.array([[1],[2]])
+&gt;&gt;&gt; let d = nd.array([1,2,3,4])
+&gt;&gt;&gt; let e = zip_elems([c,d], (x,y) =&gt; 10*x+y )
+&gt;&gt;&gt; console.log( e.toString() )
+  [[11,12,13,14],
+   [21,22,23,24]]
+</pre><h2 id="nd.concat">nd.concat</h2><pre>Arranges a list of NDArrays into a new NDArray. The NDArrays are concatenated
+along an existing specified axis. Aside from said axis, the shape of all NDArrays
 must be the same.
 
 Parameters
 ----------
 axis: int
-  [OPTIONAL] The axis along which the nd.Arrays are concatenated. Default value: 0.
+  [OPTIONAL] The axis along which the NDArrays are concatenated. Default value: 0.
 dtype: String
-  [OPTIONAL] The type of the concatenated nd.Array. Should be a super-dtype of all nd.Arrays'
+  [OPTIONAL] The type of the concatenated NDArray. Should be a super-dtype of all NDArrays'
   dtypes.
-ndarrays: nd.Array[]
-  The nd.Arrays that are to be concatenated. All nd.Arrays must have the same shape.
+ndarrays: NDArray[]
+  The NDArrays that are to be concatenated. All NDArrays must have the same shape.
 
 Returns
 -------
-concatenated: nd.Array
+concatenated: NDArray
 
 
 Examples
@@ -535,8 +238,8 @@ Examples
 &gt;&gt;&gt; console.log( nd.concat(1,[a,b]).toString() )
   [[1,2,5,6],
    [3,4,7,8]]
-</pre><h2 id="nd.stack">nd.stack</h2><pre>Arranges a list of nd.Arrays into a new nd.Array. The nd.Arrays are stacked
-along a newly axis, inserted at the specified index. All stacked nd.Arrays
+</pre><h2 id="nd.stack">nd.stack</h2><pre>Arranges a list of NDArrays into a new NDArray. The NDArrays are stacked
+along a newly axis, inserted at the specified index. All stacked NDArrays
 must have the same shape.
 
 Parameters
@@ -544,14 +247,14 @@ Parameters
 axis: int
   [OPTIONAL] The index at which the new index is to be inserted. Default value: 0.
 dtype: String
-  [OPTIONAL] The type of the stacked nd.Array. Should be a super-dtype of all nd.Arrays'
+  [OPTIONAL] The type of the stacked NDArray. Should be a super-dtype of all NDArrays'
   dtypes.
-ndarrays: nd.Array[]
-  The nd.Arrays that are to be stacked. All nd.Arrays must have the same shape.
+ndarrays: NDArray[]
+  The NDArrays that are to be stacked. All NDArrays must have the same shape.
 
 Returns
 -------
-stacked: nd.Array
+stacked: NDArray
 
 Examples
 --------
@@ -565,61 +268,123 @@ Examples
   [[1.0, 4.0],
    [2.0, 5.0],
    [3.0, 6.0]]
-</pre><h2 id="nd.util">nd.util</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.dtypes">nd.dtypes</h2><pre>A mapping of all supported data types and their respective
-(primitive) array types.
-</pre><h2 id="nd.eps">nd.eps</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.dtypeof">nd.dtypeof</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.super_dtype">nd.super_dtype</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.is_subdtype">nd.is_subdtype</h2><pre><doc n="" a=""></doc></pre><h2 id="nd._check_dtype">nd._check_dtype</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.math">nd.math</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.opt">nd.opt</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.la">nd.la</h2><pre>The Linear Algebra subpackage of ND.JS. Contains methods for the handling and decomposition
-of matrices as well as solvers for linear equations and linear least square systems.
-
-As convention the last two axes of an `nd.Array` are considered as the matrix dimensions.
-Higher dimensional arrays are considered "arrays of matrices" and the broadcasting rules
-apply for the leading dimenions, i.e. for all dimensions of the shape except the last two.
-</pre><h2 id="nd.createDocHTML">nd.createDocHTML</h2><pre>Created a JSDom representation of the documentation HTML file.
-
-Returns
--------
-doc: JSDOM
-  The HTML document containing the HTML documentation file.
-</pre><h2 id="nd.help">nd.help</h2><pre>Outputs a documentation string for the given method ND.JS method to the console. This method
-is intended to be used in interactive mode to explore and learn the ND.JS API.
+</pre><h2 id="nd.la.bidiag_decomp">nd.la.bidiag_decomp</h2><pre>Computes the Upper Bidiagonal Decomposition of a matrix. Bidiagonal
+Decomposition is a common preprocessing step for the Singular Value
+Decomposition.
 
 Parameters
 ----------
-fun: Function
-  The function or package ND.JS API method for which the documentation is to be retrieved.
-
-Examples
---------
-&gt;&gt;&gt; nd.help(nd.la)
-  The Linear Algebra subpackage of ND.JS. Contains methods for the handling and decomposition
-  of matrices as well as solvers for linear equations and linear least square systems.
-
-  As convention the last two axes of an `nd.Array` are considered as the matrix dimensions.
-  Higher dimensional arrays are considered "arrays of matrices" and the broadcasting rules
-  apply for the leading dimenions, i.e. for all dimensions of the shape except the last two.
-</pre><h2 id="nd.help_string">nd.help_string</h2><pre>Returns a documentation string for the given method ND.JS method to the console. This method
-is used by `nd.createDocHTML()` to create the documentation and by `nd.help()` to
-print help to the console.
-
-Parameters
-----------
-fun: Function
-  The function or package ND.JS API method for which the documentation is to be retrieved.
+A: NDArray[...,N,M]
+  The matrix for which the Upper Bidiagonal Decomposition is
+  computed.
 
 Returns
 -------
-help: String
-  A documentation String for the given method or package.
+U: NDArray[..., N, min(N,M)]
+  An orthognal rectangular matrix.
+B: NDArray[..., min(N,M), N &gt;= M ? M : N+1 ]
+  An upper bidiagonal rectangular matrix.
+V: NDArray[..., N &gt;= M ? M : N+1, M]
+  An orthogonal rectangular matrix. Such that `A = U @ B @ V @`
+</pre><h2 id="nd.la.cholesky_decomp">nd.la.cholesky_decomp</h2><pre>Computes the Cholesky Decomposition of an `NDArray` of symmetric, positive
+definite (square) matrices. The implementation assume the matrices to be symmetric
+and only looks at the lower triangular values. The last two axes of the `NDArray`
+are considered to be the matrix dimensions.
+
+Parameters
+----------
+S: NDArray[...,N,N]
+  An `NDArray` of symmetric, positive definite (square) matrices. In other words
+  S is symmetric and has only positive eigenvalues. 
+
+Returns
+-------
+L: NDArray[...,N,N]
+  A lower triangular matrix, such that `S = L @ L.T`.
 
 Examples
 --------
-&gt;&gt;&gt; console.log( nd.help(nd.la) )
-  "The Linear Algebra subpackage of ND.JS. Contains methods for the handling and decomposition
-   of matrices as well as solvers for linear equations and linear least square systems.
+&gt;&gt;&gt; const S = [
+      [ 25, -50],
+      [-50, 101]
+    ];
+&gt;&gt;&gt; const L = nd.la.cholesky_decomp(S);
+&gt;&gt;&gt; console.log( nd.la.matmul2(L,L.T).toString() );
+  [[ 25, -50],
+   [-50, 101]]
+</pre><h2 id="nd.la.cholesky_solve">nd.la.cholesky_solve</h2><pre>Given a cholesky decomposition and the right hand side of a linear equation system,
+this method computes the result of said system.
 
-   As convention the last two axes of an `nd.Array` are considered as the matrix dimensions.
-   Higher dimensional arrays are considered "arrays of matrices" and the broadcasting rules
-   apply for the leading dimenions, i.e. for all dimensions of the shape except the last two."
-</pre><h2 id="nd.la.eye">nd.la.eye</h2><pre>Returns an nd.Array of identity matrices, where the last two axes are the matrix dimensions.
+Parameters
+----------
+L: NDArray[...,N,N]
+  An array of lower triangular (square) matrices. L is assumed to be lower triangular
+  without looking at the upper triangular values.
+y: NDArray[...,N,M]
+  The right hand side of the linear equations system.
+
+Returns
+-------
+x: NDArray[...,N,M]
+  Such that `L @ L.T @ x == y`.
+
+Examples
+--------
+&gt;&gt;&gt; const S = [
+      [ 25, -50],
+      [-50, 101]
+    ];
+&gt;&gt;&gt; const y = [
+      [[1],
+       [2]],
+      [[3],
+       [4]]
+    ];
+&gt;&gt;&gt; const L = nd.la.cholesky_decomp(S);
+&gt;&gt;&gt; const x = nd.la.cholesky_solve(L,y);
+&gt;&gt;&gt; console.log( nd.la.matmul2(S,x) );
+ [[[1.0],
+   [2.0]],
+  [[3.0],
+   [4.0]]]
+</pre><h2 id="nd.la.diag_mat">nd.la.diag_mat</h2><pre>Creates a (main) diagonal matrix with the given diagonal values.
+
+Parameters
+----------
+diag: NDArray[...,N]
+  The diagonal values.
+
+Returns
+-------
+D: NDArray[...,N,N]
+  Such that `D(i,j) == i==j ? diag(i) : 0`.
+
+Examples
+--------
+&gt;&gt;&gt; const D = nd.la.diag_mat([[1,2,3],[4,5,6]]);
+&gt;&gt;&gt; console.log( D.toString() );
+  [[[ 1, 0, 0 ],
+    [ 0, 2, 0 ],
+    [ 0, 0, 3 ]],
+   [[ 4, 0, 0 ],
+    [ 0, 5, 0 ],
+    [ 0, 0, 6 ]]]
+</pre><h2 id="nd.la.diag">nd.la.diag</h2><pre>No documentation available.</pre><h2 id="nd.la.eigen">nd.la.eigen</h2><pre>Returns the eigenpairs of a real square matrix.
+
+Parameters
+----------
+A: NDArray[...,N,N]
+  The non-symmetric real squre matrix for which the eigenvalues are computed.
+
+Returns
+-------
+Λ: NDArray[...,N]
+  A matrix containing all eigenvalues.
+V: NDArray[...,N,N]
+  A matrix containing the eigenvectors corresponding to Λ as columns, i.e.:
+  `Λ[i]*V[j,i] == (A @ V)[j,i]`.
+  The columns are normalized using the 2-norm. 
+</pre><h2 id="nd.la.eigen_balance_pre">nd.la.eigen_balance_pre</h2><pre>No documentation available.</pre><h2 id="nd.la.eigen_balance_post">nd.la.eigen_balance_post</h2><pre>No documentation available.</pre><h2 id="nd.la.eye">nd.la.eye</h2><pre>Returns an NDArray of identity matrices, where the last two axes are the matrix dimensions.
 
 Parameters
 ----------
@@ -629,7 +394,7 @@ shape: ...int
 
 Returns
 -------
-I: nd.Array
+I: NDArray
   The array of identity matrices, where the last two axes are the matrix dimensions.
 
 Examples
@@ -647,12 +412,284 @@ Examples
    [[ 1, 0, 0, 0],
     [ 0, 1, 0, 0],
     [ 0, 0, 1, 0]]]
+</pre><h2 id="nd.la.hessenberg_decomp">nd.la.hessenberg_decomp</h2><pre>Computes the (Upper) Hessenberg Decomposition of a matrix. It
+is worth mentioning that the Hessenberg Decomposition of a
+symmetric matrix is tridiagonal.
+
+Parameters
+----------
+A: NDArray[...,N,N]
+  The matrix for which the Hessemberg Decomposition is computed.
+
+Returns
+-------
+U: NDArray[...,N,N]
+  An orthogonal matrix, i.e. `U @ U.T == U.T @ U == nd.la.eye(N)`.
+H: NDArray[...,N,N]
+  An upper Hessemberg matrix, i.e. `nd.la.tril(H,-2) == 0`, such that `U @ H @ U.T == A`.
+</pre><h2 id="nd.la.lstsq">nd.la.lstsq</h2><pre>No documentation available.</pre><h2 id="nd.la.lu_decomp">nd.la.lu_decomp</h2><pre>Given an `NDArray` of square matrices, this method Computes the
+LU(P) decomposition with Column Pivotization.
+
+Parameters
+----------
+A: NDArray[...,N,N]
+
+Returns
+-------
+LU: NDArray[...,N,N]
+  A matrix containing both the lower and upper triangular part of the
+  LU decomposition. The diagonal of ther lower triangular matrix L
+  is not contained in LU. It only containes ones and is implied.
+P : NDArray[...,N]
+  The order in which the row indices of A appear in the LU decomposition, i.e.:
+  `A(P[i],j) == (L @ U)[i,j]`.
+</pre><h2 id="nd.la.lu_solve">nd.la.lu_solve</h2><pre>Given the LU(P) decomposition and the right hand side of a
+Linear Equations System, this method computes the result of
+said system.
+
+Parameters
+----------
+LU: NDArray[...,N,N]
+P : NDArray[...,N]
+y : NDArray[...,N,M]
+
+Returns
+-------
+x : NDArray[...,N,M]
+  The solution of the Linear Equation System, such that:
+  `y[P[i],:] == (L @ U @ x)[i,:] `
+</pre><h2 id="nd.la.matmul2">nd.la.matmul2</h2><pre>Computes the matrix product of exactly two matrices. The last two axes
+are considered to be the matrix dimensions. For the leading axes,
+broadcasting rules apply. Along with `nd.la.matmul`, this is one
+of the only two methods that currently allows complex inputs.
+
+Parameters
+----------
+a: NDArray[...,N,K]
+  The left factor matrices.
+b: NDArray[...,K,M]
+  The right factor matrices.
+
+Returns
+-------
+product: NDArray[...,N,M]
+  Where `product = a @ b`.
+
+Examples
+--------
+&gt;&gt;&gt; const A = [
+      [2, 0],
+      [0,-1]
+    ];
+&gt;&gt;&gt; const x = nd.array([
+      [[1,2]],
+      [[3,4]],
+      [[5,6]]
+    ]).T;
+&gt;&gt;&gt; console.log( x.toString() );
+  [ [[1],
+     [2]],
+
+    [[3],
+     [4]],
+
+    [[5],
+     [6]] ]
+&gt;&gt;&gt; const y = nd.la.matmul2(A,x);
+&gt;&gt;&gt; console.log( y.toString() );
+  [ [[ 2 ],
+     [-2 ]],
+  
+    [[ 6 ],
+     [-4 ]],
+  
+    [[10 ],
+     [-6 ]] ]
+</pre><h2 id="nd.la.matmul">nd.la.matmul</h2><pre>Computes the matrix product of a series of matrices. The order
+of multiplications is optimized to minimize the number of floating
+point operations required. The last two axes are considered to be
+the matrix dimensions. For the leading axes, broadcasting rules apply.
+Along with `nd.la.matmul2`, this is one of the only two methods
+that currently allows complex inputs.
+
+Parameters
+----------
+matrices: ...NDArray
+  The matrices that are to be multiplied.
+
+Returns
+-------
+product: NDArray
+  Where `product = matrices[0] @ matrices[1] @ ... @ matrices[n-1]`.
+
+Examples
+--------
+&gt;&gt;&gt; const v = nd.tabulate([1e6,1], () =&gt; 1);
+&gt;&gt;&gt; console.log( v.toString() );
+  [[ 1 ],
+   [ 1 ],
+   [ 1 ],
+   [ 1 ],
+   [ 1 ],
+   ...999990 more...,
+   [ 1 ],
+   [ 1 ],
+   [ 1 ],
+   [ 1 ],
+   [ 1 ]]
+&gt;&gt;&gt; const u = nd.la.matmul(v,v.T,v,v.T,v);
+&gt;&gt;&gt; console.log( u.toString() );
+  [[1000000000000],
+   [1000000000000],
+   [1000000000000],
+   [1000000000000],
+   [1000000000000],
+   ...999990 more...,
+   [1000000000000],
+   [1000000000000],
+   [1000000000000],
+   [1000000000000],
+   [1000000000000]]
+</pre><h2 id="nd.la.permute_rows">nd.la.permute_rows</h2><pre>No documentation available.</pre><h2 id="nd.la.permute_cols">nd.la.permute_cols</h2><pre>No documentation available.</pre><h2 id="nd.la.unpermute_rows">nd.la.unpermute_rows</h2><pre>No documentation available.</pre><h2 id="nd.la.unpermute_cols">nd.la.unpermute_cols</h2><pre>No documentation available.</pre><h2 id="nd.la.qr_decomp_full">nd.la.qr_decomp_full</h2><pre>Computes the (full) QR Decomposition of a matrix. The QR
+Decomposition can be used to solve both Linear Equations
+and Linear Least Square problems with high numeric accuracy.
+Under normal circumstances, the incomplete QR Decomposition
+(`nd.la.qr_decomp`) is to be preferred over this method
+as it may be significantly more memory efficient.
+
+Parameters
+----------
+A: NDArray[...,N,M]
+  The matrix for which the QR Decomposition is computed.
+
+Returns
+-------
+Q: NDArray[...,N,N]
+  An orthogonal square matrix, i.e. `Q @ Q.T == Q.T @ Q == nd.la.eye(N)`.
+R: NDArray[...,N,M]
+  An upper triangular matrix, such that: `A = Q @ R`
+</pre><h2 id="nd.la.qr_decomp">nd.la.qr_decomp</h2><pre>Computes the (economic) QR Decomposition of a matrix. The
+QR Decomposition can be used to solve both Linear Equations
+and Linear Least Square problems with high numeric accuracy.
+Under normal circumstances, this method is to
+be preferred over the full QR Decomposition (`nd.la.qr_decomp_full`)
+as it may be significantly more memory efficient.
+
+Parameters
+----------
+A: NDArray[...,N,M]
+  The matrix for which the QR Decomposition is computed.
+
+Returns
+-------
+Q: NDArray[...,N,min(N,M)]
+  An orthogonal rectangular matrix, i.e. `Q.T @ Q == nd.la.eye(min(N,M))`.
+R: NDArray[...,min(N,M),M]
+  An upper triangular matrix, such that: `A = Q @ R`
+</pre><h2 id="nd.la.qr_lstsq">nd.la.qr_lstsq</h2><pre>Given the QR Decompostion and the right hand side of a full-rank
+linear equation system, this method solves it. If the Linear
+Equation System is under-determined, the Linear Least Square
+solution is computed. This method is no suited for rank-deficient
+or over-determined systems, in which case `rrqr_lstsq` or
+`svd_decomp` can be used instead.
+
+Parameters
+----------
+Q: NDArray[...,N,K]
+  The orthognal rectangular matrix of the QR Decomposition.
+R: NDArray[...,K,M]
+  The upper triangular matrix of the QR Decomposition.
+y: NDArray[...,N,L]
+  The right hand side of the Linear Equation System.
+
+Returns
+-------
+x: NDArray[...,N,L]
+  Such that `‖(Q @ R @ x) - y‖₂` is minimal.
+</pre><h2 id="nd.la.rank">nd.la.rank</h2><pre>No documentation available.</pre><h2 id="nd.la.rrqr_decomp">nd.la.rrqr_decomp</h2><pre>Computes the economic Rank-Revealing QR Decomposition of a matrix.
+
+Parameters
+----------
+A: NDArray[...,N,M]
+  The matrix for which the QR Decomposition is computed.
+
+Returns
+-------
+Q: NDArray[...,N,min(N,M)]
+  An orthogonal rectangular matrix, i.e. `Q.T @ Q == nd.la.eye(min(N,M))`.
+R: NDArray[...,min(N,M),M]
+  An upper triangular matrix, where `R[i,i] &gt;= R[j,j]` if and only if `i &lt;= j`.
+P: NDArray[...,M]
+  The permuted column indices, such that:
+  `(Q @ R)[:,j] == A[:,P[j]]`
+</pre><h2 id="nd.la.rrqr_decomp_full">nd.la.rrqr_decomp_full</h2><pre>No documentation available.</pre><h2 id="nd.la.rrqr_rank">nd.la.rrqr_rank</h2><pre>No documentation available.</pre><h2 id="nd.la.rrqr_lstsq">nd.la.rrqr_lstsq</h2><pre>No documentation available.</pre><h2 id="nd.la.rrqr_solve">nd.la.rrqr_solve</h2><pre>No documentation available.</pre><h2 id="nd.la.schur_eigenvals">nd.la.schur_eigenvals</h2><pre>No documentation available.</pre><h2 id="nd.la.schur_eigen">nd.la.schur_eigen</h2><pre>No documentation available.</pre><h2 id="nd.la.schur_decomp">nd.la.schur_decomp</h2><pre>Computes the (real) Schur Decomposition of a matrix. The
+Schur Decomposition is used to compute the Eigenvalues and
+Eigenvectors.
+
+Parameters
+----------
+A: NDArray[...,N,N]
+
+Returns
+-------
+Q: NDArray[...,N,N]
+  An orthogonal square matrix.
+T: NDArray[...,N,N]
+  An upper quasi-triangular matrix, such that `Q @ T @ Q.T == A`.
+  The diagonal of T consists of 2x2 blocks that represent complex
+  eigenpairs and 1x1 matrix that represent a real eigenvalue.
+</pre><h2 id="nd.la.SingularMatrixSolveError">nd.la.SingularMatrixSolveError</h2><pre>No documentation available.</pre><h2 id="nd.la.solve">nd.la.solve</h2><pre>Solves a full-rank Linear Equations System (LES). The method tries to
+detect rank-deficient systems and throw a `SingularMatrixSolveError`,
+which contains some least squares solution to the rank-deficient
+system as property `x`.
+
+Parameters
+----------
+A: NDArray[...,N,K]
+  The matrix of the LES.
+y: NDArray[...,K,M]
+  The right hand side of the LES.
+
+Returns
+-------
+x: NDArray[...,N,M]
+  The solution of `(A @ x) = y`.
+</pre><h2 id="nd.la.svd_decomp">nd.la.svd_decomp</h2><pre>Computes the Singular Value Decomposition (SVD) of a matrix.
+
+Parameters
+----------
+A: NDArray[...,N,M]
+  The matrix for which the SVD is computed.
+
+Returns
+-------
+U : NDArray[...,N,min(N,M)]
+  An orthogonal, rectangular matrix.
+sv: NDArray[..., min(N,M) ]
+  The singular values of A sorted in descending order.
+V : NDArray[...,min(N,M),M]
+  An orthogonal, rectangular matrix, such that `A == U @ diag(sv) @ V`.
+</pre><h2 id="nd.la.svd_rank">nd.la.svd_rank</h2><pre>No documentation available.</pre><h2 id="nd.la.svd_solve">nd.la.svd_solve</h2><pre>No documentation available.</pre><h2 id="nd.la.svd_lstsq">nd.la.svd_lstsq</h2><pre>No documentation available.</pre><h2 id="nd.la.svd_jac_1sided">nd.la.svd_jac_1sided</h2><pre>No documentation available.</pre><h2 id="nd.la.svd_jac_classic">nd.la.svd_jac_classic</h2><pre>Computes the Singular Value Decomposition (SVD) of a matrix.
+
+Parameters
+----------
+A: NDArray[...,N,M]
+  The matrix for which the SVD is computed.
+
+Returns
+-------
+U : NDArray[...,N,min(N,M)]
+  An orthogonal, rectangular matrix.
+sv: NDArray[..., min(N,M) ]
+  The singular values of A sorted in descending order.
+V : NDArray[...,min(N,M),M]
+  An orthogonal, rectangular matrix, such that `A == U @ diag(sv) @ V`.
 </pre><h2 id="nd.la.tril">nd.la.tril</h2><pre>Returns a copy of an array with all entries outside of the lower triangular part set to 0.
 The last two axes are considered the matrix dimensions.
 
 Parameters
 ----------
-A: nd.Array[...,N,M]
+A: NDArray[...,N,M]
   The array of matrices whose lower triangular parts are to be returned.
 offset: int
   [Optional] The offset from the main diagonal of entries included in the  result.
@@ -662,7 +699,7 @@ offset: int
 
 Returns
 -------
-L: nd.Array[...,N,M]
+L: NDArray[...,N,M]
   The lower triangular part of A, where `L(i,j) == i &gt;= j-offset ? A(i,j) : 0`.
 
 Examples
@@ -697,7 +734,7 @@ The last two axes are considered the matrix dimensions.
 
 Parameters
 ----------
-A: nd.Array[...,N,M]
+A: NDArray[...,N,M]
   The array of matrices whose upper triangular parts are to be returned.
 offset: int
   [Optional] The offset from the main diagonal of entries included in the result.
@@ -707,7 +744,7 @@ offset: int
 
 Returns
 -------
-U: nd.Array[...,N,M]
+U: NDArray[...,N,M]
   The upper triangular part of A, where `L(i,j) == i &lt;= j-offset ? A(i,j) : 0`.
 
 Examples
@@ -737,404 +774,346 @@ Examples
  [[ 0, 211, 212 ],
   [ 0,   0, 223 ],
   [ 0,   0,   0 ]]]
-</pre><h2 id="nd.la.diag_mat">nd.la.diag_mat</h2><pre>Creates a (main) diagonal matrix with the given diagonal values.
-
-Parameters
-----------
-diag: nd.Array[...,N]
-  The diagonal values.
-
-Returns
--------
-D: nd.Array[...,N,N]
-  Such that `D(i,j) == i==j ? diag(i) : 0`.
-
-Examples
---------
-&gt;&gt;&gt; const D = nd.la.diag_mat([[1,2,3],[4,5,6]]);
-&gt;&gt;&gt; console.log( D.toString() );
-  [[[ 1, 0, 0 ],
-    [ 0, 2, 0 ],
-    [ 0, 0, 3 ]],
-   [[ 4, 0, 0 ],
-    [ 0, 5, 0 ],
-    [ 0, 0, 6 ]]]
-</pre><h2 id="nd.la.diag">nd.la.diag</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.la._transpose_inplace">nd.la._transpose_inplace</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.la.matmul">nd.la.matmul</h2><pre>Computes the matrix product of a series of matrices. The order
-of multiplications is optimized to minimize the number of floating
-point operations required. The last two axes are considered to be
-the matrix dimensions. For the leading axes, broadcasting rules apply.
-Along with `nd.la.matmul2`, this is one of the only two methods
-that currently allows complex inputs.
-
-Parameters
-----------
-matrices: ...nd.Array
-  The matrices that are to be multiplied.
-
-Returns
--------
-product: nd.Array
-  Where `product = matrices[0] @ matrices[1] @ ... @ matrices[n-1]`.
-
-Examples
---------
-&gt;&gt;&gt; const v = nd.tabulate([1e6,1], () =&gt; 1);
-&gt;&gt;&gt; console.log( v.toString() );
-  [[ 1 ],
-   [ 1 ],
-   [ 1 ],
-   [ 1 ],
-   [ 1 ],
-   ...999990 more...,
-   [ 1 ],
-   [ 1 ],
-   [ 1 ],
-   [ 1 ],
-   [ 1 ]]
-&gt;&gt;&gt; const u = nd.la.matmul(v,v.T,v,v.T,v);
-&gt;&gt;&gt; console.log( u.toString() );
-  [[1000000000000],
-   [1000000000000],
-   [1000000000000],
-   [1000000000000],
-   [1000000000000],
-   ...999990 more...,
-   [1000000000000],
-   [1000000000000],
-   [1000000000000],
-   [1000000000000],
-   [1000000000000]]
-</pre><h2 id="nd.la.matmul2">nd.la.matmul2</h2><pre>Computes the matrix product of exactly two matrices. The last two axes
-are considered to be the matrix dimensions. For the leading axes,
-broadcasting rules apply. Along with `nd.la.matmul`, this is one
-of the only two methods that currently allows complex inputs.
-
-Parameters
-----------
-a: nd.Array[...,N,K]
-  The left factor matrices.
-b: nd.Array[...,K,M]
-  The right factor matrices.
-
-Returns
--------
-product: nd.Array[...,N,M]
-  Where `product = a @ b`.
-
-Examples
---------
-&gt;&gt;&gt; const A = [
-      [2, 0],
-      [0,-1]
-    ];
-&gt;&gt;&gt; const x = nd.array([
-      [[1,2]],
-      [[3,4]],
-      [[5,6]]
-    ]).T;
-&gt;&gt;&gt; console.log( x.toString() );
-  [ [[1],
-     [2]],
-
-    [[3],
-     [4]],
-
-    [[5],
-     [6]] ]
-&gt;&gt;&gt; const y = nd.la.matmul2(A,x);
-&gt;&gt;&gt; console.log( y.toString() );
-  [ [[ 2 ],
-     [-2 ]],
-  
-    [[ 6 ],
-     [-4 ]],
-  
-    [[10 ],
-     [-6 ]] ]
-</pre><h2 id="nd.la.cholesky_decomp">nd.la.cholesky_decomp</h2><pre>Computes the Cholesky Decomposition of an `nd.Array` of symmetric, positive
-definite (square) matrices. The implementation assume the matrices to be symmetric
-and only looks at the lower triangular values. The last two axes of the `nd.Array`
-are considered to be the matrix dimensions.
-
-Parameters
-----------
-S: nd.Array[...,N,N]
-  An `nd.Array` of symmetric, positive definite (square) matrices. In other words
-  S is symmetric and has only positive eigenvalues. 
-
-Returns
--------
-L: nd.Array[...,N,N]
-  A lower triangular matrix, such that `S = L @ L.T`.
-
-Examples
---------
-&gt;&gt;&gt; const S = [
-      [ 25, -50],
-      [-50, 101]
-    ];
-&gt;&gt;&gt; const L = nd.la.cholesky_decomp(S);
-&gt;&gt;&gt; console.log( nd.la.matmul2(L,L.T).toString() );
-  [[ 25, -50],
-   [-50, 101]]
-</pre><h2 id="nd.la.cholesky_solve">nd.la.cholesky_solve</h2><pre>Given a cholesky decomposition and the right hand side of a linear equation system,
-this method computes the result of said system.
-
-Parameters
-----------
-L: nd.Array[...,N,N]
-  An array of lower triangular (square) matrices. L is assumed to be lower triangular
-  without looking at the upper triangular values.
-y: nd.Array[...,N,M]
-  The right hand side of the linear equations system.
-
-Returns
--------
-x: nd.Array[...,N,M]
-  Such that `L @ L.T @ x == y`.
-
-Examples
---------
-&gt;&gt;&gt; const S = [
-      [ 25, -50],
-      [-50, 101]
-    ];
-&gt;&gt;&gt; const y = [
-      [[1],
-       [2]],
-      [[3],
-       [4]]
-    ];
-&gt;&gt;&gt; const L = nd.la.cholesky_decomp(S);
-&gt;&gt;&gt; const x = nd.la.cholesky_solve(L,y);
-&gt;&gt;&gt; console.log( nd.la.matmul2(S,x) );
- [[[1.0],
-   [2.0]],
-  [[3.0],
-   [4.0]]]
 </pre><h2 id="nd.la.tril_solve">nd.la.tril_solve</h2><pre>Given the lower triangular (square) matrix and the right hand side of a linear
 equation system, this method computes the result.
 
 Parameters
 ----------
-L: nd.Array[...,N,N]
+L: NDArray[...,N,N]
   The lower triangular matrix of the linear equations system. L is assumed to
   be lower triangular without ever looking at the values in the upper triangular
   region.
-y: nd.Array[...,N,M]
+y: NDArray[...,N,M]
   The right hand side matrix of the linear equation system.
 
 Returns
 -------
-x: nd.Array[...,N,M]
+x: NDArray[...,N,M]
   Such that `L @ x = y`.
 </pre><h2 id="nd.la.triu_solve">nd.la.triu_solve</h2><pre>Given the upper triangular (square) matrix and the right hand side of a linear
 equation system, this method computes the result.
 
 Parameters
 ----------
-U: nd.Array[...,N,N]
+U: NDArray[...,N,N]
   The upper triangular matrix of the linear equations system. U is assumed to
   be upper triangular without ever looking at the values in the lower triangular
   region.
-y: nd.Array[...,N,M]
+y: NDArray[...,N,M]
   The right hand side matrix of the linear equation system.
 
 Returns
 -------
-x: nd.Array[...,N,M]
+x: NDArray[...,N,M]
   Such that `U @ x = y`.
-</pre><h2 id="nd.la.lu_decomp">nd.la.lu_decomp</h2><pre>Given an `nd.Array` of square matrices, this method Computes the
-LU(P) decomposition with Column Pivotization.
+</pre><h2 id="nd.opt.line_search">nd.opt.line_search</h2><pre>No documentation available.</pre><h2 id="nd.opt.num_grad">nd.opt.num_grad</h2><pre>No documentation available.</pre><h2 id="nd.opt.root1d_bisect">nd.opt.root1d_bisect</h2><pre>No documentation available.</pre><h2 id="nd.opt.min_lbfgs_gen">nd.opt.min_lbfgs_gen</h2><pre>No documentation available.</pre><h2 id="nd.opt.line_search.strong_wolfe">nd.opt.line_search.strong_wolfe</h2><pre>No documentation available.</pre><h2 id="nd.opt.line_search.LineSearchError">nd.opt.line_search.LineSearchError</h2><pre>No documentation available.</pre><h2 id="nd.opt.line_search.LineSearchNoProgressError">nd.opt.line_search.LineSearchNoProgressError</h2><pre>No documentation available.</pre><h2 id="nd.io.IS_LITTLE_ENDIAN">nd.io.IS_LITTLE_ENDIAN</h2><pre>No documentation available.</pre><h2 id="nd.io.WHITESPACES">nd.io.WHITESPACES</h2><pre>No documentation available.</pre><h2 id="nd.io.b64_decode">nd.io.b64_decode</h2><pre>No documentation available.</pre><h2 id="nd.io.b64_encode">nd.io.b64_encode</h2><pre>No documentation available.</pre><h2 id="nd.io.istr_to_nd">nd.io.istr_to_nd</h2><pre>No documentation available.</pre><h2 id="nd.io.nd_to_istr">nd.io.nd_to_istr</h2><pre>No documentation available.</pre><h2 id="nd.dt.ARRAY_TYPES">nd.dt.ARRAY_TYPES</h2><pre>No documentation available.</pre><h2 id="nd.dt.eps">nd.dt.eps</h2><pre>No documentation available.</pre><h2 id="nd.dt._check_dtype">nd.dt._check_dtype</h2><pre>No documentation available.</pre><h2 id="nd.dt.dtypeof">nd.dt.dtypeof</h2><pre>No documentation available.</pre><h2 id="nd.dt.super_dtype">nd.dt.super_dtype</h2><pre>No documentation available.</pre><h2 id="nd.dt.is_subdtype">nd.dt.is_subdtype</h2><pre>No documentation available.</pre><h2 id="nd.dt.Complex">nd.dt.Complex</h2><pre>Rudimentary implementation of the Complex number type, used
+mainly for the calculation of eigenvalues. Other than that,
+complex dtype is not yet supported in NDJS.
+</pre><h2 id="nd.dt.Complex128Array">nd.dt.Complex128Array</h2><pre>No documentation available.</pre><h2 id="nd.NDArray.length_STATIC">nd.NDArray.length [STATIC]</h2><pre>No documentation available.</pre><h2 id="nd.NDArray.name_STATIC">nd.NDArray.name [STATIC]</h2><pre>No documentation available.</pre><h2 id="nd.NDArray.prototype_STATIC">nd.NDArray.prototype [STATIC]</h2><pre>No documentation available.</pre><h2 id="nd.NDArray.constructor">nd.NDArray.constructor</h2><pre>An n-dimensional, axis-aligned grid of entries, very similar
+to NumPy ndarrays in Python.
+
+Attributes
+----------
+shape: int[]
+  The shape of the NDArray.
+data : dtype[]
+  The flat data array backing this NDArray. May be either
+  a standard JavaScript Array, or one of JavaScripts primitive
+  array types. See nd.dtypes for a list of supported data types.
+ndim: int
+  The number of dimensions in this NDArray, i.e. the number of
+  indices used to address the entries. Equivalent to shape.length.
+  
+dtype: String
+  The data type of this NDArray. Specifies which type of values
+  may be stored in the NDArray. See nd.dtypes for the available
+  data types and their respective (primitive) array types.
+</pre><h2 id="nd.NDArray.set">nd.NDArray.set</h2><pre>Sets the value of the specified entry to the given value.
 
 Parameters
 ----------
-A: nd.Array[...,N,N]
+indices: int[]
+  The multi index of the entry that is to be changed.
+value: dtype
+  The new value for the entry at indices.
 
-Returns
--------
-LU: nd.Array[...,N,N]
-  A matrix containing both the lower and upper triangular part of the
-  LU decomposition. The diagonal of ther lower triangular matrix L
-  is not contained in LU. It only containes ones and is implied.
-P : nd.Array[...,N]
-  The order in which the row indices of A appear in the LU decomposition, i.e.:
-  `A(P[i],j) == (L @ U)[i,j]`.
-</pre><h2 id="nd.la.lu_solve">nd.la.lu_solve</h2><pre>Given the LU(P) decomposition and the right hand side of a
-Linear Equations System, this method computes the result of
-said system.
-
-Parameters
-----------
-LU: nd.Array[...,N,N]
-P : nd.Array[...,N]
-y : nd.Array[...,N,M]
-
-Returns
--------
-x : nd.Array[...,N,M]
-  The solution of the Linear Equation System, such that:
-  `y[P[i],:] == (L @ U @ x)[i,:] `
-</pre><h2 id="nd.la.qr_decomp_full">nd.la.qr_decomp_full</h2><pre>Computes the (full) QR Decomposition of a matrix. The QR
-Decomposition can be used to solve both Linear Equations
-and Linear Least Square problems with high numeric accuracy.
-Under normal circumstances, the incomplete QR Decomposition
-(`nd.la.qr_decomp`) is to be preferred over this method
-as it may be significantly more memory efficient.
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([ [0,0,0], [0,0,0], [0,0,0] )
+&gt;&gt;&gt; a.set([0,0], 1)
+&gt;&gt;&gt; a.set([0,1], 2)
+&gt;&gt;&gt; a.set([1,1], 3)
+&gt;&gt;&gt; a.set([2,2], 4)
+&gt;&gt;&gt; console.log( a.toString() )
+  [[1,2,0],
+   [0,3,0],
+   [0,0,4]]
+</pre><h2 id="nd.NDArray.modify">nd.NDArray.modify</h2><pre>Modifies an array entriy by applying the given functions to it.
+This method call is equivalent to:
+`ndarray.set( indices, modifier(ndarray(...indices), ...indices) )`
 
 Parameters
 ----------
-A: nd.Array[...,N,M]
-  The matrix for which the QR Decomposition is computed.
-
-Returns
--------
-Q: nd.Array[...,N,N]
-  An orthogonal square matrix, i.e. `Q @ Q.T == Q.T @ Q == nd.la.eye(N)`.
-R: nd.Array[...,N,M]
-  An upper triangular matrix, such that: `A = Q @ R`
-</pre><h2 id="nd.la.solve">nd.la.solve</h2><pre>Solves a Linear Equations System (LES) or a Linear Least Squares Problem (LSTSQ).
+indices: int[]
+  The multi index of the entry that is to modified.
+modifier: (dtype, ...int) =&gt; dtype
+  The function that is applied to the NDArray entry.
+</pre><h2 id="nd.NDArray._flat_idx">nd.NDArray._flat_idx</h2><pre>No documentation available.</pre><h2 id="nd.NDArray.toString">nd.NDArray.toString</h2><pre>Returns a readable string representation of this NDArray.
 
 Parameters
 ----------
-A: nd.Array[...,N,K]
-  The matrix of the LES/LSTSQ.
-y: nd.Array[...,K,M]
-  The right hand side of the LES/LSTSQ.
+max_len: int
+  [OPTIONAL] The maximum number of elements along each to be represented
+  in the String. If there is more elements along an axis than that, an
+  ellipsis (...) is inserted instead of the central elements.
 
 Returns
 -------
-x: nd.Array[...,N,M]
-  The solution of the LES/LSTSQ such that `‖(A @ x) - y‖₂` is minimal.
-</pre><h2 id="nd.la.qr_decomp">nd.la.qr_decomp</h2><pre>Computes the (economic) QR Decomposition of a matrix. The
-QR Decomposition can be used to solve both Linear Equations
-and Linear Least Square problems with high numeric accuracy.
-Under normal circumstances, this method is to
-be preferred over the full QR Decomposition (`nd.la.qr_decomp_full`)
-as it may be significantly more memory efficient.
+repr: String
+  A readable string representation of this nd.Arrray.
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.tabulate([6,6], (i,j) =&gt; 10*(i+1) + (j+1) )
+&gt;&gt;&gt; console.log( a.toString() )
+  [[11,12,13,14,15,16],
+   [21,22,23,24,25,26],
+   [31,32,33,34,35,36],
+   [41,42,43,44,45,46],
+   [51,52,53,54,55,56],
+   [61,62,63,64,65,66]]
+
+&gt;&gt;&gt; console.log( a.toString(4) )
+  [[11, 12, ...2 more..., 15, 16],
+   [21, 22, ...2 more..., 25, 26],
+    ...2 more...,
+   [51, 52, ...2 more..., 55, 56],
+   [61, 62, ...2 more..., 65, 66]]
+</pre><h2 id="nd.NDArray.forEach">nd.NDArray.forEach</h2><pre>Calls the given callback for each slice of this NDArray along the
+first axis. Equivalent to:
+
+for( let i=0; i &lt; this.shape[0]; i++ )
+  consumer( this.slice(i), i )
 
 Parameters
 ----------
-A: nd.Array[...,N,M]
-  The matrix for which the QR Decomposition is computed.
+consumer: (slice: NDArray, index: int) =&gt; ()
+  The callback to be called for each slice of this NDArray along the first axis.
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([[1,2,3],[4,5,6]])
+&gt;&gt;&gt; a.forEach( (row,i) =&gt; console.log(`${i} -&gt; ${row}`) )
+  0 -&gt; [1,2,3]
+  1 -&gt; [4,5,6]
+</pre><h2 id="nd.NDArray.elems">nd.NDArray.elems</h2><pre>Returns an iterator of all multiindex-value pairs of entries in
+this NDArray.
 
 Returns
 -------
-Q: nd.Array[...,N,min(N,M)]
-  An orthogonal rectangular matrix, i.e. `Q.T @ Q == nd.la.eye(min(N,M))`.
-R: nd.Array[...,min(N,M),M]
-  An upper triangular matrix, such that: `A = Q @ R`
-</pre><h2 id="nd.la.qr_solve">nd.la.qr_solve</h2><pre>Given the QR Decompostion and the right hand side of a Linear
-Equation System, this method solves it. If the Linear Equation
-System is overdetermined, the Linear Least Square solution is
-computed.
+iter: *[[...int], dtype]
+  An iterator of multiindex-value pairs, one for each entry in this
+  NDArray.
+
+Examples
+--------
+&gt;&gt;&gt; a = nd.array([[1,2,3],[4,5,6]])
+&gt;&gt;&gt; for( let [[i,j],a_ij] of a.entries() )
+...   console.log(`a[${i},${j}] = ${val}`)
+  a[0,0] = 1
+  a[0,1] = 2
+  a[0,2] = 3
+  a[1,0] = 4
+  a[1,1] = 5
+  a[1,2] = 6
+</pre><h2 id="nd.NDArray.forElems">nd.NDArray.forElems</h2><pre>Calls the given callback for each entry in this NDArray.
 
 Parameters
 ----------
-Q: nd.Array[...,N,K]
-  The orthognal rectangular matrix of the QR Decomposition.
-R: nd.Array[...,K,M]
-  The upper triangular matrix of the QR Decomposition.
-y: nd.Array[...,N,L]
-  The right hand side of the Linear Equation System.
+consumer: (val: dtype, indices: ...int) =&gt; ()
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([[1,2,3],[4,5,6]])
+&gt;&gt;&gt; a.forEntries( (a_ij,i,j) =&gt; console.log(`a[${i},${j}] = ${a_ij}`) )
+  a[0,0] = 1
+  a[0,1] = 2
+  a[0,2] = 3
+  a[1,0] = 4
+  a[1,1] = 5
+  a[1,2] = 6
+</pre><h2 id="nd.NDArray.valueOf">nd.NDArray.valueOf</h2><pre>
+If this NDArray is scalar (shape == []), the only entry's value is returned,
+otherwise this NDArray itself is returned.
+
+This method rarely has to be called explicitly but is used by JavaScript
+whenever it deems it appropriate.
 
 Returns
 -------
-x: nd.Array[...,N,L]
-  Such that `‖(Q @ R @ x) - y‖₂` is minimal.
-</pre><h2 id="nd.la.rrqr_decomp">nd.la.rrqr_decomp</h2><pre>Computes the economic Rank-Revealing QR Decomposition of a matrix.
+value: dtype or NDArray
+  Returns the only entry if this NDArray is scalar. Returns this otherwise.
+
+Example
+-------
+&gt;&gt;&gt; a = nd.array(12)
+&gt;&gt;&gt; console.log( a+1 )
+  13
+</pre><h2 id="nd.NDArray.mapElems">nd.NDArray.mapElems</h2><pre>Creates a new NDArray by applying the given mapping function to each entry
+of this array and writing the results back into a new array.
+
+Equivalent to NDArray.from(this, dtype, mapper).
 
 Parameters
 ----------
-A: nd.Array[...,N,M]
-  The matrix for which the QR Decomposition is computed.
+dtype: String
+  [OPTIONAL] The data type of the newly created NDArray.
+mapper: (value, ...indices) =&gt; dtype
+  The function used to map the old NDArray's entries to the values of the
+  new NDArray.
 
 Returns
 -------
-Q: nd.Array[...,N,min(N,M)]
-  An orthogonal rectangular matrix, i.e. `Q.T @ Q == nd.la.eye(min(N,M))`.
-R: nd.Array[...,min(N,M),M]
-  An upper triangular matrix, where `R[i,i] &gt;= R[j,j]` if and only if `i &lt;= j`.
-P: nd.Array[...,M]
-  The permuted column indices, such that:
-  `(Q @ R)[:,j] == A[:,P[j]]`
-</pre><h2 id="nd.la.hessenberg_decomp">nd.la.hessenberg_decomp</h2><pre>Computes the (Upper) Hessenberg Decomposition of a matrix. It
-is worth mentioning that the Hessenberg Decomposition of a
-symmetric matrix is tridiagonal.
+mapped: NDArray
+  The newly created NDArray, where:
+  mapped(i0,i1,...,i[n]) = mapper(this(i0,i1,...,i[n]), i0,i1,...,i[n]).
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([[1,2],[3,4]])
+&gt;&gt;&gt; let b = a.mapElems( x =&gt; x*x )
+&gt;&gt;&gt; console.log( b.toString() )
+  [[1, 4],
+   [9,16]]
+</pre><h2 id="nd.NDArray.transpose">nd.NDArray.transpose</h2><pre>Reorders the axes of this NDArray. By default the last two axes are
+swapped.
 
 Parameters
 ----------
-A: nd.Array[...,N,N]
-  The matrix for which the Hessemberg Decomposition is computed.
+axes: ...int
+  The order in which the axes of the this NDArray appear in the
+  transposed array. If indices are missing from `axes`, they are
+  appended to `axes` in order.
 
 Returns
 -------
-U: nd.Array[...,N,N]
-  An orthogonal matrix, i.e. `U @ U.T == U.T @ U == nd.la.eye(N)`.
-H: nd.Array[...,N,N]
-  An upper Hessemberg matrix, i.e. `nd.la.tril(H,-2) == 0`, such that `U @ H @ U.T == A`.
-</pre><h2 id="nd.la.bidiag_decomp">nd.la.bidiag_decomp</h2><pre>Computes the Upper Bidiagonal Decomposition of a matrix. Bidiagonal
-Decomposition is a common preprocessing step for the Singular Value
-Decomposition.
+transposed: NDArray
+  A transposed copy A of this NDArray, where:
+  `A[i[0], i[1], ...]  =  this[i[axes[0]], i[axes[1], ...]`
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([[1,2,3]])
+&gt;&gt;&gt; console.log( a.transpose() )
+  [[1],
+   [2],
+   [3]]
+
+&gt;&gt;&gt; let a = nd.array([ [[1,2,3], [4,5,6]], [[7,8,9], [10,11,12]] ])
+&gt;&gt;&gt; console.log( a.transpose(2).toString() )
+  [[[ 1,  4],
+    [ 7, 10]],
+   [[ 2,  5],
+    [ 8, 11]],
+   [[ 3,  6],
+    [ 9, 12]]]
+</pre><h2 id="nd.NDArray.reshape">nd.NDArray.reshape</h2><pre>Returns view of this NDArray with a different shape. This is similar
+to NumPy's reshape with a 'C'-order.
 
 Parameters
 ----------
-A: nd.Array[...,N,M]
-  The matrix for which the Upper Bidiagonal Decomposition is
-  computed.
+shape: ...int
+  The shape of the view. May contain a single -1 entry, in which case
+  the respective axis' size is inferred.
 
 Returns
 -------
-U: nd.Array[..., N, min(N,M)]
-  An orthognal rectangular matrix.
-B: nd.Array[..., min(N,M), N &gt;= M ? M : N+1 ]
-  An upper bidiagonal rectangular matrix.
-V: nd.Array[..., N &gt;= M ? M : N+1, M]
-  An orthogonal rectangular matrix. Such that `A = U @ B @ V @`
-</pre><h2 id="nd.la._svd_decomp_jac_1sided">nd.la._svd_decomp_jac_1sided</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.la._svd_decomp_jac_classic">nd.la._svd_decomp_jac_classic</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.la._svd_decomp_jac_round_robin">nd.la._svd_decomp_jac_round_robin</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.la.svd_decomp">nd.la.svd_decomp</h2><pre>Computes the Singular Value Decomposition (SVD) of a matrix.
+reshaped: NDArray
+  A reshaped view of this NDArray.
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([1,2,3,4,5,6,7,8,9])
+&gt;&gt;&gt; let b = a.reshape(3,-1)
+&gt;&gt;&gt; console.log( b.toString() )
+  [[1,2,3],
+   [4,5,6],
+   [7,8,9]]
+</pre><h2 id="nd.NDArray.reduceElems">nd.NDArray.reduceElems</h2><pre>Uses the given binary operator to reduce the entries of of this NDArray
+along the specified axes. If no axes are specified all entries are reduce
+to a single value and said value is returned instead of an NDArray.
 
 Parameters
 ----------
-A: nd.Array[...,N,M]
-  The matrix for which the SVD is computed.
+axes: int or int[]
+  [OPTIONAL] The axes along which the array is to be reduced. If not defined
+  the NDArray is reduced along all axes and a scalar value is returned instead
+  of an NDArray.
+dtype: String
+  The data type of the reduced NDArray. Has to be a super-dtype of the original
+  NDArray.
+reducer: (dtype,dtype) =&gt; dtype
+  The function used to reduce the entries along the axes.
 
 Returns
 -------
-U : nd.Array[...,N,min(N,M)]
-  An orthogonal, rectangular matrix.
-sv: nd.Array[..., min(N,M) ]
-  The singular values of A sorted in descending order.
-V : nd.Array[...,min(N,M),M]
-  An orthogonal, rectangular matrix, such that `A == U @ diag(sv) @ V`.
-</pre><h2 id="nd.la.schur_eigenvals">nd.la.schur_eigenvals</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.la.schur_eigen">nd.la.schur_eigen</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.la.eigen">nd.la.eigen</h2><pre>Returns the eigenpairs of a real non-symmetric square matrix.
+reduced: NDArray or dtype
+  The reduced NDArray if axes were specified or the reduced value id no
+  axes were specified.
+
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([
+...   [1,2,3],
+...   [4,5,6]
+... ])
+&gt;&gt;&gt; console.log( a.reduce( (x,y) =&gt; x+y ) )
+  21
+
+
+&gt;&gt;&gt; console.log( a.reduce( [0,1], (x,y) =&gt; x+y ) )
+  { [NDArray: self] shape: [], data: [21] }
+
+&gt;&gt;&gt; console.log( a.reduce( 0, (x,y) =&gt; x+y ).toString() )
+  [5,7,9]
+
+&gt;&gt;&gt; console.log( a.reduce( [1], (x,y) =&gt; x+y ).toString() )
+  [6,15]
+</pre><h2 id="nd.NDArray.sliceElems">nd.NDArray.sliceElems</h2><pre>Extracts a sub-region specified by combination of indices, ranges, newaxis symbols.
 
 Parameters
 ----------
-A: nd.Array[...,N,N]
-  The non-symmetric real squre matrix for which the eigenvalues are computed.
+slices: int or nd.newaxis or nd.ellipsis or [start,stop,step]
+  The slices to be taken along each axis, e.g 3 would only take the fourth entries
+  along an axis, [,,] would take all elements along and axis, [1,,] would take all
+  but the first entries along an axis, [,,3] would take ever third element along
+  an axis, [,-1,] would take all but the last entries along an axis, nd.newaxis
+  would insert a new axis of size 1.
+
+  nd.ellipsis can be used to fill up with [,,] for the remaining axes.
 
 Returns
 -------
-Λ: nd.Array[...,N]
-  A matrix containing all eigenvalues.
-V: nd.Array[...,N,N]
-  A matrix containing the eigenvectors corresponding to Λ as columns, i.e.:
-  `Λ[i]*V[j,i] == (A @ V)[j,i]`.
-  The columns are normalized using the 2-norm. 
-</pre><h2 id="nd.la.schur_decomp">nd.la.schur_decomp</h2><pre>Computes the (real) Schur Decomposition of a matrix. The
-Schur Decomposition is used to compute the Eigenvalues and
-Eigenvectors.
+sliced: NDArray
+  A sliced subregion of this NDArray.
 
-Parameters
-----------
-A: nd.Array[...,N,N]
+Examples
+--------
+&gt;&gt;&gt; let a = nd.array([
+...   [11,12,13,14],
+...   [21,22,23,24],
+...   [31,32,33,34]
+... ])
+&gt;&gt;&gt; console.log( a.sliceElems('...', -2).toString() )
+  [13, 23, 33]
 
-Returns
--------
-Q: nd.Array[...,N,N]
-  An orthogonal square matrix.
-T: nd.Array[...,N,N]
-  An upper quasi-triangular matrix, such that `Q @ T @ Q.T == A`.
-  The diagonal of T consists of 2x2 blocks that represent complex
-  eigenpairs and 1x1 matrix that represent a real eigenvalue.
-</pre><h2 id="nd.la._schur_preprocess_balance">nd.la._schur_preprocess_balance</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.la._schur_preprocess_balance_inf">nd.la._schur_preprocess_balance_inf</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.la._schur_decomp_unbalance_INPLACE">nd.la._schur_decomp_unbalance_INPLACE</h2><pre><doc n="" a=""></doc></pre><h2 id="nd.la._schur_decomp_qrfrancis_INPLACE">nd.la._schur_decomp_qrfrancis_INPLACE</h2><pre><doc n="" a=""></doc></pre></body></html>
+&gt;&gt;&gt; console.log( a.sliceElems([,,2]).toString() )
+  [[11,12,13,14],
+   [31,32,33,34]]
+
+&gt;&gt;&gt; console.log( a.sliceElems(2,[1,3,]).toString() )
+  [32,33]
+</pre><h2 id="nd.dt.Complex.length_STATIC">nd.dt.Complex.length [STATIC]</h2><pre>No documentation available.</pre><h2 id="nd.dt.Complex.name_STATIC">nd.dt.Complex.name [STATIC]</h2><pre>No documentation available.</pre><h2 id="nd.dt.Complex.prototype_STATIC">nd.dt.Complex.prototype [STATIC]</h2><pre>No documentation available.</pre><h2 id="nd.dt.Complex.constructor">nd.dt.Complex.constructor</h2><pre>Rudimentary implementation of the Complex number type, used
+mainly for the calculation of eigenvalues. Other than that,
+complex dtype is not yet supported in NDJS.
+</pre><h2 id="nd.dt.Complex.add">nd.dt.Complex.add</h2><pre>No documentation available.</pre><h2 id="nd.dt.Complex.sub">nd.dt.Complex.sub</h2><pre>No documentation available.</pre><h2 id="nd.dt.Complex.mul">nd.dt.Complex.mul</h2><pre>No documentation available.</pre><h2 id="nd.dt.Complex.div">nd.dt.Complex.div</h2><pre>No documentation available.</pre><h2 id="nd.dt.Complex.equals">nd.dt.Complex.equals</h2><pre>No documentation available.</pre><h2 id="nd.dt.Complex.abs">nd.dt.Complex.abs</h2><pre>No documentation available.</pre><h2 id="nd.dt.Complex.arg">nd.dt.Complex.arg</h2><pre>No documentation available.</pre><h2 id="nd.dt.Complex.conj">nd.dt.Complex.conj</h2><pre>No documentation available.</pre><h2 id="nd.dt.Complex.toFixed">nd.dt.Complex.toFixed</h2><pre>No documentation available.</pre><h2 id="nd.dt.Complex.sqrt">nd.dt.Complex.sqrt</h2><pre>No documentation available.</pre><h2 id="nd.dt.Complex.toString">nd.dt.Complex.toString</h2><pre>No documentation available.</pre><h2 id="nd.dt.Complex.valueOf">nd.dt.Complex.valueOf</h2><pre>No documentation available.</pre></body></html>
