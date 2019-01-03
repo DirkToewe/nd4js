@@ -21,6 +21,73 @@ import {ARRAY_TYPES, super_dtype} from '../dt'
 import math from '../math'
 
 
+const [
+  matmul2_RR,
+  matmul2_RC,
+  matmul2_CR,
+  matmul2_CC,
+  matmul2_ELSE
+] = function*(){
+  const mk_matmul2 = addProduct => new Function(
+    'A_shape', 'A',
+    'B_shape', 'B',
+    'C_shape', 'C',
+    `
+       const I = A_shape[A_shape.length-2],
+             K = A_shape[A_shape.length-1],
+             J = B_shape[B_shape.length-1]
+    
+       let
+        a = 0, aStride = 1,
+        b = 0, bStride = 1,
+        c = 0;
+    
+      const loops = new Int32Array(C_shape.length-2);
+      for( let d=0; d >= 0; )
+        if( d === C_shape.length-2 ) {
+          aStride = I*K;
+          bStride = K*J;
+          for( const cEnd = c + I*J; c < cEnd; c += J, b -= bStride ) 
+          for( const aEnd = a + K  ; a < aEnd; c -= J, a++ ) 
+          for( const bEnd = b +   J; b < bEnd; c += 1, b++ )
+            ${addProduct}
+          b += bStride;
+          d -= 1;
+        }
+        else
+        {
+          if( loops[d]++ > 0 ) {
+            if( loops[d] > C_shape[d] ) {
+              aStride *= A_shape[ d - C_shape.length + A_shape.length ] || 1;
+              bStride *= B_shape[ d - C_shape.length + B_shape.length ] || 1;
+              loops[d--] = 0;
+              continue;
+            }
+            if( ! (A_shape[ d - C_shape.length + A_shape.length ] > 1) ) a -= aStride;
+            if( ! (B_shape[ d - C_shape.length + B_shape.length ] > 1) ) b -= bStride;
+          }
+          ++d;
+        }
+    `
+  )
+
+  yield mk_matmul2('C[c] += A[a]*B[b]')
+  yield mk_matmul2(`{
+    C[2*c+0] += A[a] * B[2*b+0];
+    C[2*c+1] += A[a] * B[2*b+1];
+  }`)
+  yield mk_matmul2(`{
+    C[2*c+0] += B[b] * A[2*a+0];
+    C[2*c+1] += B[b] * A[2*a+1];
+  }`)
+  yield mk_matmul2(`{
+    C[2*c+0] += B[2*b+0] * A[2*a+0]  -  B[2*b+1] * A[2*a+1];
+    C[2*c+1] += B[2*b+0] * A[2*a+1]  +  B[2*b+1] * A[2*a+0];
+  }`)
+  yield mk_matmul2('C[c] = this.math.add(C[c], this.math.mul(A[a],B[b]))').bind({math})
+}()
+
+
 export function matmul2(a,b)
 {
   a = asarray(a)
@@ -50,45 +117,33 @@ export function matmul2(a,b)
 
   // GENERATE RESULT DATA
   const DTypeArray = ARRAY_TYPES[super_dtype(a.dtype,b.dtype)];
-  const C = new DTypeArray( shape.reduce((a,b) => a*b, 1) );
-  C.fill(0.0);
 
-  const
-    A = a.data,
-    B = b.data;
-  let
-    aOff = 0, aStride = 1,
-    bOff = 0, bStride = 1,
-    cOff = 0;
+  // INTEGER TYPE ID (0: scalar, 1: complex, 2: object)
+  const c = new DTypeArray( shape.reduce((m,n) => m*n, 1) );
+  if( c instanceof Array )
+    c.fill(0)
 
-  const loops = new Int32Array(ndim-2);
-  for( let d=0; d >= 0; )
-    if( d === ndim-2 ) {
-      aStride = I*K;
-      bStride = K*J;
-      for( const cEnd = cOff + I*J; cOff < cEnd; cOff += J, bOff -= bStride ) 
-      for( const aEnd = aOff + K  ; aOff < aEnd; cOff -= J, aOff++ ) 
-      for( const bEnd = bOff +   J; bOff < bEnd; cOff += 1, bOff++ )
-        C[cOff] = math.add( C[cOff], math.mul(A[aOff],B[bOff]) );
-      bOff += bStride;
-      d -= 1;
+  let pairing = 0
+  for( const ab of [a,b] ) {
+    pairing *= 3
+    switch(ab.dtype) {
+      default          : pairing += 1
+      case 'complex128': pairing += 1
+      case      'int32':
+      case    'float32':
+      case    'float64':
     }
-    else
-    {
-      if( loops[d]++ > 0 ) {
-        if( loops[d] > shape[d] ) {
-          aStride *= a.shape[ d - ndim + a.ndim ] || 1;
-          bStride *= b.shape[ d - ndim + b.ndim ] || 1;
-          loops[d--] = 0;
-          continue;
-        }
-        if( ! (a.shape[ d - ndim + a.ndim ] > 1) ) aOff -= aStride;
-        if( ! (b.shape[ d - ndim + b.ndim ] > 1) ) bOff -= bStride;
-      }
-      ++d;
-    }
+  }
+  switch(pairing)
+  {
+    case 0 : matmul2_RR  (a.shape, a.data       , b.shape, b.data       , shape, c       ); break
+    case 1 : matmul2_RC  (a.shape, a.data       , b.shape, b.data._array, shape, c._array); break
+    case 3 : matmul2_CR  (a.shape, a.data._array, b.shape, b.data       , shape, c._array); break
+    case 4 : matmul2_CC  (a.shape, a.data._array, b.shape, b.data._array, shape, c._array); break
+    default: matmul2_ELSE(a.shape, a.data       , b.shape, b.data       , shape, c       ); break
+  }
 
-  return new NDArray(shape,C);
+  return new NDArray(shape,c);
 }
 
 

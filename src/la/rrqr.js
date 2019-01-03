@@ -46,7 +46,7 @@ export function _rrqr_rank(M,N, R,R_off, tmp)
       }
     }
 
-    tmp[i] = isFinite(max) ? Math.sqrt(sum)*max : max
+    tmp[i] = Math.sqrt(sum)*max
     if( ! isFinite(tmp[i]) )
       throw new Error('Infinity or NaN encountered during rank estimation.')
   }
@@ -175,7 +175,7 @@ export function rrqr_decomp_full(A)
         }
 
         // ROTATE i AND j IN Q
-        for( let k=0; k <= j; k++ ) { // <- FIXME there's some optimization potential here
+        for( let k=0; k <= j; k++ ) {
           const jk = Q_off + M*j+k, Q_jk = Q[jk],
                 ik = Q_off + M*i+k, Q_ik = Q[ik];
           Q[jk] = c*Q_jk - s*Q_ik;

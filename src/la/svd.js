@@ -168,9 +168,6 @@ export function svd_lstsq(U,sv,V, y)
         }
         return M
       }()
-      if( R !== M )
-        throw new Error('Assertion failed.')
-
       // SEE: Gene H. Golub, Charles F. Van Golub
       //     "Matrix Computations", 4th edition
       //      Page 260f, Chap. 5.3.1 (Implications of Full Rank)

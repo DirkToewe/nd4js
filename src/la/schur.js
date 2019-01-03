@@ -157,7 +157,7 @@ export function schur_eigen(Q,T)
         v1 = new ComplexArray(N),
         v2 = new ComplexArray(N);
 
-  const TOL = Number.EPSILON*N;
+  let TOL = NaN
 
   /** Computes indices j < J of an eigenvector v using backward substition (see amazing UTF-8 art above).
    */
@@ -174,8 +174,8 @@ export function schur_eigen(Q,T)
         // 1x1 BLOCK
        //
         const V_jj = math.sub( V[V_off + N*j+j], λ );
-        if( V_jj == 0 ) {
-          if( math.is_close(v[j],0) ) { // <- FIXME find a better estimation of near-zeroness (e.g. the norm of the summands?)
+        if( math.abs(V_jj) <= TOL ) {   // <- TODO
+          if( math.abs(v[j]) <= TOL ) { // <- TODO add test case for this zeroness test
             // v is already a valid eigenvalue, let's return it
             v[j] = 0;
             return;
@@ -213,6 +213,24 @@ export function schur_eigen(Q,T)
   for( let Λ_off=0; V_off < V.length; V_off += N*N,
                                       Λ_off += N )
   {
+    TOL = Math.sqrt(Number.EPSILON) * function(){
+      // compute Frobenius norm
+      let sum=0,
+          max=0
+      const iEnd = V_off + N*N
+      for( let i=V_off; i < iEnd; i++ )
+      {
+        const elem = math.abs(V[i]);
+        if(   elem != 0 ) { // <- handles NaN (by making the result NaN)
+          if( elem > max ) {
+            sum *= (max/elem)**2; max = elem
+          } sum += (elem/max)**2
+        }
+      }
+      return Math.sqrt(sum)*max
+    }();
+    if( ! (TOL >= 0) )
+      throw new Error('Assertion failed.')
 
     // COMPUTE EIGENVECTORS (right -> left)
     for( let j=N-1; j >= 0; j-- )
@@ -495,7 +513,7 @@ function schur_qrfrancis_inplace(Q,H)
       //      Description of the QR Algorithm for Hessenberg Matrices
       //      http://numerical.recipes/webnotes/nr3web16.pdf
       if( stuck_o_meter % 16 == 0 ) {
-        if( stuck_o_meter > 1024*1024 ) throw new Error('Too many iterations for a single eigenvalue.');
+        if( stuck_o_meter > 1e9 ) throw new Error('Too many iterations for a single eigenvalue.');
         tr  = Math.abs(h(j,i)) + Math.abs(h(i,end-3))
         det = tr*tr
         tr *= Math.random()*0.5 + 1.25

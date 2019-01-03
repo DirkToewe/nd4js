@@ -1356,8 +1356,8 @@ Given the QR Decompostion and the right hand side of a full-rank
 linear equation system, this method solves it. If the Linear
 Equation System is under-determined, the Linear Least Square
 solution is computed. This method is no suited for rank-deficient
-or over-determined systems, in which case \`rrqr_lstsq\` or
-\`svd_decomp\` can be used instead.
+or under-determined systems, in which case \`rrqr_lstsq\` or
+\`svd_lstsq\` can be used instead.
 
 Parameters
 ----------

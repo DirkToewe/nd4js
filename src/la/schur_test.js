@@ -25,12 +25,74 @@ import {matmul, matmul2} from './matmul'
 import {eye} from './eye'
 import math from '../math'
 import {zip_elems} from '../zip_elems'
+import {rank} from './rank'
+import {qr_decomp,
+        qr_lstsq} from './qr'
+import {NDArray} from '../nd_array'
+import {tril_solve} from './tri'
 
 
 describe('schur', () => {
   beforeEach( () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
+
+
+  forEachItemIn(
+    function*(){
+      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
+
+      for( let run=1024; run-- > 0; )
+      {
+        const N = randInt(1,16),
+          shape = Array.from({length: randInt(0,3)}, () => randInt(1,8) )
+        shape.push(N,N)
+  
+        const [Q,_]= qr_decomp( tabulate(shape, 'float64', () => Math.random()*2-1) ),
+                 R = tabulate(shape, 'float64', (...idx) => {
+                   const j=idx.pop(),
+                         i=idx.pop()
+                   if( i > j ) return 0
+                   if( i===j ) return (Math.random()*1 + 0.5) * (Math.random() < 0.5 ? -1 : +1)
+                   return Math.random()*0.4 - 0.2
+                 })
+
+        const Λ = new NDArray(
+          Int32Array.from(shape),
+          Float64Array.from(
+            function*(){
+              for( let k=shape.slice(0,-2).reduce(math.mul,1); k-- > 0; )
+              {
+                const ev = Float64Array.from(
+                  {length: randInt(1,N)},
+                  () => (Math.random()*1 + 0.5) * (Math.random() < 0.5 ? -1 : +1)
+                )
+
+                for( let i=0; i < N; i++ )
+                for( let j=0; j < N; j++ )
+                  if( i===j ) yield ev[Math.trunc(Math.random()*ev.length)]
+                  else        yield 0
+              }
+            }()
+          )
+        )
+
+        // T = R @ Λ @ inv(R)
+        const T = tril_solve(R.T, matmul2(R,Λ).T).T
+
+        yield [Q,T]
+      }
+    }()
+  ).it('schur_eigen works on random examples with repeated eigenvalues and full set of eigenvectors', ([Q,T]) => {
+    let [N] = Q.shape.slice(-1),
+      [Λ,V] = schur_eigen(Q,T)
+
+    expect( V.mapElems('float64',c=>c.im) ).toBeAllCloseTo(0)
+    V = V.mapElems('float64',c=>c.re)
+
+    expect( rank(V) ).toBeAllCloseTo(N, {rtol:0,atol:0})
+  })
+
 
   forEachItemIn(
     function*(){
@@ -69,6 +131,7 @@ describe('schur', () => {
     expect(a).toBeAllCloseTo(A)
   })
 
+
   forEachItemIn(
     function*(){
       const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
@@ -106,6 +169,7 @@ describe('schur', () => {
     const λv = zip_elems([V,Λ.reshape(...Λ.shape.slice(0,-1),1,-1)], 'complex128', math.mul)
     expect(AV).toBeAllCloseTo(λv)
   })
+
 
   forEachItemIn(
     function*(){

@@ -18,9 +18,11 @@
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {matmul, matmul2} from './matmul'
-import {array} from '../nd_array'
+import {array, NDArray} from '../nd_array'
 import {zip_elems} from '../zip_elems'
 import {tabulate} from '../tabulate'
+import {Complex128Array} from '../dt/complex_array'
+import math from '../math'
 
 
 describe('matmul', () => {
@@ -60,49 +62,6 @@ describe('matmul', () => {
     ))
   })
 
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
-
-      for( let run=1024; run-- > 0; )
-      {
-        let cShape = Int32Array.from({ length: randInt(2,8) }, () => randInt(1,8) ),
-            aShape = cShape.slice(),
-            bShape = cShape.slice( randInt(0,cShape.length-2) );
-    
-        for( let a=aShape.length-2, b=bShape.length-2; a-- > 0 && b-- > 0; )
-          switch( randInt(0,3) )
-          {
-            case 0: break;
-            case 1: aShape[a] = 1; break;
-            case 2: bShape[b] = 1; break;
-          }
-    
-        if( Math.random() < 0.5 ) {
-          const tmp = aShape; aShape = bShape; bShape = tmp;
-        }
-        aShape[aShape.length-2] = randInt(1,5)
-        aShape[aShape.length-1] = bShape[bShape.length-2]
-        bShape[bShape.length-1] = randInt(1,5)
-    
-        yield [
-          tabulate(aShape, 'float64', () => Math.random()*2 - 1 ),
-          tabulate(bShape, 'float64', () => Math.random()*2 - 1 )
-        ]
-      }
-    }()
-  ).it('matmul2 works on random examples', ([a,b]) => {
-    const c = matmul2(a,b),
-          C = zip_elems([
-            a.sliceElems('...','new'),
-            b.sliceElems('...','new',[],[])
-          ], 'float64', (x,y) => x*y ).reduceElems([-2], (x,y) => x+y )
-
-    expect(c.shape).toEqual(C.shape)
-    expect(c.dtype).toBe('float64')
-    expect(c).toBeAllCloseTo(C)
-  })
-
   it('matmul works on example triple of shapes [1,4], [4,3], [3,2]', () => {
     const a = array([[1,2,3,4]]),
           b = array([[11,12,13],
@@ -118,4 +77,57 @@ describe('matmul', () => {
      expect(abc.shape).toEqual(ABC.shape)
      expect(abc).toBeAllCloseTo(ABC)
   })
+
+  for( const dtype1 of ['float64', 'complex128'] )
+  for( const dtype2 of ['float64', 'complex128'] )
+    forEachItemIn(
+      function*(){
+        const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
+  
+        for( let run=1024; run-- > 0; )
+        {
+          let cShape = Int32Array.from({ length: randInt(2,8) }, () => randInt(1,8) ),
+              aShape = cShape.slice(),
+              bShape = cShape.slice( randInt(0,cShape.length-2) );
+      
+          for( let a=aShape.length-2, b=bShape.length-2; a-- > 0 && b-- > 0; )
+            switch( randInt(0,3) )
+            {
+              case 0: break;
+              case 1: aShape[a] = 1; break;
+              case 2: bShape[b] = 1; break;
+            }
+      
+          if( Math.random() < 0.5 ) {
+            const tmp = aShape; aShape = bShape; bShape = tmp;
+          }
+          aShape[aShape.length-2] = randInt(1,5)
+          aShape[aShape.length-1] = bShape[bShape.length-2]
+          bShape[bShape.length-1] = randInt(1,5)
+
+          let a = Float64Array.from({length: aShape.reduce(math.mul,1)*(dtype1==='complex128' ? 2 : 1)}, ()=>Math.random()*2-1),
+              b = Float64Array.from({length: bShape.reduce(math.mul,1)*(dtype2==='complex128' ? 2 : 1)}, ()=>Math.random()*2-1)
+          if( dtype1==='complex128' ) a = new Complex128Array(a.buffer)
+          if( dtype2==='complex128' ) b = new Complex128Array(b.buffer)
+          yield [
+            new NDArray(aShape, a),
+            new NDArray(bShape, b)
+          ]
+        }
+      }()
+    ).it(`matmul2 works on random examples with dtypes ${dtype1} and ${dtype2}`, ([a,b]) => {
+      expect(a.dtype).toBe(dtype1)
+      expect(b.dtype).toBe(dtype2)
+      const dtype3 = dtype1==='complex128'
+                  || dtype2==='complex128' ? 'complex128' : 'float64',
+            c = matmul2(a,b),
+            C = zip_elems([
+              a.sliceElems('...','new'),
+              b.sliceElems('...','new',[],[])
+            ], dtype3, math.mul).reduceElems([-2], math.add)
+  
+      expect(c.shape).toEqual(C.shape)
+      expect(c.dtype).toBe(dtype3)
+      expect(c).toBeAllCloseTo(C)
+    })
 })

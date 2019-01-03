@@ -372,7 +372,62 @@ describe('rrqr', () => {
         ]
       }
     }()
-  ).it('rrqr_lstsq solves least squares for random rank-deficient examples', ([A,y]) => {
+  ).it('rrqr_lstsq+rrqr_decomp solves least squares for random rank-deficient examples', ([A,y]) => {
+//    console.log('SHAPES:', [...A.shape], [...y.shape])
+    const [Q,R,P]= rrqr_decomp(A),
+             x   = rrqr_lstsq(Q,R,P, y),
+            Ax   = matmul2(A,x)
+  
+    expect( matmul2(A.T, zip_elems([Ax,y], math.sub) ) ).toBeAllCloseTo(0)
+  })
+
+
+  forEachItemIn(
+    function*(){
+      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
+
+      for( let run=1024; run-- > 0; )
+      {
+        let ndim = randInt(0,5),
+          shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
+        shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
+
+        for( let d=ndim; d > 0; d-- )
+        for( let i=randInt(0,2); i-- > 0; ) {
+          const    shape = shapes[randInt(0,2)],
+               j = shape.length - d
+          if(0<=j) shape[j] = 1
+        }
+
+        let M = randInt(1,32),
+            N = randInt(1,32),
+            J = randInt(1,32),
+            L = Math.min(M,N)
+
+        const A = tabulate(shapes[0], () => {
+          const r  = randInt(0,L),
+             [Q,_] = qr_decomp( tabulate([M,N], 'float64', () => Math.random()*2-1) ),
+                R  = tabulate([L,N], 'float64', (i,j) => {
+                       if(r <= i || j < i) return 0
+                       if(j == i) return (0.5 + Math.random()) * (randInt(0,2)*2 - 1)
+                       return Math.random()*0.5 - 0.25
+                     })
+          return matmul2(Q,R)
+        })
+
+        shapes[0].push(M,N)
+        shapes[1].push(M,J)
+
+        yield [
+          new NDArray(
+              Int32Array.from(shapes[0]),
+            Float64Array.from( function*(){ for( const a of A.data ) yield* a.data }() )
+          ),
+          tabulate(shapes[1],'float64', () => Math.random()*2-1)
+        ]
+      }
+    }()
+  ).it('rrqr_lstsq+rrqr_decomp_full solves least squares for random rank-deficient examples', ([A,y]) => {
 //    console.log('SHAPES:', [...A.shape], [...y.shape])
     const [Q,R,P]= rrqr_decomp_full(A),
              x   = rrqr_lstsq(Q,R,P, y),

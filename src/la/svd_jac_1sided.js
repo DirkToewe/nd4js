@@ -113,7 +113,7 @@ export function svd_jac_1sided(A)
   )
   {
     // [STEP 1] determine numerical rank of R
-    const RANK = _rrqr_rank(N,M, R,R_off, tmp) // <- FIXME use tmp instead
+    const RANK = _rrqr_rank(N,M, R,R_off, tmp)
 
     // [STEP 2] eliminate the right-most, rank-deficient columns of R, then only perform the Jacobi SVD on the upper left square part
     for( let i=M   ; i-- > RANK; ) { // <- columns that are to be eliminated

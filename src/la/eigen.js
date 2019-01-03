@@ -16,7 +16,8 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {schur_decomp, schur_eigen} from './schur'
+import {schur_decomp,
+        schur_eigen} from './schur'
 import {asarray, NDArray} from '../nd_array'
 import {ARRAY_TYPES} from '../dt'
 import {zip_elems} from '../zip_elems'
@@ -25,8 +26,52 @@ import math from '../math'
 
 export function eigen(A)
 {
-  const [Q,T] = schur_decomp(A);
-  return schur_eigen(Q,T);
+  const [D,B]= eigen_balance_pre(A,2),
+        [Q,T]= schur_decomp(B),
+        [Λ,V]= schur_eigen(Q,T)
+
+  if( ! V.dtype.startsWith('complex') ) throw new Error('Assertion failed.')
+  if( ! D.dtype.startsWith('float'  ) ) throw new Error('Assertion failed.')
+
+  const N = A.shape[A.ndim-1],
+        norm_sum = new Float64Array(N),
+        norm_max = new Float64Array(N),
+        V_dat = V.data._array,
+        D_dat = D.data
+
+  // UNDO BALANCING
+  
+  for( let D_off=0,  V_off=0;
+                     V_off < V_dat.length;
+           D_off+=N, V_off += 2*N*N )
+  {
+    norm_sum.fill(0)
+    norm_max.fill(0)
+    // SCALE ROWS & COMPUTE SCALED COLUMN NORMS
+    for( let i=0; i <   N; i++ ) { const D_i = D_dat[D_off + i]
+    for( let j=0; j < 2*N; j++ ) {
+      // scale row
+      const V_ij = Math.abs(V_dat[V_off + 2*N*i+j] *= D_i)
+      // update norm
+      if(   V_ij > 0 ) {
+        const k = j>>1
+        if( V_ij > norm_max[k] ) {
+          norm_sum[k] *= (norm_max[k]/V_ij)**2; norm_max[k]  = V_ij
+        } norm_sum[k] += (V_ij/norm_max[k])**2
+      }
+    }}
+    for( let j=0; j < N; j++ ) {
+      let max = norm_max[j];
+      norm_sum[j] = isFinite(max) ? Math.sqrt(norm_sum[j])*max : max;
+    }
+
+    // NORMALIZE COLUMNS
+    for( let i=0; i <   N; i++ )
+    for( let j=0; j < 2*N; j++ )
+      V_dat[V_off + 2*N*i+j] /= norm_sum[j>>1]
+  }
+
+  return [Λ,V]
 }
 
 
@@ -59,7 +104,7 @@ export function eigen_balance_pre(A,p)
       // COMPUTE ROW AND COLUMN NORM
       for( let j=0; j < N; j++ )
 //        if(true)
-        if( i != j )
+        if( i !== j )
         {{const A_ij = Math.abs(A[A_off + N*i+j]);
           if(   A_ij > 0 ) {
             if( A_ij > r_max ) {
@@ -134,12 +179,12 @@ function eigen_balance_pre_inf(A)
           r=0.0;
       // COMPUTE ROW AND COLUMN NORM
       for( let j=0; j < N; j++ )
-        if( i != j ) {
+        if( i !== j ) {
           const A_ij = Math.abs(A[A_off + N*i+j]); r = Math.max(r,A_ij);
           const A_ji = Math.abs(A[A_off + N*j+i]); c = Math.max(c,A_ji);
         }
 
-      if( r*c == 0.0 ) continue;
+      if( r*c === 0.0 ) continue;
       let old_norm = Math.max(c,r);
       if( old_norm == 0.0 ) continue;
       if( ! isFinite(old_norm) ) throw new Error('NaN encountered.');
@@ -175,7 +220,7 @@ export function eigen_balance_post(D,V)
   const [M,N]= V.shape.slice(-2)
   if( M !== N ) throw new Error('eigen_balance_post(D,V): V must be square.')
 
-  const DTypeArray = ARRAY_TYPES['complex128'],
+  const DTypeArray = ARRAY_TYPES['float64'],
       V_arr = zip_elems([V,D.reshape(...D.shape,1)], 'complex128', math.mul)
   V = V_arr.data
 
@@ -193,10 +238,8 @@ export function eigen_balance_post(D,V)
       const V_ij = math.abs(V[off + N*i+j])
       if(   V_ij > 0 ) {
         if( V_ij > norm_max[j] ) {
-          norm_sum[j] *= (norm_max[j]/V_ij)**2
-          norm_max[j]  = V_ij
-        }
-        norm_sum[j] += (V_ij/norm_max[j])**2
+          norm_sum[j] *= (norm_max[j]/V_ij)**2; norm_max[j]  = V_ij
+        } norm_sum[j] += (V_ij/norm_max[j])**2
       }
     }
     for( let j=0; j < N; j++ ) {

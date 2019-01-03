@@ -60,7 +60,9 @@ export function hessenberg_decomp(A)
           }
         }
         row_norm = isFinite(norm_max) ? Math.sqrt(norm_sum)*norm_max : norm_max;
-        w[i-1] -= row_norm;
+        if( w[i-1] > 0 )
+          row_norm *= -1 // <- avoid losing signifciance (other people do, so ... I should do it as well) TODO verify usefulness
+        w[i-1] -= row_norm
         norm_sum = 0.0;
         norm_max = 0.0;
         for( let j=i; j-- > 0; ) {

@@ -17,12 +17,11 @@
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
+import {array} from '../nd_array'
 import {tabulate} from '../tabulate'
-import {matmul2} from './matmul'
-import {eye} from './eye'
+import {matmul, matmul2} from './matmul'
 import math from '../math'
 import {zip_elems} from '../zip_elems'
-
 import {eigen,
         eigen_balance_pre,
         eigen_balance_post} from './eigen'
@@ -33,7 +32,88 @@ describe('eigen', () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
 
+
+  for( const P of [2,Infinity])
+    it(`eigen_balance_pre (p=${isFinite(P) ? P : '∞'}) works on example of shape [2,2]`, () => {
+      const A = array([[1,1],
+                       [3,2]]);
+      for( const P of [Infinity])
+      {
+        const [_,B]= eigen_balance_pre(A,Infinity),
+            absMax = (x,y) => Math.max( Math.abs(x), Math.abs(y) ),
+            before = A.reduceElems(absMax),
+            after  = B.reduceElems(absMax)
+        expect(after).toBeLessThan(before)
+      }
+    })
+
+
+  for( const P of [2,Infinity])
+    it(`eigen_balance_pre (p=${isFinite(P) ? P : '∞'}) works on example of shape [3,3]`, () => {
+      const A = array([[ 1, 1,-3],
+                       [ 4, 2, 2],
+                       [ 1, 0, 2]]);
+      for( const P of [Infinity])
+      {
+        const [_,B]= eigen_balance_pre(A,Infinity),
+            absMax = (x,y) => Math.max( Math.abs(x), Math.abs(y) ),
+            before = A.reduceElems(absMax),
+            after  = B.reduceElems(absMax)
+        expect(after).toBeLessThan(before)
+      }
+    })
+
+
+  for( const P of [2,Infinity] )
+    forEachItemIn(
+      function*(){
+        const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
   
+        for( let run=1024; run-- > 0; )
+        {
+          const N = randInt(1,32),
+            shape = Array.from({length: randInt(0,3)}, () => randInt(1,8) )
+          shape.push(N,N)
+    
+          let A = tabulate(shape, 'float64', (...idx) => {
+            const [i,j] = idx.slice(-2)
+            if( Math.random() < 0.1 )
+              return 0
+            if( i > j ) return Math.random()*2.0 - 1.0
+            else        return Math.random()*0.2 - 0.1
+          })
+          if( Math.random < 0.5 )
+            A = A.T
+          Object.freeze(A.data.buffer)
+          yield A
+        }
+      }()
+    ).it(`eigen_balance_pre (p=${isFinite(P) ? P : '∞'}) works on random examples`, A => {
+
+      if( P !== 2 && isFinite(P) )
+        throw new Error('Assertion failed.')
+      const norm = P===2
+        ? math.hypot
+        : (x,y) => math.max( math.abs(x), math.abs(y) )
+
+      const [D,S] = eigen_balance_pre(A,P)
+      expect(A.shape).toEqual(S.shape)
+
+      const before= A.reduceElems(norm),
+            after = S.reduceElems(norm)
+      expect(after).not.toBeGreaterThan(before)
+  
+      const a = zip_elems(
+        [D.reshape(...D.shape,1), S,
+         D.reshape(...D.shape.slice(0,-1),1,-1)],
+        'float64',
+        (D_i,S_ij,D_j) => D_i * S_ij / D_j
+      );
+  
+      expect(a).toBeAllCloseTo(A,{rtol:0, atol:0})
+    })
+
+    
   forEachItemIn(
     function*(){
       const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
@@ -41,11 +121,18 @@ describe('eigen', () => {
       for( let run=1024; run-- > 0; )
       {
         const N = randInt(1,16),
-           ndim = randInt(2, 5),
-          shape = Array.from({ length: ndim-2 }, () => randInt(1,8) )
+          shape = Array.from({length: randInt(0,3)}, () => randInt(1,8) )
         shape.push(N,N)
-
-        const A = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1)
+  
+        let A = tabulate(shape, 'float64', (...idx) => {
+          const [i,j] = idx.slice(-2)
+          if( Math.random() < 0.1 )
+            return 0
+          if( i > j ) return Math.random()*2.0 - 1.0
+          else        return Math.random()*0.2 - 0.1
+        })
+        if( Math.random < 0.5 )
+          A = A.T
         Object.freeze(A.data.buffer)
         yield A
       }
@@ -78,83 +165,19 @@ describe('eigen', () => {
 
       for( let run=1024; run-- > 0; )
       {
-        const N = randInt(1,32),
-           ndim = randInt(2, 5),
-          shape = Array.from({ length: ndim-2 }, () => randInt(1,8) )
-        shape.push(N,N)
-
-        const A = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1)
-        Object.freeze(A.data.buffer)
-        yield A
-      }
-    }()
-  ).it('eigen_balance_pre works on random examples (p=2)', A => {
-    const [D,S]= eigen_balance_pre(A,2),
-         before= A.reduceElems('float64', math.hypot),
-         after = S.reduceElems('float64', math.hypot)
-    expect(after).not.toBeGreaterThan(before);
-
-    const a = zip_elems(
-      [D.reshape(...D.shape,1), S,
-       D.reshape(...D.shape.slice(0,-1),1,-1)],
-      'float64',
-      (D_i,S_ij,D_j) => D_i * S_ij / D_j
-    );
-
-    expect(a).toBeAllCloseTo(A,{rtol:0, atol:0})
-  })
-
-
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
-      for( let run=1024; run-- > 0; )
-      {
-        const N = randInt(1,32),
-           ndim = randInt(2, 5),
-          shape = Array.from({ length: ndim-2 }, () => randInt(1,8) )
-        shape.push(N,N)
-
-        const A = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1)
-        Object.freeze(A.data.buffer)
-        yield A
-      }
-    }()
-  ).it('eigen_balance_pre works on random examples (p=∞)', A => {
-    const absMax = (x,y) => math.max(
-      math.abs(x),
-      math.abs(y)
-    )
-
-    const [D,S]= eigen_balance_pre(A,Infinity),
-         before= A.reduceElems('float64', absMax),
-         after = S.reduceElems('float64', absMax)
-    expect(after).not.toBeGreaterThan(before);
-
-    const a = zip_elems(
-      [D.reshape(...D.shape,1), S,
-       D.reshape(...D.shape.slice(0,-1),1,-1)],
-      'float64',
-      (D_i,S_ij,D_j) => D_i * S_ij / D_j
-    );
-
-    expect(a).toBeAllCloseTo(A,{rtol:0, atol:0})
-  })
-
-
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
-      for( let run=1024; run-- > 0; )
-      {
         const N = randInt(1,16),
-           ndim = randInt(2, 5),
-          shape = Array.from({ length: ndim-2 }, () => randInt(1,8) )
+          shape = Array.from({length: randInt(0,3)}, () => randInt(1,8) )
         shape.push(N,N)
-
-        const A = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1)
+  
+        let A = tabulate(shape, 'float64', (...idx) => {
+          const [i,j] = idx.slice(-2)
+          if( Math.random() < 0.1 )
+            return 0
+          if( i > j ) return Math.random()*2.0 - 1.0
+          else        return Math.random()*0.2 - 0.1
+        })
+        if( Math.random < 0.5 )
+          A = A.T
         Object.freeze(A.data.buffer)
         yield A
       }
@@ -169,8 +192,8 @@ describe('eigen', () => {
 
     // ASSERT THAT THE EIGENVECTORS ARE NORMALIZED
     expect(
-      V.   mapElems(   'float64', math.abs  )
-       .reduceElems(-2,'float64', math.hypot)
+      V.   mapElems(            'float64', math.abs  )
+       .reduceElems(/*axis=*/-2,'float64', math.hypot)
     ).toBeAllCloseTo(1)
 
     const AV = matmul2(A,V);
