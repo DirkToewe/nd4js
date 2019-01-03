@@ -53,8 +53,8 @@ describe('schur', () => {
                    const j=idx.pop(),
                          i=idx.pop()
                    if( i > j ) return 0
-                   if( i===j ) return (Math.random()*1 + 0.5) * (Math.random() < 0.5 ? -1 : +1)
-                   return Math.random()*0.4 - 0.2
+                   if( i===j ) return (Math.random()*1 + 1) * (Math.random() < 0.5 ? -1 : +1)
+                   return Math.random()*2e-3 - 1e-3 // <- try to keep the condition of R high
                  })
 
         const Λ = new NDArray(
@@ -65,7 +65,7 @@ describe('schur', () => {
               {
                 const ev = Float64Array.from(
                   {length: randInt(1,N)},
-                  () => (Math.random()*1 + 0.5) * (Math.random() < 0.5 ? -1 : +1)
+                  () => (Math.random()*1 + 1) * (Math.random() < 0.5 ? -1 : +1)
                 )
 
                 for( let i=0; i < N; i++ )
@@ -85,12 +85,31 @@ describe('schur', () => {
     }()
   ).it('schur_eigen works on random examples with repeated eigenvalues and full set of eigenvectors', ([Q,T]) => {
     let [N] = Q.shape.slice(-1),
-      [Λ,V] = schur_eigen(Q,T)
+      [Λ,V] = schur_eigen(Q,T),
+         A  = matmul(Q, T, Q.T)
 
     expect( V.mapElems('float64',c=>c.im) ).toBeAllCloseTo(0)
     V = V.mapElems('float64',c=>c.re)
 
+    // ASSERT THAT THE RESULT HAS A FULL SET OF EIGENVECTORS
     expect( rank(V) ).toBeAllCloseTo(N, {rtol:0,atol:0})
+
+    expect(V.shape).toEqual( A.shape )
+    expect(Λ.shape).toEqual( A.shape.slice(0,-1) )
+
+    // ASSERT THAT THE EIGENVECTORS ARE NORMALIZED
+    expect(
+      V.   mapElems(   'float64', math.abs  )
+       .reduceElems(-2,'float64', math.hypot)
+    ).toBeAllCloseTo(1)
+
+    const AV = matmul2(A,V);
+
+    const λ = zip_elems([AV,V], 'float64', (x,y) => x*y).reduceElems(-2, 'float64', (x,y) => x+y)
+    expect(Λ).toBeAllCloseTo(λ)
+
+    const λv = zip_elems([V,Λ.reshape(...Λ.shape.slice(0,-1),1,-1)], 'complex128', math.mul)
+    expect(AV).toBeAllCloseTo(λv, {atol:1e-2}) // <- AV and λv are the result of a long chain of operations and therefore the expected accuracy is rather low
   })
 
 

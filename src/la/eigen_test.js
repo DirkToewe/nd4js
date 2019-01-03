@@ -19,7 +19,7 @@
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {array} from '../nd_array'
 import {tabulate} from '../tabulate'
-import {matmul, matmul2} from './matmul'
+import {matmul2} from './matmul'
 import math from '../math'
 import {zip_elems} from '../zip_elems'
 import {eigen,
