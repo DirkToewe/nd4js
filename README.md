@@ -88,10 +88,11 @@ console.log( a(1,1) )
 ```
 
 [nd.Array.set](https://dirktoewe.github.io/ndjs/doc.html#Array.set) allows writing array entries.
-const a = nd.tabulate([3,3], () => 0 )
 
 *Input:*
 ```js
+const a = nd.tabulate([3,3], () => 0 )
+
 for( let i=3; i-- > 0; )
 for( let j=3; j-- > 0; )
   a.set( [i,j], 10*(i+1)+(j+1) );
