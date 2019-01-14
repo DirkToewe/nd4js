@@ -81,91 +81,64 @@ export function svd_jac_classic(A)
   }() );
   const treeData = new DTypeArray( treeSizes.reduce( (len,N) => len + (N*N+N >>> 1), 0 ) );
 
-  /** updates the triangle tree to reflect a changed row in D.
+  /** updates the specified row in the triangle tree.
    */
   const update_row = row =>
   {
-    row >>>= 1;
-    let col=-1;
+    row = row >>> 1 << 1; // <- round down to pow2
     // build bottom tree level
-    {
-      const hyp = (i,j) => {
-        i += 2*row;
-        j += 2*col; const D_ij = D[N*i+j],
-                          D_ji = D[N*j+i]; return D_ij*D_ij + D_ji*D_ji;
-      };
-      const rowOff = row*row+row >>> 1;
-      for( col=0; col < row; col++ )
-             treeData[rowOff + col] = Math.max( hyp(0,0), hyp(0,1) );
-      if( 2*row < N-1 ) {
-          for( col=0; col < row; col++ )
-             treeData[rowOff + col] = Math.max( hyp(1,0), hyp(1,1), treeData[(row*row+row >>> 1) + col] );
-             treeData[rowOff + col] = hyp(1,0);
-      } else treeData[rowOff + col] = 0;
-    }
+    for( let i=row; i < row+2 && i < N; i++ ) { const r = i>>>1, off = r*r+r >>> 1;
+    for( let j=0;   j < row+1         ; j++ ) {
+      const x = D[N*i+j],
+            y = D[N*j+i], D_ij = i===j ? -Infinity : x*x + y*y,
+            k = off + (j >>> 1);
+      treeData[k] = i%2 || j%2 ? Math.max(treeData[k],D_ij) : D_ij;
+    }}
     // build remaining tree levels
-    let OFF = -1;
-    const val = (i,j) => {
-      i += 2*row;
-      j += 2*col; return treeData[OFF + (i*i+i >>> 1) + j];
-    }
     for( let off=0, h=1; h < treeSizes.length; h++ )
     {
-      const N = treeSizes[h-1];
-      OFF = off; off += N*N+N >>> 1;
-      row >>>= 1;
-      for( col=row; col >= 0; col-- )
-      {
-        let max = val(0,0);
-        if( row*2 < N-1 ) max = Math.max( max, val(1,0), val(1,1) );
-        if( row != col  ) max = Math.max( max, val(0,1) );
-        treeData[off + (row*row+row >>> 1) + col] = max;
-      }
+      const N = treeSizes[h-1],
+          OFF = off; off += N*N+N >>> 1;
+      row = row >>> 2 << 1;
+      for( let R=row; R < row+2 && R < N; R++ ) { const ROFF = OFF + (R*R+R >>> 1), r = R >>> 1,
+                                                        roff = off + (r*r+r >>> 1);
+      for( let C= 0 ; C <= R            ; C++ ) {
+        const k =          roff +(C >>> 1),
+              T = treeData[ROFF + C];
+        treeData[k] = R%2 || C%2 ? Math.max(treeData[k],T) : T;
+      }}
     }
   }
 
-  /** updates the triangle tree to reflect a changed row in D.
+  /** updates the specified column in the triangle tree.
    */
   const update_col = col =>
   {
-    col >>>= 1;
-    let row=-1;
+    
+    col = col >>> 1 << 1; // <- round down to pow2
     // build bottom tree level
-    {
-      const hyp = (i,j) => {
-        i += 2*row;
-        j += 2*col; const D_ij = D[N*i+j],
-                          D_ji = D[N*j+i]; return D_ij*D_ij + D_ji*D_ji;
-      };
-      for( row=treeSizes[0]; row-- > col; ) {
-        let max = 0;
-        if( 2*row < N-1 ) { const h10 = hyp(1,0); if( h10 > max ) max = h10; }
-        if( 2*col < N-1 ) { const h01 = hyp(0,1); if( h01 > max ) max = h01; }
-        if( row != col  ){{ const h00 = hyp(0,0); if( h00 > max ) max = h00; }
-        if( 2*row < N-1 ) { const h11 = hyp(1,1); if( h11 > max ) max = h11; }}
-        treeData[(row*row+row >>> 1) + col] = max;
-      }
-    }
+    const J = Math.min(col+2,N);
+    for( let i=col; i < N; i++ ) { const r = i>>>1, off = r*r+r >>> 1;
+    for( let j=col; j < J; j++ ) {
+      const x = D[N*i+j],
+            y = D[N*j+i], D_ij = i===j ? -Infinity : x*x + y*y,
+            k = off + (j >>> 1);
+      treeData[k] = i%2 || j%2 ? Math.max(treeData[k],D_ij) : D_ij;
+    }}
     // build remaining tree levels
-    let OFF = -1;
-    const val = (i,j) => {
-      i += 2*row;
-      j += 2*col; return treeData[OFF + (i*i+i >>> 1) + j];
-    }
     for( let off=0, h=1; h < treeSizes.length; h++ )
     {
-      const
-        N = treeSizes[h-1],
-        n = treeSizes[h];
-      OFF = off; off += N*N+N >>> 1;
-      col >>>= 1;
-      for( row=col; row < n; row++ )
-      {
-        let max = val(0,0);
-        if( row*2 < N-1 ) max = Math.max( max, val(1,0), val(1,1) );
-        if( row != col  ) max = Math.max( max, val(0,1) );
-        treeData[off + (row*row+row >>> 1) + col] = max;
-      }
+      col = col >>> 2 << 1;
+      const N = treeSizes[h-1],
+            J = Math.min(col+2,N),
+          OFF = off; off += N*N+N >>> 1;
+      for( let R=col; R < N          ; R++ ) { const ROFF = OFF + (R*R+R >>> 1), r = R >>> 1,
+                                                     roff = off + (r*r+r >>> 1);
+      for( let C=col; C < J && C <= R; C++ ) {
+        const k =          roff +(C >>> 1),
+              T = treeData[ROFF + C];
+        treeData[k] = R%2 || C%2 ? Math.max(treeData[k],T) : T;
+      }}
     }
   }
 
@@ -222,19 +195,21 @@ export function svd_jac_classic(A)
       };
       if( l >  k ) throw new Error('Assertion failed.')
       if( s == k &&
-          t == l ) break; // <- DRY
+          t == l ) break; // <- DRY PRINCIPLE
       s=k;
       t=l;
+
 //      {
-//        // CHECK THAT THIS IS TRULY THE MAXIMUM
+//        // CHECK THAT THIS IS TRULY THE MAXIMUM (TODO: COMMENT OUT)
 //        const hyp = (i,j) => {
-//          D_ij = D[N*i+j],
-//          D_ji = D[N*j+i]; return D_ij*D_ij + D_ji*D_ji;
+//          const D_ij = D[N*i+j],
+//                D_ji = D[N*j+i]; return D_ij*D_ij + D_ji*D_ji;
 //        };
 //        for( let i=1; i < N; i++ )
 //        for( let j=0; j < i; j++ )
-//          if( ! (hyp(i,j) <= hyp(k,l)) ) throw new Error('Assertion failed');
+//          if( ! (hyp(i,j) <= hyp(k,l)) ) throw new Error(`Assertion failed: ${i}, ${j}.`);
 //      }
+
       const
         D_kk = D[N*k+k], D_kl = D[N*k+l],
         D_lk = D[N*l+k], D_ll = D[N*l+l];
@@ -347,7 +322,7 @@ export function svd_jac_classic(A)
         sv[sv_off + i] *= -1;
         for( let k=0; k < N; k++ ) U[UV_off + N*i+k] *= -1;
       }
-      // merge sort
+      // insertion sort
       for( let j=i; j-- > 0; ) {
         const sv_j = sv[sv_off + j];
         if( sv_j >= sv_i ) break;

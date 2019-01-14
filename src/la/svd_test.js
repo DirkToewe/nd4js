@@ -340,7 +340,7 @@ describe('svd', () => {
         yield [r,matmul2(Q,R)]
       }
     }()
-  ).it('rrqr_rank works on random examples', ([R,A]) => {
+  ).it('svd_rank works on random examples', ([R,A]) => {
     const [U,sv,V] = svd_decomp(A),
              r     = svd_rank(sv)
 
