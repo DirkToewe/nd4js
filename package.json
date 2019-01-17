@@ -1,6 +1,6 @@
 {
   "name": "ndjs",
-  "version": "0.6.0",
+  "version": "0.6.2",
   "license": "LGPLv3",
   "scripts": {
     "build": "webpack && node add_license.js && node mkdoc.js",
@@ -16,6 +16,8 @@
     "@babel/runtime": "^7.2.0",
     "babel-loader": "^8.0.4",
     "babel-polyfill": "^6.26.0",
+    "closure-webpack-plugin": "^2.0.0-rc.17",
+    "google-closure-compiler": "^20181231.0.0-webpack-beta",
     "jsdom": "^13.1.0",
     "karma": "^3.1.4",
     "karma-cli": "^2.0.0",

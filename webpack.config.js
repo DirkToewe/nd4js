@@ -1,5 +1,6 @@
 const path = require('path'),
    webpack = require('webpack')
+//   ClosurePlugin = require('closure-webpack-plugin');
 
 const cfg_module = {
   rules: [{
@@ -40,6 +41,13 @@ module.exports = [
       libraryTarget: 'umd',
       globalObject: "this"
     },
+//    optimization: {
+//      minimizer: [
+//        new ClosurePlugin({mode: 'STANDARD'},{
+////          language_out: 'ECMASCRIPT5_STRICT'
+//        })
+//      ]
+//    }
     module: cfg_module
   }
 ]

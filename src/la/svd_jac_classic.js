@@ -19,17 +19,20 @@
 import {asarray, NDArray} from '../nd_array'
 import {matmul2} from './matmul'
 import {qr_decomp} from './qr'
-import {ARRAY_TYPES} from '../dt'
+import {ARRAY_TYPES, eps} from '../dt'
 import {transpose_inplace} from './transpose_inplace'
+
+import math from '../math';
 
 
 export function svd_jac_classic(A)
 {
   A = asarray(A);
+  if( A.dtype.startsWith('complex') )
+    throw new Error('svd_jac_1sided(A): A.dtype must be float.');
   const
     shape = A.shape,
-    N = shape[shape.length-2],
-    TOL = Number.EPSILON * N;
+    N = shape[shape.length-2];
 
   // QR DECOMPOSE RECTANGULAR MATRICES AND WORK ON (QUADRATIC) R
   {
@@ -48,7 +51,9 @@ export function svd_jac_classic(A)
     }
   }
   // ALLOCATE RESULT DATA
-  const DTypeArray = ARRAY_TYPES[A.dtype==='float32' ? 'float32' : 'float64'],
+  const DType = A.dtype==='float32' ? 'float32' : 'float64',
+        DTypeArray = ARRAY_TYPES[DType],
+        TOL = eps(DType),
         U = DTypeArray.from(A.data); A = undefined; // <- potentially allow GC
   const D = new DTypeArray(N*N), // <- tempory storage for decomposition
         V = new DTypeArray(U.length),
@@ -142,8 +147,9 @@ export function svd_jac_classic(A)
     }
   }
 
-  let UV_off=0;
-  for( let sv_off=0; sv_off < sv.length; UV_off += N*N, sv_off += N )
+  for( let UV_off=0,
+           sv_off=0; sv_off < sv.length; UV_off += N*N,
+                                         sv_off += N )
   {
     // MOVE FROM U TO D
     for( let i=0; i < N; i++ )
@@ -213,7 +219,8 @@ export function svd_jac_classic(A)
       const
         D_kk = D[N*k+k], D_kl = D[N*k+l],
         D_lk = D[N*l+k], D_ll = D[N*l+l];
-      if( ! ( Math.hypot(D_kl,D_lk) / Math.sqrt(Math.abs(D_kk)) / Math.sqrt(Math.abs(D_ll)) > TOL ) )
+//      if( ! ( Math.hypot(D_kl,D_lk) / Math.sqrt(Math.abs(D_kk)) / Math.sqrt(Math.abs(D_ll)) > TOL ) )
+      if( ! ( Math.hypot(D_kl,D_lk) / Math.max( Math.abs(D_kk), Math.abs(D_ll) ) > TOL ) )
         break; // <- TODO check if really a good stopping criterion (there may be smaller off-diag. entries larger relative to their respective diag. entries)
 
       // determine rotation angles
@@ -237,15 +244,52 @@ export function svd_jac_classic(A)
       //
       // => 0 = (D_kk+D_ll)⋅sin(α-β) + (D_kl-D_lk)⋅cos(α-β)  
       //    0 = (D_kk-D_ll)⋅sin(α+β) + (D_kl+D_lk)⋅cos(α+β)  
-      const [cα,sα,cβ,sβ] = function() {
-        let Cα,Sα,Cβ,Sβ; {
+      const [cα,sα,cβ,sβ] = function(){
+        let Cα,Sα,Cβ,Sβ;
+
+        // ANGLE COMPUTATION VARIANT A (SEE ASCII ART ABOVE)
+        {
           const m = Math.atan2(D_lk - D_kl, D_ll + D_kk),// = α - β
-                p = Math.atan2(D_lk + D_kl, D_ll - D_kk),// = α + β
-                α = (p+m)/2,
-                β = (p-m)/2;
+          p = Math.atan2(D_lk + D_kl, D_ll - D_kk),// = α + β
+          α = (p+m)/2,
+          β = (p-m)/2;
           Cα = Math.cos(α); Sα = Math.sin(α);
           Cβ = Math.cos(β); Sβ = Math.sin(β);
         }
+
+//        // ANGLE COMPUTATION VARIANT B
+//        { // FIRST, FIND GIVENS ROT. THAT SYMMETRIZES
+//          //   see: see: https://github.com/eigenteam/eigen-git-mirror/blob/master/Eigen/src/misc/RealSvd2x2.h
+//          let y = D_lk - D_kl,
+//              Cγ = 1, d_kk=D_kk, d_kl=D_kl,
+//              Sγ = 0, d_lk=D_lk, d_ll=D_ll;
+//          if( 0 !== y ) {
+//            const x = D_kk + D_ll,
+//                  h = Math.hypot(x,y);
+//            Cγ = +x / h;
+//            Sγ = -y / h;
+//            d_kk = Cγ*D_kk - Sγ*D_lk; d_kl = Cγ*D_kl - Sγ*D_ll;
+//            d_lk = Sγ*D_kk + Cγ*D_lk; d_ll = Sγ*D_kl + Cγ*D_ll;
+//            if( ! math.is_close(d_kl,d_lk) )
+//              throw new Error(`Assertion failed: ${d_kl} =/= ${d_lk}`);
+//          }
+//          // SECOND, FIND JACOBI ROTATION TO SYMMETRIZED PROBLEM
+//          // see:
+//          //   * https://en.wikipedia.org/wiki/Jacobi_rotation
+//          //   * https://github.com/eigenteam/eigen-git-mirror/blob/master/Eigen/src/Jacobi/Jacobi.h
+//          d_kl *= 2
+//          if( 0 === d_kl ) {
+//            Sα = -Sγ;
+//            Sβ = +Sγ; Cα = Cβ = Cγ;
+//          } else {
+//            const b = (d_ll - d_kk) / d_kl,
+//                  t = Math.sign(b) / ( Math.abs(b) + Math.sqrt(1 + b*b) )
+//            Cα = 1 / Math.sqrt(1 + t*t)
+//            Sα = Cα*t
+//            Cβ = Cα*Cγ - Sα*Sγ
+//            Sβ = Cα*Sγ + Sα*Cγ
+//          }
+//        }
 
         // tan is 180°-periodical so lets try all possible solutions
         for( const [cα,sα,cβ,sβ] of [
@@ -283,6 +327,8 @@ export function svd_jac_classic(A)
         D[N*l+i] = D_li*cβ + D_ki*sβ;
       }
 
+//      if( ! math.is_close(0, D[N*k+l]) ) throw new Error(`Assertion failed: 0 =/= ${D[N*k+l]}.`)
+//      if( ! math.is_close(0, D[N*l+k]) ) throw new Error(`Assertion failed: 0 =/= ${D[N*l+k]}.`)
       // ENTRIES (k,l) AND (l,k) ARE REMAINDERS (CANCELLATION ERROR) FROM ELIMINATION => SHOULD BE SAFELY ZEROABLE
       D[N*k+l] = 0.0;
       D[N*l+k] = 0.0;
@@ -312,25 +358,41 @@ export function svd_jac_classic(A)
     // MOVE D TO SV
     for( let i=0; i < N; i++ ) sv[sv_off + i] = D[N*i+i];
 
-    // USE INSERTION SORT SV (should take O(N) because it is heavily pre-sorted)
+//    // SHUFFLE (FIXME: FOR TESTING PURPOSED ONLY)
+//    for( let i=N; i-- > 0; )
+//    {
+//      const j = Math.trunc( Math.random()*(i+1) );
+//      // swap sv
+//      { const sv_j = sv[sv_off + j];
+//                     sv[sv_off + j] = sv[sv_off + i];
+//                                      sv[sv_off + i] = sv_j; }
+//      // swap U and V rows
+//      for( let k=0; k < N; k++ ) { const U_a = U[UV_off + N*i+k]; U[UV_off + N*i+k] = U[UV_off + N*j+k]; U[UV_off + N*j+k] = U_a; }
+//      for( let k=0; k < N; k++ ) { const V_a = V[UV_off + N*i+k]; V[UV_off + N*i+k] = V[UV_off + N*j+k]; V[UV_off + N*j+k] = V_a; }
+//    }
+
+    // USE INSERTION SORT SV (should take as most O(N) because it is heavily pre-sorted by choosing the rotation angles accordingly)
     for( let i=0; i < N; i++ )
     {
       let sv_i = sv[sv_off + i];
       // flip sign
       if( sv_i < 0.0 ) {
-        sv_i *= -1;
-        sv[sv_off + i] *= -1;
+        sv[sv_off + i] = (sv_i *= -1);
         for( let k=0; k < N; k++ ) U[UV_off + N*i+k] *= -1;
       }
+
       // insertion sort
       for( let j=i; j-- > 0; ) {
         const sv_j = sv[sv_off + j];
         if( sv_j >= sv_i ) break;
         // swap sv
-        { const sv_j = sv[sv_off + j]; sv[sv_off + j] = sv[sv_off + j+1]; sv[sv_off + j+1] = sv_j; }
+        sv[sv_off + j+1] = sv[sv_off + j];
+                           sv[sv_off + j] = sv_i;
         // swap U and V rows
-        for( let k=0; k < N; k++ ) { const U_jk = U[UV_off + N*j+k]; U[UV_off + N*j+k] = U[UV_off + N*(j+1)+k]; U[UV_off + N*(j+1)+k] = U_jk; }
-        for( let k=0; k < N; k++ ) { const V_jk = V[UV_off + N*j+k]; V[UV_off + N*j+k] = V[UV_off + N*(j+1)+k]; V[UV_off + N*(j+1)+k] = V_jk; }
+        const rowJ = UV_off + N*j,
+              rowI =  rowJ  + N;
+        for( let k=0; k < N; k++ ) { const U_ik = U[rowI+k]; U[rowI+k] = U[rowJ+k]; U[rowJ+k] = U_ik; }
+        for( let k=0; k < N; k++ ) { const V_ik = V[rowI+k]; V[rowI+k] = V[rowJ+k]; V[rowJ+k] = V_ik; }
       }
     }
 
@@ -339,7 +401,9 @@ export function svd_jac_classic(A)
     for( let j=1+i; j < N  ; j++ ) {
       const
         ij = UV_off + N*i+j,
-        ji = UV_off + N*j+i, U_ij = U[ij]; U[ij] = U[ji]; U[ji] = U_ij;
+        ji = UV_off + N*j+i, U_ij = U[ij];
+                                    U[ij] = U[ji];
+                                            U[ji] = U_ij;
     }
   }
 

@@ -22,7 +22,7 @@ import {ARRAY_TYPES, eps} from '../dt'
 import {SingularMatrixSolveError} from './singular_matrix_solve_error'
 
 
-export {svd_jac_classic as svd_decomp} from './svd_jac_classic'
+export {svd_jac_2sided as svd_decomp} from './svd_jac_2sided'
 
 
 export function svd_rank( sv )
@@ -97,7 +97,7 @@ export function svd_lstsq(U,sv,V, y)
     if( V != undefined )
       throw new Error('svd_lstsq(Q,R,P, y): Either 2 ([Q,R,P], y) or 4 arguments (Q,R,P, y) expected.')
     y = R
-    [U,sv,V] = Q
+    ([U,sv,V] = Q)
   }
 
   U  = asarray(U ); if( U .ndim < 2 ) throw new Error('svd_lstsq(U,sv,V, y): U.ndim must be at least 2.' )

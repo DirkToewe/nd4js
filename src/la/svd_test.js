@@ -31,6 +31,7 @@ import {svd_rank,
         svd_solve,
         svd_lstsq} from './svd'
 import {svd_jac_1sided } from './svd_jac_1sided'
+import {svd_jac_2sided } from './svd_jac_2sided'
 import {svd_jac_classic} from './svd_jac_classic'
 
 
@@ -246,6 +247,7 @@ describe('svd', () => {
   const svd_decomps = {
     svd_decomp,
     svd_jac_1sided,
+    svd_jac_2sided,
     svd_jac_classic
   }
 

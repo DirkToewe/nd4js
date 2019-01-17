@@ -419,7 +419,7 @@ export function rrqr_lstsq(Q,R,P, y)
     if( P != undefined )
       throw new Error('rrqr_lstsq(Q,R,P, y): Either 2 ([Q,R,P], y) or 4 arguments (Q,R,P, y) expected.')
     y = R
-    [Q,R,P] = Q
+    ([Q,R,P] = Q)
   }
 
   Q = asarray(Q); if( Q.ndim < 2 ) throw new Error('rrqr_lstsq(Q,R,P, y): Q.ndim must be at least 2.')

@@ -17,7 +17,7 @@
  */
 
 import {asarray, NDArray} from '../nd_array'
-import {ARRAY_TYPES} from '../dt'
+import {ARRAY_TYPES, eps} from '../dt'
 import {rrqr_decomp,
        _rrqr_rank} from './rrqr'
 import {root1d_bisect} from '../opt/root1d_bisect'
@@ -29,6 +29,8 @@ export function svd_jac_1sided(A)
   //   http://www.netlib.org/lapack/lawnspdf/lawn169.pdf
   //   http://www.netlib.org/lapack/lawnspdf/lawn170.pdf
   A = asarray(A);
+  if( A.dtype.startsWith('complex') )
+    throw new Error('svd_jac_1sided(A): A.dtype must be float.');
   const
      U_shape =                 A.shape,
      V_shape = Int32Array.from(U_shape),
@@ -42,8 +44,9 @@ export function svd_jac_1sided(A)
   }
 
   const
-    DTypeArray = ARRAY_TYPES[A.dtype==='float32' ? 'float32' : 'float64'],
-    TOL = Number.EPSILON * N,// <- FIXME what about float32 ?
+    DType = A.dtype==='float32' ? 'float32' : 'float64',
+    DTypeArray = ARRAY_TYPES[DType],
+    TOL = eps(DType) * N,
     sqrt2 = Math.sqrt(2);
   sv_shape[sv_shape.length-1] = M;
    V_shape[ V_shape.length-2] = M;
