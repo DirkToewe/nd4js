@@ -23,6 +23,7 @@ import {matmul2} from './matmul'
 import math from '../math'
 import {zip_elems} from '../zip_elems'
 import {eigen,
+        eigenvals,
         eigen_balance_pre,
         eigen_balance_post} from './eigen'
 
@@ -113,7 +114,54 @@ describe('eigen', () => {
       expect(a).toBeAllCloseTo(A,{rtol:0, atol:0})
     })
 
-    
+
+  forEachItemIn(
+    function*(){
+      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
+
+      for( let run=1024; run-- > 0; )
+      {
+        const N = randInt(1,16),
+          shape = Array.from({length: randInt(0,3)}, () => randInt(1,8) )
+        shape.push(N,N)
+  
+        let A = tabulate(shape, 'float64', (...idx) => {
+          const [i,j] = idx.slice(-2)
+          if( Math.random() < 0.1 )
+            return 0
+          if( i > j ) return Math.random()*2.0 - 1.0
+          else        return Math.random()*0.2 - 0.1
+        })
+        if( Math.random < 0.5 )
+          A = A.T
+        Object.freeze(A.data.buffer)
+        yield A
+      }
+    }()
+  ).it('eigen_balance_post works on random examples', A => {
+    const [D,B]= eigen_balance_pre(A,2),
+          [Λ,U]= eigen(B),
+             V = eigen_balance_post(D,U)
+
+    expect(V.shape).toEqual( A.shape )
+    expect(Λ.shape).toEqual( A.shape.slice(0,-1) )
+
+    // ASSERT THAT THE EIGENVECTORS ARE NORMALIZED
+    expect(
+      V.   mapElems(            'float64', math.abs  )
+       .reduceElems(/*axis=*/-2,'float64', math.hypot)
+    ).toBeAllCloseTo(1)
+
+    const AV = matmul2(A,V);
+
+    const λ = zip_elems([AV,V], 'complex128', (x,y) => math.mul(x, math.conj(y)) ).reduceElems(-2, 'complex128', math.add)
+    expect(Λ).toBeAllCloseTo(λ)
+
+    const λv = zip_elems([V,Λ.reshape(...Λ.shape.slice(0,-1),1,-1)], 'complex128', math.mul)
+    expect(AV).toBeAllCloseTo(λv)
+  })
+
+
   forEachItemIn(
     function*(){
       const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
@@ -182,26 +230,10 @@ describe('eigen', () => {
         yield A
       }
     }()
-  ).it('eigen_balance_post works on random examples', A => {
-    const [D,B]= eigen_balance_pre(A,2),
-          [Λ,U]= eigen(B),
-             V = eigen_balance_post(D,U)
+  ).it('eigen works on random examples', A => {
+    const [Λ] = eigen    (A),
+           L  = eigenvals(A)
 
-    expect(V.shape).toEqual( A.shape )
-    expect(Λ.shape).toEqual( A.shape.slice(0,-1) )
-
-    // ASSERT THAT THE EIGENVECTORS ARE NORMALIZED
-    expect(
-      V.   mapElems(            'float64', math.abs  )
-       .reduceElems(/*axis=*/-2,'float64', math.hypot)
-    ).toBeAllCloseTo(1)
-
-    const AV = matmul2(A,V);
-
-    const λ = zip_elems([AV,V], 'complex128', (x,y) => math.mul(x, math.conj(y)) ).reduceElems(-2, 'complex128', math.add)
-    expect(Λ).toBeAllCloseTo(λ)
-
-    const λv = zip_elems([V,Λ.reshape(...Λ.shape.slice(0,-1),1,-1)], 'complex128', math.mul)
-    expect(AV).toBeAllCloseTo(λv)
+    expect(L).toBeAllCloseTo(Λ)
   })
 })

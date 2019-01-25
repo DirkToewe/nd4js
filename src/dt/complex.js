@@ -34,7 +34,7 @@ export class Complex
     // TODO: remove these assertions
     if( isNaN(re) ) throw new Error(     'Real value is NaN.');
     if( isNaN(im) ) throw new Error('Imaginary value is NaN.');
-    Object.seal(this);
+    Object.freeze(this);
   }
 
   add( re, im ) {

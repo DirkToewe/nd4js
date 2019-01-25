@@ -22,7 +22,7 @@ import {math} from '../math'
 import {hessenberg_decomp} from './hessenberg'
 import {root1d_bisect} from '../opt/root1d_bisect'
 import {matmul2} from './matmul'
-import {Complex} from '../dt/complex'
+import {MutableComplex} from '../dt/mutable_complex'
 
 
 export function schur_eigenvals(T)
@@ -81,8 +81,9 @@ export function schur_eigenvals(T)
           λ1 = math.mul( math.add(tr,sqrt), 0.5 );
           λ2 = math.mul( math.sub(tr,sqrt), 0.5 );
         }
-        Λ[Λ_off + i  ] = λ1;
-        Λ[Λ_off + j--] = λ2;
+        Λ[Λ_off + i] = λ1;
+        Λ[Λ_off + j] = λ2;
+        j--;
       }
     }
   }
@@ -93,6 +94,9 @@ export function schur_eigenvals(T)
 
 export function schur_eigen(Q,T)
 {
+  Q = asarray(Q);
+  T = asarray(T);
+
   if( Q.ndim != T.ndim ) throw new Error('Q.ndim != T.ndim.');
   for( let i=T.ndim; i-- > 0; )
     if( Q.shape[i] != T.shape[i] ) throw new Error('Q.shape != T.shape.')
@@ -153,9 +157,16 @@ export function schur_eigen(Q,T)
   const ComplexArray = ARRAY_TYPES['complex128'],
         V  =     ComplexArray.from(T.data); T = undefined;
   const Λ  = new ComplexArray(V.length/N),
+        V_arr = V._array,
+        Λ_arr = Λ._array,
         // temporary vectors for the eigenvalue computation
-        v1 = new ComplexArray(N),
-        v2 = new ComplexArray(N);
+        v1 = new ComplexArray(N), v1_arr = v1._array,
+        v2 = new ComplexArray(N), v2_arr = v2._array,
+        norm_sum = v1._array.subarray(0,N),
+        norm_max = v2._array.subarray(N  );
+  const v_i  = new MutableComplex(NaN,NaN),
+        v_j  = new MutableComplex(NaN,NaN),
+        det  = new MutableComplex(NaN,NaN);
 
   let TOL = NaN
 
@@ -163,47 +174,79 @@ export function schur_eigen(Q,T)
    */
   function computeVec( λ, v, J )
   {
-    const K = Math.min(N,J+2);
+    const K = Math.min(N,J+2),
+      v_arr = v._array;
 
     for( let j=J; j-- > 0; )
     {
-      for( let k=K; --k > j; )
-        v[j] = math.sub(v[j], math.mul(v[k], V[V_off + N*j+k]) );
+      for( let k=K; --k > j; ) {
+        const re0 = v_arr[2*k+0], re1 = V_arr[2*(V_off + N*j+k)+0],
+              im0 = v_arr[2*k+1], im1 = V_arr[2*(V_off + N*j+k)+1];
+        v_arr[2*j+0] -= re0*re1 - im0*im1;
+        v_arr[2*j+1] -= re0*im1 + im0*re1;
+      }
       if( 0==j || t(j,j-1) == 0 )
       {  //
         // 1x1 BLOCK
        //
-        const V_jj = math.sub( V[V_off + N*j+j], λ );
-        if( math.abs(V_jj) <= TOL ) {   // <- TODO
-          if( math.abs(v[j]) <= TOL ) { // <- TODO add test case for this zeroness test
+        const T_jj_re = V_arr[2*(V_off + N*j+j)+0] - λ.re,
+              T_jj_im = V_arr[2*(V_off + N*j+j)+1] - λ.im;
+        v_j.re = v_arr[2*j+0];
+        v_j.im = v_arr[2*j+1];
+        if( Math.hypot(T_jj_re, T_jj_im) <= TOL ) {   // <- TODO
+          if( v_j.abs() <= TOL ) { // <- TODO add test case for this zeroness test
             // v is already a valid eigenvalue, let's return it
-            v[j] = 0;
-            return;
+            v_arr[2*j+0] = 0;
+            v_arr[2*j+1] = 0;
           }
-          // v is invalid, let's reset
-          v[j] = 1.0;
-          v.fill(0.0, j+1,K);
+          else {
+            // v is invalid, let's reset
+            v_arr[2*j] = 1.0;
+            v_arr.fill(0.0, 2*j+1,2*K);
+          }
         }
-        else v[j] = math.div(v[j],V_jj);
+        else {
+          v_j['/='](T_jj_re, T_jj_im)
+          v_arr[2*j+0] = v_j.re;
+          v_arr[2*j+1] = v_j.im;
+        }
       }
       else
       {  //
         // 2x2 BLOCK
        //
         const i = j-1;
-        for( let k=K; --k > j; )
-          v[i] = math.sub(v[i], math.mul(v[k], V[V_off + N*i+k]) );
-        const T_ii = math.sub( t(i,i), λ ), T_ij = t(i,j),
-              T_jj = math.sub( t(j,j), λ ), T_ji = t(j,i),
-              det = math.sub(
-                math.mul(T_ii,T_jj),
-                math.mul(T_ij,T_ji)
-              );
-        if( det == 0 ) throw new Error('Assertion failed.');
-        const v_j = math.div( math.sub( math.mul(T_ii,v[j]), math.mul(T_ji,v[i]) ), det );
-        const v_i = math.div( math.sub( math.mul(T_jj,v[i]), math.mul(T_ij,v[j]) ), det ); 
-        v[i  ] = v_i;
-        v[j--] = v_j;
+        for( let k=K; --k > j; ) {
+          const re0 = v_arr[2*k+0], re1 = V_arr[2*(V_off + N*i+k)+0],
+                im0 = v_arr[2*k+1], im1 = V_arr[2*(V_off + N*i+k)+1];
+          v_arr[2*i+0] -= re0*re1 - im0*im1;
+          v_arr[2*i+1] -= re0*im1 + im0*re1;
+        }
+
+        const T_ii_re = V_arr[2*(V_off + N*i+i)+0] - λ.re,
+              T_ii_im = V_arr[2*(V_off + N*i+i)+1] - λ.im,
+              T_jj_re = V_arr[2*(V_off + N*j+j)+0] - λ.re,
+              T_jj_im = V_arr[2*(V_off + N*j+j)+1] - λ.im,
+              T_ij_re = V_arr[2*(V_off + N*i+j)+0],
+              T_ij_im = V_arr[2*(V_off + N*i+j)+1],
+              T_ji_re = V_arr[2*(V_off + N*j+i)+0],
+              T_ji_im = V_arr[2*(V_off + N*j+i)+1];
+
+        det[ '= c0*c1']( /*c0=*/T_ii_re,T_ii_im, /*c1=*/T_jj_re,T_jj_im )
+        det['-= c0*c1']( /*c0=*/T_ij_re,T_ij_im, /*c1=*/T_ji_re,T_ji_im )
+
+        if( det.re===0 && det.im===0 ) throw new Error('Assertion failed.');
+
+        v_j[ '= c0*c1']( /*c0=*/T_ii_re,T_ii_im, /*c1=*/v_arr[2*j+0],v_arr[2*j+1] );
+        v_j['-= c0*c1']( /*c0=*/T_ji_re,T_ji_im, /*c1=*/v_arr[2*i+0],v_arr[2*i+1] ); v_j['/='](det.re, det.im);
+        v_i[ '= c0*c1']( /*c0=*/T_jj_re,T_jj_im, /*c1=*/v_arr[2*i+0],v_arr[2*i+1] );
+        v_i['-= c0*c1']( /*c0=*/T_ij_re,T_ij_im, /*c1=*/v_arr[2*j+0],v_arr[2*j+1] ); v_i['/='](det.re, det.im);
+
+        v_arr[2*i+0] = v_i.re;
+        v_arr[2*i+1] = v_i.im;
+        v_arr[2*j+0] = v_j.re;
+        v_arr[2*j+1] = v_j.im;
+        j--;
       }
     }
   }
@@ -249,8 +292,10 @@ export function schur_eigen(Q,T)
         v1[j] = 1;
         computeVec(λ,v1,j);
         // write the solution in the the (j+1)-th column
-        for( let k=Math.min(N,j+2); k-- > 0; )
-          V[V_off + N*k+j] = v1[k];
+        for( let k=Math.min(N,j+2); k-- > 0; ) {
+          V_arr[2*(V_off + N*k+j)+0] = v1_arr[2*k+0];
+          V_arr[2*(V_off + N*k+j)+1] = v1_arr[2*k+1];
+        }
       } else {
          //
         // 2x2 BLOCK
@@ -278,8 +323,8 @@ export function schur_eigen(Q,T)
           λ2 = math.mul( math.sub(tr,sqrt), 0.5 );
         }
         // TODO: the whole following section should be feasible with only a single temporary vector instead of two (vec1,vec2)
-        v1.fill(0.0, 0,j+1);
-        v2.fill(0.0, 0,j+1);
+        v1_arr.fill(0.0, 0,2*(j+1));
+        v2_arr.fill(0.0, 0,2*(j+1));
         // http://www.math.harvard.edu/archive/21b_fall_04/exhibits/2dmatrices/
         if( math.abs(T_ij) >= math.abs(T_ji) )
         {        v1[i] = T_ij; v1[j] = math.sub( λ1, T_ii );
@@ -290,22 +335,24 @@ export function schur_eigen(Q,T)
         computeVec(λ1,v1,i);
         computeVec(λ2,v2,i);
         for( let k=j+1; k-- > 0; ) {
-          V[V_off + N*k+i] = v1[k];
-          V[V_off + N*k+j] = v2[k];
+          V_arr[2*(V_off + N*k+i)+0] = v1_arr[2*k+0];
+          V_arr[2*(V_off + N*k+i)+1] = v1_arr[2*k+1];
+          V_arr[2*(V_off + N*k+j)+0] = v2_arr[2*k+0];
+          V_arr[2*(V_off + N*k+j)+1] = v2_arr[2*k+1];
         }
-        Λ[Λ_off + i  ] = λ1;
-        Λ[Λ_off + j--] = λ2;
+        Λ[Λ_off + i] = λ1;
+        Λ[Λ_off + j] = λ2;
+        --j;
       }
     }
 
     // COMPUTE COLUMN NORMS
-    const norm_sum = v1,
-          norm_max = v2;
     norm_sum.fill(0.0);
     norm_max.fill(0.0);
-    for( let i=0; i < N; i++ )
-    for( let j=0; j < N; j++ ) {
-      const V_ij = math.abs(V[V_off + N*i+j]);
+    for( let i=0; i < N  ; i++ )
+    for( let J=0; J < N*2; J++ ) {
+      const    j = J >>> 1,
+            V_ij = Math.abs(V_arr[2*(V_off + N*i)+J]);
       if(   V_ij > 0 ) {
         if( V_ij > norm_max[j] ) {
           const scale = norm_max[j] / V_ij; norm_max[j] = V_ij;

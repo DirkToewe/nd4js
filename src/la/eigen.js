@@ -17,7 +17,8 @@
  */
 
 import {schur_decomp,
-        schur_eigen} from './schur'
+        schur_eigen,
+        schur_eigenvals} from './schur'
 import {asarray, NDArray} from '../nd_array'
 import {ARRAY_TYPES} from '../dt'
 import {zip_elems} from '../zip_elems'
@@ -72,6 +73,14 @@ export function eigen(A)
   }
 
   return [Λ,V]
+}
+
+
+export function eigenvals(A)
+{
+  const [D,B]= eigen_balance_pre(A,2),
+        [Q,T]= schur_decomp(B);
+  return schur_eigenvals(T);
 }
 
 

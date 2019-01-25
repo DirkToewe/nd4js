@@ -65,6 +65,23 @@ function createComplexArrayType( FloatArray )
     static from( source, mapFn, thisArg ) {
       if( ! source.hasOwnProperty('length') )
         source = [...source ];
+
+      // fast-copy complex arrays
+      if( null == mapFn )
+      {
+        if( source instanceof ComplexArray )
+          return new ComplexArray( FloatArray.from(source._array).buffer, 0, source.length );
+        if( source instanceof   Int32Array ||
+            source instanceof Float32Array ||
+            source instanceof Float64Array )
+        {
+          const array = new FloatArray(source.length*2);
+          for( let i=source.length; i-- > 0; )
+            array[i<<1] = source[i];
+          return new ComplexArray(array.buffer, 0, source.length);
+        }
+      }
+
       const result = new ComplexArray(source.length);
       mapFn = mapFn || (x => x);
       for( let i=0; i < source.length; i++ )
@@ -156,19 +173,19 @@ function createComplexArrayType( FloatArray )
       if( null == end   ) end   = this.length;
       if( 0 > end   ) end   += this.length;
       if( 0 > start ) start += this.length;
-  
-      for( let i=start; i < end; i++ )
-        this[i] = value;
+
+      for( let i=this._array.length; (i-=2) >= 0; ) {
+        this._array[i+1] = value.im;
+        this._array[i+0] = value.re;
+      }
   
       return this;
     }
   
     get( index ) {
-      return Object.freeze(
-        new Complex(
-          this._array[2*index+0],
-          this._array[2*index+1]
-        )
+      return new Complex(
+        this._array[2*index+0],
+        this._array[2*index+1]
       )
     }
   

@@ -1,6 +1,6 @@
 {
   "name": "ndjs",
-  "version": "0.6.2",
+  "version": "0.7.3",
   "license": "LGPLv3",
   "scripts": {
     "build": "webpack && node add_license.js && node mkdoc.js",

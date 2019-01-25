@@ -87,7 +87,7 @@ export function svd_jac_2sided(A)
     for( let j=0; j < N; j++ ) V[UV_off + N*i+j] = i != j ? 0 : 1;
 
      //
-    // (CLASSICAL) JACOBI SVD ITERATIONS
+    // JACOBI SVD ITERATIONS
    //
     let finished = false;
     while( ! finished )
