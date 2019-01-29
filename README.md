@@ -9,6 +9,7 @@ A function reference can be found [here](https://dirktoewe.github.io/ndjs/doc.ht
   * [Unary Operations (sin, cos, exp, ...)](#unary-operations-sin-cos-exp-)
   * [Binary Operations (+, -, *, /, ...)](#binary-operations------)
   * [Ternary Operations (?:, ...)](#ternary-operations--)
+  * [Linear Algebra](#linear-algebra)
 
 # Building and Testing
 `nd.js` is built and tested using [NPM](https://www.npmjs.com/). To initialize the project open the command line, navigate to the project directory and call:
@@ -32,7 +33,7 @@ npm run build
 `nd.js` has some development dependencies, most notably [Babel](https://babeljs.io/) and [Webpack](https://webpack.js.org/) for bundling and [Jasmine](https://jasmine.github.io/) for testing. There are however no deployment dependencies as of yet.
 
 # Array Instantiation
-[nd.array](https://dirktoewe.github.io/ndjs/doc.html#array) allows to create nd.Arrays in a well-readable and intuitive way, using nested JavaScript Arrays.
+[nd.array](https://dirktoewe.github.io/ndjs/doc.html#nd.array) allows to create nd.Arrays in a well-readable and intuitive way, using nested JavaScript Arrays.
 
 ```js
 const a = nd.array([
@@ -42,7 +43,7 @@ const a = nd.array([
 ])
 ```
 
-An nd.Array can also be created from its entries' indices using [nd.tabulate](https://dirktoewe.github.io/ndjs/doc.html#tabulate).
+An nd.Array can also be created from its entries' indices using [nd.tabulate](https://dirktoewe.github.io/ndjs/doc.html#nd.tabulate).
 
 *Input:*
 ```js
@@ -87,7 +88,7 @@ console.log( a(1,1) )
 4
 ```
 
-[nd.Array.set](https://dirktoewe.github.io/ndjs/doc.html#Array.set) allows writing array entries.
+[nd.NDArray.set](https://dirktoewe.github.io/ndjs/doc.html#nd.NDArray.set) allows writing array entries.
 
 *Input:*
 ```js
@@ -221,3 +222,7 @@ console.log( nd.la.matmul(v.T, A, v) );
 ```js
 [[ 144 ]]
 ```
+
+Available operations and decompositions:
+  * QR Decomposition
+  

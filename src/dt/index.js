@@ -42,6 +42,14 @@ export function eps( dtype )
   }
 }
 
+export function cast_scalar(x, dtype)
+{
+  if( dtype ===      'int32' ) return x & 0xFFFFFFFF;
+  if( dtype ===    'float32' ) return Math.fround(x);
+  if( dtype === 'complex128' ) return x instanceof Complex ? x : new Complex(x);
+  return x*1;
+}
+
 export function _check_dtype(dtype)
 {
   if( ! ARRAY_TYPES.hasOwnProperty(dtype) )

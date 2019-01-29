@@ -23,7 +23,7 @@ import {tabulate} from '../tabulate'
 import {WHITESPACES} from '.'
 
 
-describe('b64_utils', () => {
+describe('istr', () => {
   beforeEach( () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
@@ -50,7 +50,7 @@ describe('b64_utils', () => {
         yield A
       }
     }()
-  ).it('_b64_encode works for random examples', A => {
+  ).it('istr_to_nd(nd_to_istr(...)) results in same array for random examples', A => {
     const a_istr = Array.from( nd_to_istr(A) ),
           a=istr_to_nd(a_istr)
 

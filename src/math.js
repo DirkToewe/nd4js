@@ -60,14 +60,6 @@ export const math = {
     return x / y;
   },
 
-  cast(x,dtype)
-  {
-    if( dtype ===      'int32' ) return x & 0xFFFFFFFF;
-    if( dtype ===    'float32' ) return Math.fround(x);
-    if( dtype === 'complex128' ) return x instanceof Complex ? x : new Complex(x);
-    return x;
-  },
-
   zero: dtype => math.cast(0,dtype),
   one : dtype => math.cast(1,dtype),
 

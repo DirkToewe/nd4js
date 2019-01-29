@@ -1,4 +1,5 @@
 node_modules/
 .project
 .settings/
+lib/
 package-lock.json

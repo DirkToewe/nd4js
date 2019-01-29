@@ -30,8 +30,7 @@ export function svd_jac_2sided(A)
   A = asarray(A);
   if( A.dtype.startsWith('complex') )
     throw new Error('svd_jac_1sided(A): A.dtype must be float.');
-  const
-    shape = A.shape,
+  const shape = A.shape,
     N = shape[shape.length-2];
 
   // QR DECOMPOSE RECTANGULAR MATRICES AND WORK ON (QUADRATIC) R
@@ -97,9 +96,8 @@ export function svd_jac_2sided(A)
       for( let k=0; k < N; k++ )
       for( let l=0; l < k; l++ )
       {
-        const
-          D_kk = D[N*k+k], D_kl = D[N*k+l],
-          D_lk = D[N*l+k], D_ll = D[N*l+l];
+        const D_kk = D[N*k+k], D_kl = D[N*k+l],
+              D_lk = D[N*l+k], D_ll = D[N*l+l];
         if( ! ( Math.hypot(D_kl,D_lk) / Math.max( Math.abs(D_kk), Math.abs(D_ll) ) > TOL ) )
           continue; // <- TODO check if really a good stopping criterion (there may be smaller off-diag. entries larger relative to their respective diag. entries)
 
@@ -132,11 +130,11 @@ export function svd_jac_2sided(A)
           // ANGLE COMPUTATION VARIANT A (SEE ASCII ART ABOVE)
           {
             const m = Math.atan2(D_lk - D_kl, D_ll + D_kk),// = α - β
-            p = Math.atan2(D_lk + D_kl, D_ll - D_kk),// = α + β
-            α = (p+m)/2,
-            β = (p-m)/2;
-            Cα = Math.cos(α); Sα = Math.sin(α);
-            Cβ = Math.cos(β); Sβ = Math.sin(β);
+                  p = Math.atan2(D_lk + D_kl, D_ll - D_kk),// = α + β
+                  α = (p+m)/2,
+                  β = (p-m)/2;
+                 Cα = Math.cos(α); Sα = Math.sin(α);
+                 Cβ = Math.cos(β); Sβ = Math.sin(β);
           }
   
           // tan is 180°-periodical so lets try all possible solutions
@@ -144,7 +142,7 @@ export function svd_jac_2sided(A)
             [ Cα, Sα,   Cβ, Sβ], // [p,m]+[  0°,  0°]
             [-Sα, Cα,   Sβ,-Cβ], // [p,m]+[  0°,180°]
             [-Sα, Cα,  -Sβ, Cβ], // [p,m]+[180°,  0°]
-            [-Cα,-Sα,   Cβ, Sβ], // [p,m]+[180°,180°]
+            [-Cα,-Sα,   Cβ, Sβ]  // [p,m]+[180°,180°]
           ]) {
             const d00 = (D_kl*sα + D_kk*cα)*cβ + (D_lk*cα - D_ll*sα)*sβ,
                   d11 = (D_kl*cα - D_kk*sα)*sβ + (D_lk*sα + D_ll*cα)*cβ;

@@ -10,9 +10,9 @@ module.exports = function(config) {
     frameworks: ['jasmine'],
 
 //    browserDisconnectTolerance: 1e6,
-    browserDisconnectTimeout: 8*HOUR,
-    browserNoActivityTimeout: 8*HOUR,
-        browserSocketTimeout: 8*HOUR,
+    browserDisconnectTimeout: 24*HOUR,
+    browserNoActivityTimeout: 24*HOUR,
+        browserSocketTimeout: 24*HOUR,
 //              captureTimeout: 8*HOUR,
 
     plugins: [

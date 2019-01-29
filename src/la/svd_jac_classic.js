@@ -296,7 +296,7 @@ export function svd_jac_classic(A)
           [ Cα, Sα,   Cβ, Sβ], // [p,m]+[  0°,  0°]
           [-Sα, Cα,   Sβ,-Cβ], // [p,m]+[  0°,180°]
           [-Sα, Cα,  -Sβ, Cβ], // [p,m]+[180°,  0°]
-          [-Cα,-Sα,   Cβ, Sβ], // [p,m]+[180°,180°]
+          [-Cα,-Sα,   Cβ, Sβ]  // [p,m]+[180°,180°]
         ]) {
           const d00 = (D_kl*sα + D_kk*cα)*cβ + (D_lk*cα - D_ll*sα)*sβ,
                 d11 = (D_kl*cα - D_kk*sα)*sβ + (D_lk*sα + D_ll*cα)*cβ;

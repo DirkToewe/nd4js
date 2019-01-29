@@ -34,7 +34,7 @@ export function istr_to_nd( b64_chars )
     if(value === '[') break
     dtype.push(value)
   }
-  dtype = dtype.join('')
+  dtype = dtype.join('').trim()
   if(dtype === '') throw new Error('b64_parse(b64_chars): dtype=object not (yet) supported.')
   _check_dtype(dtype)
 

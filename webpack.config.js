@@ -29,7 +29,7 @@ module.exports = [
       libraryTarget: 'umd',
       globalObject: "this"
     },
-    module: cfg_module
+    module: cfg_module,
   },
   {
     mode: 'production',
@@ -41,13 +41,6 @@ module.exports = [
       libraryTarget: 'umd',
       globalObject: "this"
     },
-//    optimization: {
-//      minimizer: [
-//        new ClosurePlugin({mode: 'STANDARD'},{
-////          language_out: 'ECMASCRIPT5_STRICT'
-//        })
-//      ]
-//    }
     module: cfg_module
   }
 ]

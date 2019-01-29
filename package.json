@@ -1,24 +1,28 @@
 {
-  "name": "ndjs",
-  "version": "0.7.3",
-  "license": "LGPLv3",
+  "name": "nd4js",
+  "description": "A freedom-respecting nd-array and linear algebra library.",
+  "version": "0.8.3",
+  "main": "./lib/index.js",
+  "license": "GPLv3",
   "scripts": {
-    "build": "webpack && node add_license.js && node mkdoc.js",
+    "build": "webpack && node add_license.js && node mkdoc.js && babel ./src --out-dir ./lib",
     "test": "karma start"
+  },
+  "homepage": "https://github.com/DirkToewe/ndjs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DirkToewe/ndjs"
   },
   "dependencies": {},
   "devDependencies": {
+    "@babel/cli": "^7.2.3",
     "@babel/core": "^7.2.2",
     "@babel/plugin-transform-regenerator": "^7.0.0",
     "@babel/plugin-transform-runtime": "^7.0.0",
-    "@babel/polyfill": "^7.2.3",
-    "@babel/preset-env": "^7.2.3",
-    "@babel/runtime": "^7.2.0",
-    "babel-loader": "^8.0.4",
-    "babel-polyfill": "^6.26.0",
-    "closure-webpack-plugin": "^2.0.0-rc.17",
-    "google-closure-compiler": "^20181231.0.0-webpack-beta",
-    "jsdom": "^13.1.0",
+    "@babel/polyfill": "^7.2.5",
+    "@babel/preset-env": "^7.3.1",
+    "@babel/runtime": "^7.3.1",
+
     "karma": "^3.1.4",
     "karma-cli": "^2.0.0",
     "karma-firefox-launcher": "^1.1.0",
@@ -26,8 +30,14 @@
     "karma-sourcemap-loader": "^0.3.7",
     "karma-spec-reporter": "0.0.32",
     "karma-webpack": "^3.0.5",
-    "regenerator-loader": "^3.1.0",
-    "webpack": "^4.28.1",
-    "webpack-cli": "^3.1.2"
-  }
+
+    "webpack": "^4.29.0",
+    "webpack-cli": "^3.2.1",
+
+    "babel-loader": "^8.0.5",
+    "jsdom": "^13.2.0",
+    "plotly-notebook-js": "^0.1.2",
+    "regenerator-loader": "^3.1.0"
+  },
+  "author": "Dirk Toewe"
 }

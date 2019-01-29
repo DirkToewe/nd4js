@@ -21,3 +21,4 @@ export const WHITESPACES  = '\f\n\r\t\v '
 
 export * from './b64'
 export * from './istr'
+export * from './npy'
