@@ -91,9 +91,10 @@ describe('b64', () => {
     }()
   ).it('b64_encode works for random examples', STR => {
     const bytes = Array.from(STR, c => c.charCodeAt(0))
-    const B64 = [...b64_encode(bytes)].join(''),
+    const B64 = b64_encode(bytes),
           str = atob(B64)
 
+    // check proper padding
     expect([...B64].filter(s => ! WHITESPACES.includes(s)).length%4).toBe(0)
 
     expect(str).toBe(STR)

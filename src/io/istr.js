@@ -17,13 +17,13 @@
  */
 
 import {ARRAY_TYPES, _check_dtype} from '../dt'
-import {b64_encode,
-        b64_decode} from './b64'
+import {b64_encode_gen,
+        b64_decode_gen} from './b64'
 import {IS_LITTLE_ENDIAN} from '.'
 import {asarray, NDArray} from '../nd_array'
 
 
-export function istr_to_nd( b64_chars )
+export function istr_parse( b64_chars )
 {  
   b64_chars = b64_chars[Symbol.iterator]()
 
@@ -57,7 +57,7 @@ export function istr_to_nd( b64_chars )
   }
   shape = Int32Array.from(shape)
 
-  b64_chars = b64_decode(b64_chars)
+  b64_chars = b64_decode_gen(b64_chars)
 
   const DTypeArray = ARRAY_TYPES[dtype],
     data = new Uint8Array(shape.reduce((m,n) => m*n, DTypeArray.BYTES_PER_ELEMENT) ),
@@ -83,7 +83,16 @@ export function istr_to_nd( b64_chars )
 }
 
 
-export function* nd_to_istr( ndarray )
+export function istr_stringify( ndarray, options={} )
+{
+  let result = ''
+  for( const c of istr_stringify_gen(ndarray, options) )
+    result += c
+  return result
+}
+
+
+export function* istr_stringify_gen( ndarray, options={}  )
 {
   ndarray = asarray(ndarray)
   const data = ndarray.data
@@ -94,8 +103,8 @@ export function* nd_to_istr( ndarray )
     throw new Error('Big endianness not (yet) supported.')
 
   yield* `${ndarray.dtype}[${ndarray.shape.join(',')}]\n`
-  yield* b64_encode(
+  yield* b64_encode_gen(
     new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
-    {lineLimit: 128}
+    options
   )
 }

@@ -28,7 +28,14 @@ if( BYTE_TO_CHAR.length !== 64 )
 for( let i=BYTE_TO_CHAR.length; i-- > 0; ) CHAR_TO_BYTE[BYTE_TO_CHAR.charCodeAt(i)] =  i
 for( let i= WHITESPACES.length; i-- > 0; ) CHAR_TO_BYTE[ WHITESPACES.charCodeAt(i)] = -1
 
-export function* b64_decode( b64_chars )
+
+export function b64_decode( b64_chars )
+{
+  return Uint8Array.from( b64_decode_gen(b64_chars) )
+}
+
+
+export function* b64_decode_gen( b64_chars )
 {
   b64_chars = b64_chars[Symbol.iterator]()
 
@@ -69,10 +76,19 @@ export function* b64_decode( b64_chars )
 }
 
 
-export function* b64_encode( bytes, { pad=true, lineLimit=Infinity }={})
+export function b64_encode( bytes, options={} )
 {
-  if( ! (0 < lineLimit) )
-    throw new Error(`_b64_encode(bytes,{lineLimit}): Invalid lineLimit: ${lineLimit}.`)
+  let result = ''
+  for( const c of b64_encode_gen(bytes, options) )
+    result += c
+  return result
+}
+
+
+export function* b64_encode_gen( bytes, { pad=true, linewidth=128 }={})
+{
+  if( ! (0 < linewidth) )
+    throw new Error(`_b64_encode(bytes,{linewidth}): Invalid linewidth: ${linewidth}.`)
   const rawBytes = bytes[Symbol.iterator]()
   bytes = function*(){
     for( let byte of rawBytes ) {
@@ -100,7 +116,7 @@ export function* b64_encode( bytes, { pad=true, lineLimit=Infinity }={})
     if( 'number' !== typeof six  ) throw new Error('Assertion failed.')
     if( ! (0 <= six && six < 64) ) throw new Error('Assertion failed.')
     yield BYTE_TO_CHAR[six]
-    if( 0 == ++i % lineLimit )
+    if( 0 === ++i % linewidth )
       yield '\n'
   }
 

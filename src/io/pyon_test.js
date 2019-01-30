@@ -48,7 +48,7 @@ describe('pyon', () => {
     ['{}', {}],
     [`[1,"2",3.4]`, [1,"2",3.4]],
     ['{ "x": 1, "y": [1,2] }', { "x": 1, "y": [1,2] }]
-  ]).it(`pyon_parse works on hand-crafted examples`, ([str,obj]) => {
+  ]).it(`pyon_parse_gen works on hand-crafted examples`, ([str,obj]) => {
     expect( pyon_parse(str) ).toEqual(obj);
   })
 

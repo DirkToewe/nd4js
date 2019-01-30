@@ -784,14 +784,95 @@ Examples
    apply for the leading dimenions, i.e. for all dimensions of the shape except the last two."
 `
 
-//nd.createDocHTML.__doc__ = `\
-//Created a JSDom representation of the documentation HTML file.
+
+
+  //
+ // I/O
 //
-//Returns
-//-------
-//doc: JSDOM
-//  The HTML document containing the HTML documentation file.
-//`
+nd.io.istr_parse.__doc__ = `\
+Parses an inlineable string representation (ISTR) of an \`NDArray\`. ISTR is intended
+for inlining large \`NDArray\`s into JavaScript code or JSON files. The string representation
+consists of a data type string, followed by a JSON array for the shape and finally a Base64
+encoded, little-endian representation of the \`NDArray\`'s data/content. Except for within
+the type string or in between the digits of a shape integer, ISTR is whitespace-agnostic.
+
+Parameters
+----------
+chars: Iterable<char>
+  The character sequence that is to be parsed.
+
+Returns
+-------
+ndarray: NDArray
+  The \`NDArray\` parsed from \`chars\`.
+
+Examples
+--------
+>>> const a = nd.io.istr_parse(\`int32[7,6]
+...   CwAAAAwAAAANAAAADgAAAA8AAAAQAAAAFQAAABYAAAAXAAAAGAAAABkAAAAaAAAAHwAAACAAAAAhAAAAIgAAACMAAAAkAAAAKQAAACoAAAArAAAALAAAAC0AAAAuAAAA
+...   MwAAADQAAAA1AAAANgAAADcAAAA4AAAAPQAAAD4AAAA/AAAAQAAAAEEAAABCAAAARwAAAEgAAABJAAAASgAAAEsAAABMAAAA\`
+... );
+>>> console.log( a.toString() )
+  [[ 11, 12, 13, 14, 15, 16 ],
+   [ 21, 22, 23, 24, 25, 26 ],
+   [ 31, 32, 33, 34, 35, 36 ],
+   [ 41, 42, 43, 44, 45, 46 ],
+   [ 51, 52, 53, 54, 55, 56 ],
+   [ 61, 62, 63, 64, 65, 66 ],
+   [ 71, 72, 73, 74, 75, 76 ]]
+`
+
+
+
+nd.io.istr_stringify.__doc__ = `\
+Converts an \`NDArray\` into an inlineable string representation (ISTR). ISTR is intended
+for inlining large \`NDArray\`s into JavaScript code or JSON files. The string representation
+consists of a data type string, followed by a JSON array for the shape and finally a Base64
+encoded, little-endian representation of the \`NDArray\`'s data/content. Except for within
+the type string or in between the digits of a shape integer, ISTR is whitespace-agnostic.
+
+Parameters
+----------
+ndarray: NDArray
+  The array that is to be converted to an inlineable string representation.
+options: {linewidth=128}
+  [optional] The maximum number of Base64 characters per line before a newline
+  character is inserted.
+
+Returns
+-------
+istr: string
+  An inlineable string representation of \`ndarray\`.
+
+Examples
+--------
+>>> const a = nd.tabulate([7,6], 'int32', (i,j) => 10*i+j+11)
+>>> console.log('\`' + nd.io.istr_stringify(a) + '\`')
+  \`int32[7,6]
+  CwAAAAwAAAANAAAADgAAAA8AAAAQAAAAFQAAABYAAAAXAAAAGAAAABkAAAAaAAAAHwAAACAAAAAhAAAAIgAAACMAAAAkAAAAKQAAACoAAAArAAAALAAAAC0AAAAuAAAA
+  MwAAADQAAAA1AAAANgAAADcAAAA4AAAAPQAAAD4AAAA/AAAAQAAAAEEAAABCAAAARwAAAEgAAABJAAAASgAAAEsAAABMAAAA\`
+`
+
+
+
+nd.io.npy_serialize.__doc__ = `\
+Serializes an \`NDArray\` into an \`Uint8Array\` using version 1.0 of the NumPy NPY-format.
+NPY is popular matrix exchange format that is implemented in several programming languages.
+It is well-suited for network streaming or file system storage.
+
+In order to reduce memory overhead, consider using \`nd.io.npy_serialize_gen()\` which returns
+an \`Iterable<uint8>\` instead of an \`Uint8Array\`.
+
+Parameters
+----------
+ndarray: NDArray
+  The array that is to be serialized.
+
+Returns
+-------
+bytes: Uint8Array
+  The bytes of the NPY representation of \`ndarray\`.
+`
 
 
 

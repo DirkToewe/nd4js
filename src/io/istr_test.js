@@ -17,8 +17,8 @@
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
-import {nd_to_istr,
-        istr_to_nd} from './istr'
+import {istr_stringify,
+        istr_parse} from './istr'
 import {tabulate} from '../tabulate'
 import {WHITESPACES} from '.'
 
@@ -50,9 +50,9 @@ describe('istr', () => {
         yield A
       }
     }()
-  ).it('istr_to_nd(nd_to_istr(...)) results in same array for random examples', A => {
-    const a_istr = Array.from( nd_to_istr(A) ),
-          a=istr_to_nd(a_istr)
+  ).it('istr_parse(istr_stringify(...)) results in same array for random examples', A => {
+    const a_istr = Array.from( istr_stringify(A) ),
+          a=istr_parse(a_istr)
 
     expect(a.dtype).toBe(A.dtype)
     expect(a.shape).toEqual(A.shape)

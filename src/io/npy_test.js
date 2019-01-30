@@ -17,8 +17,9 @@
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
-import {b64_decode} from './b64'
-import {npy_to_nd, nd_to_npy} from './npy'
+import {b64_decode_gen} from './b64'
+import {npy_serialize_gen,
+        npy_deserialize} from './npy'
 import {npy_test_data} from './npy_test_data'
 import {tabulate} from '../tabulate'
 
@@ -31,8 +32,8 @@ describe('npy', () => {
 
   forEachItemIn(
     npy_test_data()
-  ).it('npy_to_nd works for random examples', ([b64, reference]) => {
-    const result = npy_to_nd( b64_decode(b64) );
+  ).it('npy_deserialize works for random examples', ([b64, reference]) => {
+    const result = npy_deserialize( b64_decode_gen(b64) );
 
     expect(result.dtype).toBe   (reference.dtype)
     expect(result.shape).toEqual(reference.shape)
@@ -55,8 +56,8 @@ describe('npy', () => {
         yield A
       }
     }()
-  ).it('nd_to_npy works for random examples', (A) => {
-    const B = npy_to_nd(nd_to_npy(A))
+  ).it('npy_serialize works for random examples', (A) => {
+    const B = npy_deserialize(npy_serialize_gen(A))
 
     expect(B.dtype).toBe   (A.dtype)
     expect(B.shape).toEqual(A.shape)

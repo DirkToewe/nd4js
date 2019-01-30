@@ -108,6 +108,27 @@ console.log( a.toString() );
  [ 31, 32, 33 ]]
 ```
 
+If array elements are to me modified, [nd.NDArray.modify](https://dirktoewe.github.io/ndjs/doc.html#nd.NDArray.modify) is a concise
+alternative to using [nd.NDArray.get](https://dirktoewe.github.io/ndjs/doc.html#nd.NDArray.get) and
+[nd.NDArray.set](https://dirktoewe.github.io/ndjs/doc.html#nd.NDArray.set).
+
+*Input:*
+```js
+const a = nd.array([[1, 2, 3],
+                    [4, 5, 6]])
+
+a.modify([0,1], x => 7*x)
+
+console.log( a.toString() );
+```
+
+*Output:*
+```js
+[[  1, 14,  3 ],
+ [  4,  5,  6 ]]
+```
+
+
 # Unary Operations (sin, cos, exp, ...)
 [nd.NDArray.mapElems](https://dirktoewe.github.io/ndjs/doc.html#nd.NDArray.mapElems) is used to apply unary operations on an nd.Array.
 

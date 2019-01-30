@@ -52,7 +52,6 @@ describe('lbfgs', () => {
     }
 
     let x,f,g, nIter = -1
-    min_lbfgs_gen(fg,x0)
     try {
       for( [x,f,g] of min_lbfgs_gen(fg, x0, opt) )
       {

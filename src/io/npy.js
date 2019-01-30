@@ -25,7 +25,13 @@ import {IS_LITTLE_ENDIAN} from '.'
 const MAGIC_STRING = '\u0093NUMPY';
 
 
-export function* nd_to_npy( A )
+export function npy_serialize( A )
+{
+  return Uint8Array.from( npy_serialize_gen(A) )
+}
+
+
+export function* npy_serialize_gen( A )
 {
   A = asarray(A)
 
@@ -76,7 +82,7 @@ export function* nd_to_npy( A )
 }
 
 
-export function npy_to_nd( npy_bytes )
+export function npy_deserialize( npy_bytes )
 {
   let nRead = 0;
   const next = function(){
