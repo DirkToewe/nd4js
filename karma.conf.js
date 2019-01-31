@@ -16,7 +16,7 @@ module.exports = function(config) {
 //              captureTimeout: 8*HOUR,
 
     plugins: [
-//      'karma-chrome-launcher',
+      'karma-chrome-launcher',
       'karma-firefox-launcher',
       'karma-jasmine',
       'karma-webpack',
@@ -60,8 +60,8 @@ module.exports = function(config) {
     },
 
     browsers: [
-//      'Chrome'
-      'Firefox'
+      'Chrome',
+      'Firefox',
     ],
 
     port: 9876,

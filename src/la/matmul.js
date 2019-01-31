@@ -33,24 +33,24 @@ const [
     'B_shape', 'B',
     'C_shape', 'C',
     `
-       const I = A_shape[A_shape.length-2],
-             K = A_shape[A_shape.length-1],
-             J = B_shape[B_shape.length-1]
-    
-       let
+      const I = A_shape[A_shape.length-2],
+            K = A_shape[A_shape.length-1],
+            J = B_shape[B_shape.length-1]; 
+      let
         a = 0, aStride = 1,
         b = 0, bStride = 1,
         c = 0;
-    
+
       const loops = new Int32Array(C_shape.length-2);
       for( let d=0; d >= 0; )
         if( d === C_shape.length-2 ) {
           aStride = I*K;
           bStride = K*J;
-          for( const cEnd = c + I*J; c < cEnd; c += J, b -= bStride ) 
-          for( const aEnd = a + K  ; a < aEnd; c -= J, a++ ) 
-          for( const bEnd = b +   J; b < bEnd; c += 1, b++ )
+          for( const cEnd = c + I*J; c < cEnd; c += J, b -= bStride ) {
+          for( const aEnd = a + K  ; a < aEnd; c -= J, a++ ) {
+          for( const bEnd = b +   J; b < bEnd; c += 1, b++ ) {
             ${addProduct}
+          }}}
           b += bStride;
           d -= 1;
         }
@@ -71,20 +71,20 @@ const [
     `
   )
 
-  yield mk_matmul2('C[c] += A[a]*B[b]')
-  yield mk_matmul2(`{
+  yield mk_matmul2('C[c] += A[a]*B[b];')
+  yield mk_matmul2(`
     C[2*c+0] += A[a] * B[2*b+0];
     C[2*c+1] += A[a] * B[2*b+1];
-  }`)
-  yield mk_matmul2(`{
+  `)
+  yield mk_matmul2(`
     C[2*c+0] += B[b] * A[2*a+0];
     C[2*c+1] += B[b] * A[2*a+1];
-  }`)
-  yield mk_matmul2(`{
+  `)
+  yield mk_matmul2(`
     C[2*c+0] += B[2*b+0] * A[2*a+0]  -  B[2*b+1] * A[2*a+1];
     C[2*c+1] += B[2*b+0] * A[2*a+1]  +  B[2*b+1] * A[2*a+0];
-  }`)
-  yield mk_matmul2('C[c] = this.math.add(C[c], this.math.mul(A[a],B[b]))').bind({math})
+  `)
+  yield mk_matmul2('C[c] = this.add(C[c], this.mul(A[a],B[b]));').bind(math)
 }()
 
 
@@ -234,3 +234,74 @@ export function matmul(...matrices)
 
   return product(0, matrices.length-1)
 }
+
+
+//const [
+//  matmul2_RR,
+//  matmul2_RC,
+//  matmul2_CR,
+//  matmul2_CC,
+//  matmul2_ELSE
+//] = function*(){
+//  const mk_matmul2 = addProduct => new Function(
+//    'A_shape', 'A',
+//    'B_shape', 'B',
+//    'C_shape', 'C',
+//    `
+//      const I = A_shape[A_shape.length-2],
+//            K = A_shape[A_shape.length-1],
+//            J = B_shape[B_shape.length-1]; 
+//      let aOff= 0, aStride = 1,
+//          bOff= 0, bStride = 1,
+//          cOff= 0;
+//
+//      const loops = new Int32Array(C_shape.length-2);
+//      for( let d=0; d >= 0; )
+//        if( d === C_shape.length-2 ) {
+//          aStride = I*K;
+//          bStride = K*J;
+//          for( let i=0; i < I; i++ ) {
+//          for( let k=0; k < K; k++ ) {
+//          for( let j=0; j < J; j++ ) {
+//            const a = aOff + K*i+k,
+//                  b = bOff + J*k+j,
+//                  c = cOff + J*i+j;
+//            ${addProduct}
+//          }}}
+//          aOff += aStride;
+//          bOff += bStride;
+//          cOff += I*J;
+//          --d;
+//        }
+//        else
+//        {
+//          if( loops[d]++ > 0 ) {
+//            if( loops[d] > C_shape[d] ) {
+//              aStride *= A_shape[ d - C_shape.length + A_shape.length ] || 1;
+//              bStride *= B_shape[ d - C_shape.length + B_shape.length ] || 1;
+//              loops[d--] = 0;
+//              continue;
+//            }
+//            if( ! (A_shape[ d - C_shape.length + A_shape.length ] > 1) ) aOff -= aStride;
+//            if( ! (B_shape[ d - C_shape.length + B_shape.length ] > 1) ) bOff -= bStride;
+//          }
+//          ++d;
+//        }
+//    `
+//  )
+//
+//  yield mk_matmul2('C[c] += A[a]*B[b];')
+//  yield mk_matmul2(`
+//    C[2*c+0] += A[a] * B[2*b+0];
+//    C[2*c+1] += A[a] * B[2*b+1];
+//  `)
+//  yield mk_matmul2(`
+//    C[2*c+0] += B[b] * A[2*a+0];
+//    C[2*c+1] += B[b] * A[2*a+1];
+//  `)
+//  yield mk_matmul2(`
+//    C[2*c+0] += B[2*b+0] * A[2*a+0]  -  B[2*b+1] * A[2*a+1];
+//    C[2*c+1] += B[2*b+0] * A[2*a+1]  +  B[2*b+1] * A[2*a+0];
+//  `)
+//  yield mk_matmul2('C[c] = this.add(C[c], this.mul(A[a],B[b]));').bind(math)
+//}()

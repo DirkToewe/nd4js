@@ -1,7 +1,7 @@
 {
   "name": "nd4js",
   "description": "A freedom-respecting nd-array and linear algebra library.",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "main": "./lib/index.js",
   "license": "GPLv3",
   "scripts": {
@@ -22,22 +22,21 @@
     "@babel/polyfill": "^7.2.5",
     "@babel/preset-env": "^7.3.1",
     "@babel/runtime": "^7.3.1",
-
+    "acorn": "^6.0.6",
+    "babel-loader": "^8.0.5",
+    "jsdom": "^13.2.0",
     "karma": "^3.1.4",
+    "karma-chrome-launcher": "^2.2.0",
     "karma-cli": "^2.0.0",
     "karma-firefox-launcher": "^1.1.0",
     "karma-jasmine": "^2.0.1",
     "karma-sourcemap-loader": "^0.3.7",
     "karma-spec-reporter": "0.0.32",
     "karma-webpack": "^3.0.5",
-
-    "webpack": "^4.29.0",
-    "webpack-cli": "^3.2.1",
-
-    "babel-loader": "^8.0.5",
-    "jsdom": "^13.2.0",
     "plotly-notebook-js": "^0.1.2",
-    "regenerator-loader": "^3.1.0"
+    "regenerator-loader": "^3.1.0",
+    "webpack": "^4.29.0",
+    "webpack-cli": "^3.2.1"
   },
   "author": "Dirk Toewe"
 }

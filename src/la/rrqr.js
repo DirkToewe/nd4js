@@ -16,11 +16,11 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
+import {SingularMatrixSolveError} from './singular_matrix_solve_error'
 import {asarray, NDArray} from '../nd_array'
 import {eps, ARRAY_TYPES} from '../dt'
 import math from '../math'
 import {unpermute_rows} from './permute'
-import {SingularMatrixSolveError} from './singular_matrix_solve_error'
 
 
 export function _rrqr_rank(M,N, R,R_off, tmp)
@@ -555,6 +555,4 @@ export function rrqr_lstsq(Q,R,P, y)
   solv(0);
 
   return new NDArray(shape,x_dat);
-
-  throw new Error('Not yet implemented!')
 }
