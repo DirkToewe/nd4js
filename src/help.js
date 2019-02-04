@@ -787,6 +787,79 @@ Examples
 
 
   //
+ // OPTIMIZATION
+//
+nd.opt.min_lbfgs_gen.__doc__ = `\
+Iteratively minimizes a function using the L-BFGS method. An indefinite number of solutions is
+returned unless the line search does not make any further progress, in which case a
+\`LineSearchNoProgressError\` is thrown. The user must check for a proper stopping condition
+her-/himself.
+
+Parameters
+----------
+fg: (x: NDArray[N]) => [f: NDArray[], g: NDArray[N]]
+  A method return both the function value and gradients of the optimized function for
+  the given input \`x\`. 
+x0: NDArray[N]
+  The starting point for the minimization.
+options: {
+  historySize=8: int
+    The number of past value-gradient pairs that are memoized in order to approximate the Hessian.
+  lineSearch=nd.opt.line_search.strong_wolfe()
+    The line search method used to advance the solution along the current search direction.
+    Must at least satisfy the Wolfe Condition.
+  negDir0 = g=>g: (g: NDArray[N]) => (negDir: NDArray[N])
+    Returns the gradient-descent-like initial search direction. Can be used to control the initial
+    search step.
+}
+
+Returns
+-------
+approximations: Iterator<[x: NDArray[N], f: NDArray[] g: NDArray[N]]>
+  An iterator over the approximations/iterations made by the L-BFGS method. Will return an indefinite
+  amount of approximations unless a \`LineSearchNoProgressError\` is thrown.
+
+Throws
+------
+noProgress: nd.opt.LineSearchNoProgressError
+  If the optimization is not making any more progress. This is usally happens when the optimizer
+  is already very close to the minimum.
+
+References
+----------
+.. [1] https://en.wikipedia.org/wiki/Limited-memory_BFGS
+.. [2] https://en.wikipedia.org/wiki/Wolfe_conditions
+
+Example
+-------
+>>> const fg = ([x,y]) => [
+...   nd.array(  (x-1)**2 + 100*(y-x*x)**2 ),
+...   nd.array([ (x-1) *2 - 400*(y-x*x) *x,
+...                         200*(y-x*x) ])
+... ];
+... let x,f,g, nIter = -1;
+... try {
+...   for( [x,f,g] of nd.opt.min_lbfgs_gen(fg, /*x0=*/[0,0], {negDir: g => g.mapElems(x => x*0.1)}) )
+...   {
+...     const gNorm = g.reduceElems(nd.math.hypot);
+...     if( ++nIter > 1e3 )
+...       throw new Error('Too many iterations.');
+...     if( gNorm <= 1e-8 )
+...       break;
+...   }
+... }
+... catch(err) {
+...   if( ! (err instanceof nd.opt.LineSearchNoProgressError) )
+...     throw err;
+...   console.log('No progress.');
+... }
+... console.log('Solution:', x);
+  Solution: [ 0.9999999998879853, 0.9999999997700713 ]
+`
+
+
+
+  //
  // I/O
 //
 nd.io.istr_parse.__doc__ = `\
@@ -1120,14 +1193,14 @@ product: NDArray[...,N,M]
 Examples
 --------
 >>> const A = [
-      [2, 0],
-      [0,-1]
-    ];
+...   [2, 0],
+...   [0,-1]
+... ];
 >>> const x = nd.array([
-      [[1,2]],
-      [[3,4]],
-      [[5,6]]
-    ]).T;
+...   [[1,2]],
+...   [[3,4]],
+...   [[5,6]]
+... ]).T;
 >>> console.log( x.toString() );
   [ [[1],
      [2]],
@@ -1171,9 +1244,9 @@ L: NDArray[...,N,N]
 Examples
 --------
 >>> const S = [
-      [ 25, -50],
-      [-50, 101]
-    ];
+...   [ 25, -50],
+...   [-50, 101]
+... ];
 >>> const L = nd.la.cholesky_decomp(S);
 >>> console.log( nd.la.matmul2(L,L.T).toString() );
   [[ 25, -50],
@@ -1202,15 +1275,15 @@ x: NDArray[...,N,M]
 Examples
 --------
 >>> const S = [
-      [ 25, -50],
-      [-50, 101]
-    ];
+...   [ 25, -50],
+...   [-50, 101]
+... ];
 >>> const y = [
-      [[1],
-       [2]],
-      [[3],
-       [4]]
-    ];
+...   [[1],
+...    [2]],
+...   [[3],
+...    [4]]
+... ];
 >>> const L = nd.la.cholesky_decomp(S);
 >>> const x = nd.la.cholesky_solve(L,y);
 >>> console.log( nd.la.matmul2(S,x) );

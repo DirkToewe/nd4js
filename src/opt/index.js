@@ -19,6 +19,7 @@
 import * as line_search from './line_search'
 export {line_search}
 
+export * from './lbfgs'
+export * from './line_search'
 export * from './num_grad'
 export * from './root1d_bisect'
-export * from './lbfgs'

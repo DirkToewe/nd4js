@@ -17,4 +17,3 @@
  */
 
 export * from './strong_wolfe'
-export * from './line_search_error'

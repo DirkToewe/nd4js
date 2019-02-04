@@ -155,7 +155,7 @@ export function npy_deserialize( npy_bytes )
 
   if( LE !== IS_LITTLE_ENDIAN )
   {
-    const wordLen = DTypeArray.BYTES_PER_ELEMENT / (dtype.startsWith('complex') ? 2 : 1);
+    const wordLen = DTypeArray.BYTES_PER_ELEMENT >>> dtype.startsWith('complex');
     for( let off = 0; off < data.length; off += wordLen )
     for( let i=off, j=off+wordLen; i < --j; i++ ) {
       const data_i = data[i];

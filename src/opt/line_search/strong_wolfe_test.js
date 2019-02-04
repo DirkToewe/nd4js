@@ -52,9 +52,9 @@ describe('strong_wolfe', () => {
     const [f0,g0] = fg(x0), negDir = g0.mapElems('float64', x => x*0.1),
        [c1,c2,c3] = [0.4,0.8,1.6]
 
-    let x,f,g
+    let x,f,g;
     try {
-      [x,f,g] = strong_wolfe({c1,c2,c3})(fg)(x0,f0,g0, negDir)
+      ( [x,f,g] = strong_wolfe({c1,c2,c3})(fg)(x0,f0,g0, negDir) );
     }
     catch(err) {
       if( err instanceof LineSearchNoProgressError )

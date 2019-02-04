@@ -173,8 +173,8 @@ export function svd_jac_2sided(A)
           D[N*l+i] = D_li*cβ + D_ki*sβ;
         }
   
-        if( ! math.is_close(0, D[N*k+l]) ) throw new Error(`Assertion failed: 0 =/= ${D[N*k+l]}.`)
-        if( ! math.is_close(0, D[N*l+k]) ) throw new Error(`Assertion failed: 0 =/= ${D[N*l+k]}.`)
+//        if( ! math.is_close(0, D[N*k+l]) ) throw new Error(`Assertion failed: 0 =/= ${D[N*k+l]}.`)
+//        if( ! math.is_close(0, D[N*l+k]) ) throw new Error(`Assertion failed: 0 =/= ${D[N*l+k]}.`)
         // ENTRIES (k,l) AND (l,k) ARE REMAINDERS (CANCELLATION ERROR) FROM ELIMINATION => SHOULD BE SAFELY ZEROABLE
         D[N*k+l] = 0.0;
         D[N*l+k] = 0.0;

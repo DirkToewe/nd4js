@@ -245,5 +245,17 @@ console.log( nd.la.matmul(v.T, A, v) );
 ```
 
 Available operations and decompositions:
-  * QR Decomposition
-  
+  * [Linear Equation Solution](https://dirktoewe.github.io/ndjs/doc.html#nd.la.solve)
+  * [Lower Triangular Solution](https://dirktoewe.github.io/ndjs/doc.html#nd.la.tril_solve)
+  * [Upper Triangular Solution](https://dirktoewe.github.io/ndjs/doc.html#nd.la.triu_solve)
+  * [Linear Least Squares](https://dirktoewe.github.io/ndjs/doc.html#nd.la.lstsq)
+  * [Eigen Solution](https://dirktoewe.github.io/ndjs/doc.html#nd.la.eigen)
+  * [Schur Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.schur_decomp)
+  * [Singular Value Decomposition (SVD)](https://dirktoewe.github.io/ndjs/doc.html#nd.la.svd_decomp)
+  * [QR Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.qr_decomp)
+  * [Rank-Revaling QR Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.rrqr_decomp)
+  * [LU Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.lu_decomp)
+  * [Cholesky Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.cholesky_decomp)
+  * [Hessenberg Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.hessenberg_decomp)
+  * [Bidiagonal Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.bidiag_decomp)
+
