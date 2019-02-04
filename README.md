@@ -245,9 +245,7 @@ console.log( nd.la.matmul(v.T, A, v) );
 ```
 
 Available operations and decompositions:
-  * [Linear Equation Solution](https://dirktoewe.github.io/ndjs/doc.html#nd.la.solve)
-  * [Lower Triangular Solution](https://dirktoewe.github.io/ndjs/doc.html#nd.la.tril_solve)
-  * [Upper Triangular Solution](https://dirktoewe.github.io/ndjs/doc.html#nd.la.triu_solve)
+  * [Linear Equation Systems](https://dirktoewe.github.io/ndjs/doc.html#nd.la.solve) (incl. [Lower](https://dirktoewe.github.io/ndjs/doc.html#nd.la.tril_solve) and [Upper](https://dirktoewe.github.io/ndjs/doc.html#nd.la.triu_solve) Triangular Systems).
   * [Linear Least Squares](https://dirktoewe.github.io/ndjs/doc.html#nd.la.lstsq)
   * [Eigen Solution](https://dirktoewe.github.io/ndjs/doc.html#nd.la.eigen)
   * [Schur Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.schur_decomp)
