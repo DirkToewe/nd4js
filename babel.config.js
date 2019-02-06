@@ -2,5 +2,6 @@
 
 module.exports = {
   presets: ['@babel/preset-env'],
-  plugins: ['@babel/transform-runtime']
+  plugins: ['@babel/transform-runtime'],
+  ignore: ['**/*_test.js']
 };

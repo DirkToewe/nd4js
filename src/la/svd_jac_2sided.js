@@ -88,8 +88,7 @@ export function svd_jac_2sided(A)
      //
     // JACOBI SVD ITERATIONS
    //
-    let finished = false;
-    while( ! finished )
+    for( let finished = false; ! finished; )
     {
       finished = true;
 

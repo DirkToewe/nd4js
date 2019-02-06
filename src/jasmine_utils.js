@@ -216,7 +216,7 @@ export const forEachItemIn = items => ({
 
             specFn(item=value)
 
-            if( 500 < performance.now() - t0 )
+            if( 250 < performance.now() - t0 )
               return
           }
         }

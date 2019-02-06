@@ -83,6 +83,33 @@ describe('NDArray.toString()', () => {
 })
 
 
+describe('NDArray.toNestedArray', () => {
+  forEachItemIn(
+    function*(){
+      function* shapes(){
+        yield Int32Array.of()
+        for( let l=1; l < 9; l++ ) { yield Int32Array.of(l)
+        for( let m=1; m < 9; m++ ) { yield Int32Array.of(l,m)
+        for( let n=1; n < 9; n++ ) { yield Int32Array.of(l,m,n) }}}
+      }
+
+      for( const shape of shapes() )
+      {
+        const length = shape.reduce( (len,d) => len*d, 1 ),
+              A = new NDArray( shape, Int32Array.from({length}, (_,i) => i+1) )
+        yield Object.freeze(A)
+      }
+    }()
+  ).it('works on random examples.', A => {
+    const B = array(A.toNestedArray())
+
+    expect(B.shape).toEqual(A.shape)
+    expect(B.dtype).toEqual(A.dtype)
+    expect(B.data ).toEqual(A.data )
+  })
+})
+
+
 describe('NDArray(...indices)', () => {
   it('works on example of shape [2,3]', () => {
     const arr = new NDArray(Int32Array.of(2,3), [

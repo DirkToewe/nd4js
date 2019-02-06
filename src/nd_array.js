@@ -231,6 +231,18 @@ export class NDArray extends Function
     return [...str('',0,0) ].join('');
   }
 
+  toNestedArray() {
+    const  data = this.data,
+          shape = this.shape;
+    let flat_idx = 0
+  
+    const toNested = d => d === shape.length
+      ? data[flat_idx++]
+      : Array.from({length: shape[d]}, () => toNested(d+1));
+
+    return toNested(0)
+  }
+
    //
   // ITERATION
  //
