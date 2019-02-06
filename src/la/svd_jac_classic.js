@@ -245,66 +245,25 @@ export function svd_jac_classic(A)
       // => 0 = (D_kk+D_ll)⋅sin(α-β) + (D_kl-D_lk)⋅cos(α-β)  
       //    0 = (D_kk-D_ll)⋅sin(α+β) + (D_kl+D_lk)⋅cos(α+β)  
       const [cα,sα,cβ,sβ] = function(){
-        let Cα,Sα,Cβ,Sβ;
-
-        // ANGLE COMPUTATION VARIANT A (SEE ASCII ART ABOVE)
-        {
+        let Cα,Sα,Cβ,Sβ, d11_max=0; {
           const m = Math.atan2(D_lk - D_kl, D_ll + D_kk),// = α - β
-          p = Math.atan2(D_lk + D_kl, D_ll - D_kk),// = α + β
-          α = (p+m)/2,
-          β = (p-m)/2;
+                p = Math.atan2(D_lk + D_kl, D_ll - D_kk),// = α + β
+                α = (p+m)/2,
+                β = (p-m)/2;
           Cα = Math.cos(α); Sα = Math.sin(α);
           Cβ = Math.cos(β); Sβ = Math.sin(β);
         }
-
-//        // ANGLE COMPUTATION VARIANT B
-//        { // FIRST, FIND GIVENS ROT. THAT SYMMETRIZES
-//          //   see: see: https://github.com/eigenteam/eigen-git-mirror/blob/master/Eigen/src/misc/RealSvd2x2.h
-//          let y = D_lk - D_kl,
-//              Cγ = 1, d_kk=D_kk, d_kl=D_kl,
-//              Sγ = 0, d_lk=D_lk, d_ll=D_ll;
-//          if( 0 !== y ) {
-//            const x = D_kk + D_ll,
-//                  h = Math.hypot(x,y);
-//            Cγ = +x / h;
-//            Sγ = -y / h;
-//            d_kk = Cγ*D_kk - Sγ*D_lk; d_kl = Cγ*D_kl - Sγ*D_ll;
-//            d_lk = Sγ*D_kk + Cγ*D_lk; d_ll = Sγ*D_kl + Cγ*D_ll;
-//            if( ! math.is_close(d_kl,d_lk) )
-//              throw new Error(`Assertion failed: ${d_kl} =/= ${d_lk}`);
-//          }
-//          // SECOND, FIND JACOBI ROTATION TO SYMMETRIZED PROBLEM
-//          // see:
-//          //   * https://en.wikipedia.org/wiki/Jacobi_rotation
-//          //   * https://github.com/eigenteam/eigen-git-mirror/blob/master/Eigen/src/Jacobi/Jacobi.h
-//          d_kl *= 2
-//          if( 0 === d_kl ) {
-//            Sα = -Sγ;
-//            Sβ = +Sγ; Cα = Cβ = Cγ;
-//          } else {
-//            const b = (d_ll - d_kk) / d_kl,
-//                  t = Math.sign(b) / ( Math.abs(b) + Math.sqrt(1 + b*b) )
-//            Cα = 1 / Math.sqrt(1 + t*t)
-//            Sα = Cα*t
-//            Cβ = Cα*Cγ - Sα*Sγ
-//            Sβ = Cα*Sγ + Sα*Cγ
-//          }
-//        }
-
-        // tan is 180°-periodical so lets try all possible solutions
+        // tan is 180°-periodical so lets try all possible non-duplicate solutions
         for( const [cα,sα,cβ,sβ] of [
-          [ Cα, Sα,   Cβ, Sβ], // [p,m]+[  0°,  0°]
-          [-Sα, Cα,   Sβ,-Cβ], // [p,m]+[  0°,180°]
-          [-Sα, Cα,  -Sβ, Cβ], // [p,m]+[180°,  0°]
-          [-Cα,-Sα,   Cβ, Sβ]  // [p,m]+[180°,180°]
+          [ Cα, Sα,   Cβ, Sβ],
+          [ Cα, Sα,  -Cβ,-Sβ], 
+          [-Sα, Cα,   Sβ,-Cβ],
+          [-Sα, Cα,  -Sβ, Cβ]
         ]) {
-          const d00 = (D_kl*sα + D_kk*cα)*cβ + (D_lk*cα - D_ll*sα)*sβ,
-                d11 = (D_kl*cα - D_kk*sα)*sβ + (D_lk*sα + D_ll*cα)*cβ;
+          const d11 = (D_kl*cα - D_kk*sα)*sβ + (D_lk*sα + D_ll*cα)*cβ;
           // ROTATE IN A WAY THAT ENSURES DESCENDING ORDER
-          if( d11 >= Math.abs(d00) ) {
-            if( d00 >= -0.0 )
-              return [cα,sα,cβ,sβ];
-            Cα = cα; Sα = sα;
+          if( d11 >= d11_max ) {
+            Cα = cα; Sα = sα; d11_max = d11;
             Cβ = cβ; Sβ = sβ;
           }
         }
