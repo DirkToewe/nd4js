@@ -53,7 +53,7 @@ export function cast_scalar(x, dtype)
 export function _check_dtype(dtype)
 {
   if( ! ARRAY_TYPES.hasOwnProperty(dtype) )
-    throw new Error("Invalid dtype '" + dtype + "'. Must be one of {'" + Object.getOwnPropertyNames(nd.dtypes).join("', '") + "'}.")
+    throw new Error("Invalid dtype '" + dtype + "'. Must be one of {'" + Object.getOwnPropertyNames(ARRAY_TYPES).join("', '") + "'}.")
 }
 
 export function dtypeof(value)

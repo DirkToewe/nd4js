@@ -124,7 +124,7 @@ export function svd_jac_2sided(A)
         // => 0 = (D_kk+D_ll)⋅sin(α-β) + (D_kl-D_lk)⋅cos(α-β)  
         //    0 = (D_kk-D_ll)⋅sin(α+β) + (D_kl+D_lk)⋅cos(α+β)  
         const [cα,sα,cβ,sβ] = function(){
-          let Cα,Sα,Cβ,Sβ, d11_max=0; {
+          let Cα,Sα,Cβ,Sβ, d_ll_max=0; {
             const m = Math.atan2(D_lk - D_kl, D_ll + D_kk),// = α - β
                   p = Math.atan2(D_lk + D_kl, D_ll - D_kk),// = α + β
                   α = (p+m)/2,
@@ -139,10 +139,10 @@ export function svd_jac_2sided(A)
             [-Sα, Cα,   Sβ,-Cβ],
             [-Sα, Cα,  -Sβ, Cβ]
           ]) {
-            const d11 = (D_kl*cα - D_kk*sα)*sβ + (D_lk*sα + D_ll*cα)*cβ;
+            const d_ll = (D_kk*sα + D_kl*cα)*sβ + (D_lk*sα + D_ll*cα)*cβ;
             // ROTATE IN A WAY THAT ENSURES DESCENDING ORDER
-            if( d11 >= d11_max ) {
-              Cα = cα; Sα = sα; d11_max = d11;
+            if( d_ll >= d_ll_max ) {
+              Cα = cα; Sα = sα; d_ll_max = d_ll;
               Cβ = cβ; Sβ = sβ;
             }
           }
@@ -167,6 +167,7 @@ export function svd_jac_2sided(A)
   
 //        if( ! math.is_close(0, D[N*k+l]) ) throw new Error(`Assertion failed: 0 =/= ${D[N*k+l]}.`)
 //        if( ! math.is_close(0, D[N*l+k]) ) throw new Error(`Assertion failed: 0 =/= ${D[N*l+k]}.`)
+        if( ! (D[N*l+l] >= 0) ) throw new Error('Assertion failed.')
         // ENTRIES (k,l) AND (l,k) ARE REMAINDERS (CANCELLATION ERROR) FROM ELIMINATION => SHOULD BE SAFELY ZEROABLE
         D[N*k+l] = 0.0;
         D[N*l+k] = 0.0;

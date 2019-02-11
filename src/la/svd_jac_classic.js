@@ -119,7 +119,6 @@ export function svd_jac_classic(A)
    */
   const update_col = col =>
   {
-    
     col = col >>> 1 << 1; // <- round down to pow2
     // build bottom tree level
     const J = Math.min(col+2,N);
@@ -163,9 +162,8 @@ export function svd_jac_classic(A)
      //
     // (CLASSICAL) JACOBI SVD ITERATIONS
    //
-    let nIter = 0;
     for( let s=-1,
-             t=-1;; nIter++ )
+             t=-1;; )
     {
       // FIND THE OFF DIAGONAL PAIR WITH THE LARGEST HYPOTHENUSE
       let k,l; {
@@ -245,7 +243,7 @@ export function svd_jac_classic(A)
       // => 0 = (D_kk+D_ll)⋅sin(α-β) + (D_kl-D_lk)⋅cos(α-β)  
       //    0 = (D_kk-D_ll)⋅sin(α+β) + (D_kl+D_lk)⋅cos(α+β)  
       const [cα,sα,cβ,sβ] = function(){
-        let Cα,Sα,Cβ,Sβ, d11_max=0; {
+        let Cα,Sα,Cβ,Sβ, d_ll_max=0; {
           const m = Math.atan2(D_lk - D_kl, D_ll + D_kk),// = α - β
                 p = Math.atan2(D_lk + D_kl, D_ll - D_kk),// = α + β
                 α = (p+m)/2,
@@ -260,10 +258,10 @@ export function svd_jac_classic(A)
           [-Sα, Cα,   Sβ,-Cβ],
           [-Sα, Cα,  -Sβ, Cβ]
         ]) {
-          const d11 = (D_kl*cα - D_kk*sα)*sβ + (D_lk*sα + D_ll*cα)*cβ;
+          const d_ll = (D_kk*sα + D_kl*cα)*sβ + (D_lk*sα + D_ll*cα)*cβ;
           // ROTATE IN A WAY THAT ENSURES DESCENDING ORDER
-          if( d11 >= d11_max ) {
-            Cα = cα; Sα = sα; d11_max = d11;
+          if( d_ll >= d_ll_max ) {
+            Cα = cα; Sα = sα; d_ll_max = d_ll;
             Cβ = cβ; Sβ = sβ;
           }
         }
@@ -288,6 +286,7 @@ export function svd_jac_classic(A)
 
 //      if( ! math.is_close(0, D[N*k+l]) ) throw new Error(`Assertion failed: 0 =/= ${D[N*k+l]}.`)
 //      if( ! math.is_close(0, D[N*l+k]) ) throw new Error(`Assertion failed: 0 =/= ${D[N*l+k]}.`)
+      if( ! (D[N*l+l] >= 0) ) throw new Error('Assertion failed.')
       // ENTRIES (k,l) AND (l,k) ARE REMAINDERS (CANCELLATION ERROR) FROM ELIMINATION => SHOULD BE SAFELY ZEROABLE
       D[N*k+l] = 0.0;
       D[N*l+k] = 0.0;
@@ -312,7 +311,6 @@ export function svd_jac_classic(A)
         V[li] = V_li*cα + V_ki*sα;
       }
     }
-//    console.log('Sweep ratio:', nIter / (N*N-N) )
 
     // MOVE D TO SV
     for( let i=0; i < N; i++ ) sv[sv_off + i] = D[N*i+i];

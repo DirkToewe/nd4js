@@ -41,7 +41,7 @@ describe('num_grad', () => {
     const g = num_grad( xy => F(...xy.data) )
 
     for( let x=-3.14; x <=3.14; x+=0.42 )
-      expect(g([x])).toBeAllCloseTo(G(x), {rtol:1e-4, atol:1e-6})
+      expect(g([x])).toBeAllCloseTo(G(x))//, {rtol:1e-4, atol:1e-6})
   })
 
 
@@ -63,7 +63,7 @@ describe('num_grad', () => {
 
     for( let x=-3.14; x <=3.14; x+=0.42 )
     for( let y=-3.14; y <=3.14; y+=0.42 )
-      expect(g([x,y])).toBeAllCloseTo(G(x,y), {rtol:1e-4, atol:1e-6})
+      expect(g([x,y])).toBeAllCloseTo(G(x,y))//, {rtol:1e-5, atol:1e-6})
   })
 
 
@@ -102,6 +102,6 @@ describe('num_grad', () => {
     for( let x=-3.14; x <=3.14; x+=0.42 )
     for( let y=-3.14; y <=3.14; y+=0.42 )
     for( let z=-3.14; z <=3.14; z+=0.42 )
-      expect(g([x,y,z])).toBeAllCloseTo(G(x,y,z), {rtol:1e-4, atol:1e-6})
+      expect(g([x,y,z])).toBeAllCloseTo(G(x,y,z))//, {rtol:1e-4, atol:1e-6})
   })
 })

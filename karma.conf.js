@@ -28,7 +28,7 @@ module.exports = function(config) {
       jasmine: {
         random: false,
         failFast: true,
-        oneFailurePerSpec: true,
+        oneFailurePerSpec: false,
                timeoutInterval: 8*HOUR,
         defaultTimeoutInterval: 8*HOUR
       }

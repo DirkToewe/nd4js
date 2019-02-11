@@ -17,24 +17,26 @@
  */
 
 import {asarray, NDArray} from '../nd_array'
-import {ARRAY_TYPES} from '../dt'
+import {ARRAY_TYPES, eps} from '../dt'
 
 
-export const num_grad = (f,eps=2**-12) => x => {
+export const num_grad = ( f, {h_rel=undefined, h_abs=undefined}={} ) => x => {
   x = asarray(x)
 
-  const DTypeArray = ARRAY_TYPES[x.dtype==='float32' ? 'float32' : 'float64'],
+  const dtype = x.dtype==='float32' ? 'float32' : 'float64',
+        DTypeArray = ARRAY_TYPES[dtype],
         shape = x.shape
   x = x.data
 
-  const g = new DTypeArray(x.length),
-      eps = Math.sqrt(Number.EPSILON)
+  const  g = new DTypeArray(x.length),
+    epsRel = null != h_rel ? h_rel : eps(dtype)**(1/3),
+    epsAbs = null != h_abs ? h_abs : eps(dtype)**(1/3)
 
   // https://en.wikipedia.org/wiki/Finite_difference#Forward,_backward,_and_central_differences
   // https://www.geometrictools.com/Documentation/FiniteDifferences.pdf
   for( let i=x.length; i-- > 0; )
   {
-    const h = Math.max(Math.abs(x[i])*eps, eps)
+    const h = Math.max(Math.abs(x[i])*epsRel, epsAbs) // TODO maybe a check for h===0 might be sensible
     for( const [d,w] of [[+2*h,-1],
                          [+1*h,+8],
                          [-1*h,-8],
