@@ -36,37 +36,69 @@ describe('nd.stack', () => {
         [61,62,63]
       ])
   
-    let
-    d = stack(0,[a,b,c])
-    expect(d.shape).toEqual( Int32Array.of(3,2,3) )
-    expect(d.data ).toEqual( Int32Array.of(
-      11, 12, 13,
-      21, 22, 23,
+    for( const d of [
+      stack([a,b,c]),
+      
+      stack(undefined,[a,b,c]),
+      stack(null,[a,b,c]),
+      stack(0,[a,b,c]),
+      stack('int32',[a,b,c]),
 
-      31, 32, 33,
-      41, 42, 43,
-
-      51, 52, 53,
-      61, 62, 63
-    ))
+      stack(undefined, undefined, [a,b,c]),
+      stack(undefined, null,      [a,b,c]),
+      stack(undefined, 'int32',   [a,b,c]),
+      stack(null,      undefined, [a,b,c]),
+      stack(null,      null,      [a,b,c]),
+      stack(null,      'int32',   [a,b,c]),
+      stack(0,         undefined, [a,b,c]),
+      stack(0,         null,      [a,b,c]),
+      stack(0,         'int32',   [a,b,c])
+    ])
+    {
+      expect(d.shape).toEqual( Int32Array.of(3,2,3) )
+      expect(d.data ).toEqual( Int32Array.of(
+        11, 12, 13,
+        21, 22, 23,
+  
+        31, 32, 33,
+        41, 42, 43,
+  
+        51, 52, 53,
+        61, 62, 63
+      ))
+    }
     
-    d = stack(1,[a,b,c])
-    expect(d.shape).toEqual( Int32Array.of(2,3,3) )
-    expect(d.data ).toEqual( Int32Array.of(
-      11,12,13, 31,32,33, 51,52,53,
-      21,22,23, 41,42,43, 61,62,63
-    ))
+    for( const d of [
+      stack(1,            [a,b,c]),
+      stack(1, undefined, [a,b,c]),
+      stack(1, null,      [a,b,c]),
+      stack(1, 'int32',   [a,b,c])
+    ])
+    {
+      expect(d.shape).toEqual( Int32Array.of(2,3,3) )
+      expect(d.data ).toEqual( Int32Array.of(
+        11,12,13, 31,32,33, 51,52,53,
+        21,22,23, 41,42,43, 61,62,63
+      ))
+    }
     
-    d = stack(2,[a,b,c])
-    expect(d.shape).toEqual( Int32Array.of(2,3,3) )
-    expect(d.data ).toEqual( Int32Array.of(
-      11,31,51,
-      12,32,52,
-      13,33,53,
-
-      21,41,61,
-      22,42,62,
-      23,43,63
-    ))
+    for( const d of [
+      stack(2,            [a,b,c]),
+      stack(2, undefined, [a,b,c]),
+      stack(2, null,      [a,b,c]),
+      stack(2, 'int32',   [a,b,c])
+    ])
+    {
+      expect(d.shape).toEqual( Int32Array.of(2,3,3) )
+      expect(d.data ).toEqual( Int32Array.of(
+        11,31,51,
+        12,32,52,
+        13,33,53,
+  
+        21,41,61,
+        22,42,62,
+        23,43,63
+      ))
+    }
   })
 })
