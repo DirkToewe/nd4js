@@ -243,29 +243,25 @@ export function svd_jac_classic(A)
       // => 0 = (D_kk+D_ll)⋅sin(α-β) + (D_kl-D_lk)⋅cos(α-β)  
       //    0 = (D_kk-D_ll)⋅sin(α+β) + (D_kl+D_lk)⋅cos(α+β)  
       const [cα,sα,cβ,sβ] = function(){
-        let Cα,Sα,Cβ,Sβ, d_ll_max=0; {
-          const m = Math.atan2(D_lk - D_kl, D_ll + D_kk),// = α - β
-                p = Math.atan2(D_lk + D_kl, D_ll - D_kk),// = α + β
-                α = (p+m)/2,
-                β = (p-m)/2;
-          Cα = Math.cos(α); Sα = Math.sin(α);
-          Cβ = Math.cos(β); Sβ = Math.sin(β);
+        const m = Math.atan2(D_lk - D_kl, D_ll + D_kk),// = α - β
+              p = Math.atan2(D_lk + D_kl, D_ll - D_kk),// = α + β
+              α = (p+m)/2,
+              β = (p-m)/2;
+        let cα = Math.cos(α), sα = Math.sin(α),
+            cβ = Math.cos(β), sβ = Math.sin(β),
+          d_ll = (D_kk*sα + D_kl*cα)*sβ + (D_lk*sα + D_ll*cα)*cβ,
+          d_kk = (D_kk*cα - D_kl*sα)*cβ - (D_lk*cα - D_ll*sα)*sβ;
+        // ensure descending order
+        if( Math.abs(d_ll) < Math.abs(d_kk) ) {
+          [cα,sα] = [-sα,cα];
+          [cβ,sβ] = [-sβ,cβ]; d_ll = d_kk;
         }
-        // tan is 180°-periodical so lets try all possible non-duplicate solutions
-        for( const [cα,sα,cβ,sβ] of [
-          [ Cα, Sα,   Cβ, Sβ],
-          [ Cα, Sα,  -Cβ,-Sβ], 
-          [-Sα, Cα,   Sβ,-Cβ],
-          [-Sα, Cα,  -Sβ, Cβ]
-        ]) {
-          const d_ll = (D_kk*sα + D_kl*cα)*sβ + (D_lk*sα + D_ll*cα)*cβ;
-          // ROTATE IN A WAY THAT ENSURES DESCENDING ORDER
-          if( d_ll >= d_ll_max ) {
-            Cα = cα; Sα = sα; d_ll_max = d_ll;
-            Cβ = cβ; Sβ = sβ;
-          }
+        // make the upper left diagonal item positive
+        if( d_ll < 0 ) {
+          cβ = -cβ;
+          sβ = -sβ;
         }
-        return [Cα,Sα,Cβ,Sβ];
+        return [cα,sα,cβ,sβ];
       }();
 
       // ROTATE COLUMNS IN D
@@ -286,7 +282,8 @@ export function svd_jac_classic(A)
 
 //      if( ! math.is_close(0, D[N*k+l]) ) throw new Error(`Assertion failed: 0 =/= ${D[N*k+l]}.`)
 //      if( ! math.is_close(0, D[N*l+k]) ) throw new Error(`Assertion failed: 0 =/= ${D[N*l+k]}.`)
-      if( ! (D[N*l+l] >= 0) ) throw new Error('Assertion failed.')
+      if( ! (D[N*l+l] >= 0       ) ) throw new Error('Assertion failed.')
+      if( ! (D[N*l+l] >= D[N*k+k]) ) throw new Error('Assertion failed.')
       // ENTRIES (k,l) AND (l,k) ARE REMAINDERS (CANCELLATION ERROR) FROM ELIMINATION => SHOULD BE SAFELY ZEROABLE
       D[N*k+l] = 0.0;
       D[N*l+k] = 0.0;
