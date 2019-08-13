@@ -469,7 +469,7 @@ export class NDArray extends Function
       }
       else if( axes.has(d) ) {
         const idx = newIdx
-        for( let j=oldShape[d]; j-- > 0; reduce=true )
+        for( let j=oldShape[d]; j-- > 0; reduce=true ) // <- copy over very first value and only then start reduction
         {
           newIdx = idx
           fill(d+1, reduce)

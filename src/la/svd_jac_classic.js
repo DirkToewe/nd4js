@@ -53,7 +53,7 @@ export function svd_jac_classic(A)
   // ALLOCATE RESULT DATA
   const DType = A.dtype==='float32' ? 'float32' : 'float64',
         DTypeArray = ARRAY_TYPES[DType],
-        TOL = eps(DType),
+        TOL = eps(DType) * N,
         U = DTypeArray.from(A.data); A = undefined; // <- potentially allow GC
   const D = new DTypeArray(N*N), // <- tempory storage for decomposition
         V = new DTypeArray(U.length),
@@ -217,9 +217,12 @@ export function svd_jac_classic(A)
       const
         D_kk = D[N*k+k], D_kl = D[N*k+l],
         D_lk = D[N*l+k], D_ll = D[N*l+l];
-//      if( ! ( Math.hypot(D_kl,D_lk) / Math.sqrt(Math.abs(D_kk)) / Math.sqrt(Math.abs(D_ll)) > TOL ) )
-      if( ! ( Math.hypot(D_kl,D_lk) / Math.max( Math.abs(D_kk), Math.abs(D_ll) ) > TOL ) )
-        break; // <- TODO check if really a good stopping criterion (there may be smaller off-diag. entries larger relative to their respective diag. entries)
+      // stopping criterion inspiredy by:
+      //  "Jacobi's Method is More Accurate than QR"
+      //   by James Demmel
+      //   SIAM J. Matrix Anal. Appl, vol. 13, pp. 1204-1245, 1992
+      if( ! ( Math.max( Math.abs(D_kl), Math.abs(D_lk) ) > Math.sqrt(Math.abs(D_kk*D_ll)) * TOL ) )
+        continue;
 
       // determine rotation angles
       // ┌                ┐ ┌            ┐ ┌                ┐   ┌        ┐

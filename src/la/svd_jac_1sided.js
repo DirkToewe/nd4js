@@ -148,11 +148,12 @@ export function svd_jac_1sided(A)
     for( let j=0   ; j < RANK; j++ ) U[M*i+j] = R[R_off + M*i+j];
 
     // [STEP 4] PERFORM JACOBI SWEEPS
-    let sweeps = 0;
-    for( let maxErr=Infinity; maxErr > TOL*TOL; )
+//    let sweeps = 0;
+    for( let finished = false; ! finished; )
     {
-      if( ++sweeps > 128 ) throw new Error('Too many iterations.')
-      maxErr=0.0;
+      finished = true;
+//      if( ++sweeps > 128 ) throw new Error('Too many iterations.')
+
       for( const [i,j] of indices_241(RANK) ) // "2.41"-order with locally super-quadratic convergence (in theory)
 //      for( let i=0  ; i < RANK; i++ ) // ◀─┬─ alternative, simpler (De Rijk) order
 //      for( let j=1+i; j < RANK; j++ ) // ◀─╯
@@ -173,8 +174,13 @@ export function svd_jac_1sided(A)
         }
         if( R_ii <= 0 ) throw new Error('Unexpected underflow.');
         if( R_jj <= 0 ) throw new Error('Unexpected underflow.');
-        maxErr = Math.max( maxErr, (R_ij / R_ii) * (R_ij / R_jj) );// <- FIXME: check whether underflow makes a problem
-        if( maxErr/TOL <= TOL ) continue;
+        // Stopping criterion source:
+        //  "New Fast and Accurate Jacobi SVD Algorithm: I."
+        //   by Zlatko Drmac and Kresimir Veselic
+        if( ! ( Math.abs(R_ij) > Math.sqrt(Math.abs(R_ii*R_jj)) * TOL ) )
+          continue;
+
+        finished = false;
 
         // determine rotation angle using binary search. TODO: use sth. faster than binary search
         let
@@ -193,15 +199,14 @@ export function svd_jac_1sided(A)
         // c*(c*R_ii - s*R_ij) - s*(c*R_ij - s*R_jj) = r_ii < r_jj = s*(s*R_ii + c*R_ij) + c*(s*R_ij + c*R_jj)
         if( R_ii*(1 + sqrt2*s)*(1 - sqrt2*s) < R_jj + 2*c*s*R_ij ) { const C = c; c = -s; s = C; }
 
-        { // perform rotation
-          const    ik0= R_off + M*i;
-          for( let ik = R_off + M*i+RANK,
-                   jk = R_off + M*j+RANK; ik > ik0; )
-          { const R_ik = R[--ik],
-                  R_jk = R[--jk];
-            R[ik] = c*R_ik - s*R_jk;
-            R[jk] = c*R_jk + s*R_ik;
-          }
+        // perform rotation
+        const    ik0= R_off + M*i;
+        for( let ik = R_off + M*i+RANK,
+                 jk = R_off + M*j+RANK; ik > ik0; )
+        { const R_ik = R[--ik],
+                R_jk = R[--jk];
+          R[ik] = c*R_ik - s*R_jk;
+          R[jk] = c*R_jk + s*R_ik;
         }
       }
     }

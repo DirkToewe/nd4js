@@ -126,7 +126,6 @@ export const CUSTOM_MATCHERS = {
   toBeCloseTo: (util, customEq) => ({
     compare(act, exp, { rtol=1e-5, atol=1e-8 } = {})
     {
-      console.log('ARGS:', act, exp, rtol, atol)
       const tol = atol + rtol * math.max(
         math.abs(act),
         math.abs(exp)

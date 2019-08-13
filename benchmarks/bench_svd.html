@@ -1,0 +1,105 @@
+<!--
+  This file is part of ND.JS.
+  
+  ND.JS is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  ND.JS is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
+-->
+<!DOCTYPE html>
+<html>
+ <head>
+   <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+   <title>NDJS - SVD Benchmark</title>
+   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+   <script src="../dist/nd.js"></script>
+ </head>
+ <body>
+   <script type="module">
+     'use strict';
+
+     (async () => {
+       const sleep = dt => new Promise( resolve => setTimeout(resolve,dt) );
+
+       const layout = {
+         title: 'NDJS - SVD Benchmark',
+         xaxis: {
+           title: 'Input Size',
+           type: 'log'
+         },
+         yaxis: {
+           title: 'Compute Time [sec.]',
+           type: 'log'
+         }
+       };
+
+       const plot = document.createElement('div');
+       document.body.appendChild(plot);
+
+       const svd_methods = Object.entries({
+//         '1-sided': nd.la.svd_jac_1sided,
+         '2-sided': nd.la.svd_jac_2sided,
+         'classic': nd.la.svd_jac_classic,
+       }).map(
+         ([name, method]) => [name, method, {type: 'scatter2d', name, x: [], y: []}]
+       );
+
+       const data = svd_methods.map( ([name,method,data]) => data );
+
+       const steps_per_binade = 3;
+
+       for( let run=0; run < 12*steps_per_binade; run++ )
+       {
+         const N = Math.round(2**(run/steps_per_binade));
+
+         const A = nd.tabulate([N,N], 'float64', () => Math.random()*2-1),
+               I = nd.la.eye('float64', N);
+         Object.freeze(A.data.buffer);
+         Object.freeze(I.data.buffer);
+
+         const A_norm = nd.la.norm(A),
+                  TOL = nd.dt.eps('float64') * N * 8;
+
+         for( const [name,method,dat] of svd_methods )
+         {
+           await sleep();
+
+           // COMPUTE
+           const  t0 = performance.now(),
+             [U,s,V] = method(A),
+                  dt = performance.now() - t0;
+
+           // PLOT
+           dat.x = dat.x.concat([N]);
+           dat.y = dat.y.concat([dt/1000]);
+           await Plotly.react(plot, data, layout);
+
+           // CHECK
+           const S = nd.la.diag_mat(s);
+
+           const err_USV = nd.la.norm( nd.zip_elems([nd.la.matmul(U,S,V), A], (x,y) => x-y) ),
+                 err_UUT = nd.la.norm( nd.zip_elems([nd.la.matmul(U,U.T), I], (x,y) => x-y) ),
+                 err_UTU = nd.la.norm( nd.zip_elems([nd.la.matmul(U.T,U), I], (x,y) => x-y) ),
+                 err_VVT = nd.la.norm( nd.zip_elems([nd.la.matmul(V,V.T), I], (x,y) => x-y) ),
+                 err_VTV = nd.la.norm( nd.zip_elems([nd.la.matmul(V.T,V), I], (x,y) => x-y) );
+           console.assert( err_USV <= TOL*A_norm );
+           console.assert( err_UUT <= TOL*Math.sqrt(N) );
+           console.assert( err_UTU <= TOL*Math.sqrt(N) );
+           console.assert( err_VVT <= TOL*Math.sqrt(N) );
+           console.assert( err_VTV <= TOL*Math.sqrt(N) );
+         }
+       }
+     })();
+   </script>
+ </body>
+</html>
