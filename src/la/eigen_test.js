@@ -80,8 +80,7 @@ describe('eigen', () => {
             const [i,j] = idx.slice(-2)
             if( Math.random() < 0.1 )
               return 0
-            if( i > j ) return Math.random()*2.0 - 1.0
-            else        return Math.random()*0.2 - 0.1
+            return Math.random()*2 - 1
           })
           if( Math.random < 0.5 )
             A = A.T
@@ -129,8 +128,7 @@ describe('eigen', () => {
           const [i,j] = idx.slice(-2)
           if( Math.random() < 0.1 )
             return 0
-          if( i > j ) return Math.random()*2.0 - 1.0
-          else        return Math.random()*0.2 - 0.1
+          return Math.random()*2 - 1
         })
         if( Math.random < 0.5 )
           A = A.T
@@ -176,8 +174,7 @@ describe('eigen', () => {
           const [i,j] = idx.slice(-2)
           if( Math.random() < 0.1 )
             return 0
-          if( i > j ) return Math.random()*2.0 - 1.0
-          else        return Math.random()*0.2 - 0.1
+          return Math.random()*2 - 1
         })
         if( Math.random < 0.5 )
           A = A.T
@@ -221,8 +218,7 @@ describe('eigen', () => {
           const [i,j] = idx.slice(-2)
           if( Math.random() < 0.1 )
             return 0
-          if( i > j ) return Math.random()*2.0 - 1.0
-          else        return Math.random()*0.2 - 0.1
+          return Math.random()*2 - 1
         })
         if( Math.random < 0.5 )
           A = A.T
