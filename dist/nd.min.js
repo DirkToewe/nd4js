@@ -1,4 +1,4 @@
-/* ND.JS v0.8.11
+/* ND.JS v0.8.12
  *
  * ND.JS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
