@@ -20,6 +20,7 @@ import * as dt from './dt'
 
 export {math} from './math'
 export * from './nd_array'
+export * from './rand_normal'
 export * from './tabulate'
 export * from './zip_elems'
 export * from './concat'

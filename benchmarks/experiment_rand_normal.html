@@ -1,0 +1,62 @@
+<!--
+  This file is part of ND.JS.
+  
+  ND.JS is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  ND.JS is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
+-->
+<!DOCTYPE html>
+<html>
+ <head>
+   <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+   <title>nd.rand_normal() cdf</title>
+   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+   <script src="../dist/nd.js"></script>
+ </head>
+ <body>
+   <script type="module">
+     'use strict';
+
+     (async () => {
+       const sleep = dt => new Promise( resolve => setTimeout(resolve,dt) );
+
+       const layout = {
+         title: 'nd.rand_normal() cdf'
+       };
+
+       const plot = document.createElement('div');
+       plot.style = 'width: 100%; height: 90vh;';
+       document.body.appendChild(plot);
+
+       const x = Array.from({length: 8*1024}, () => nd.rand_normal());
+
+       await sleep();
+
+       x.sort( (x,y) => x-y );
+
+       await sleep();
+
+       const cdf = Array.from(x, (_,i) => (i+1)/x.length );
+
+       const data = [{
+         type: 'scattergl',
+         mode: 'lines',
+         x, y: cdf
+       }];
+
+       Plotly.plot(plot, data, layout);
+     })();
+   </script>
+ </body>
+</html>

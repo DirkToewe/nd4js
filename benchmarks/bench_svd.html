@@ -35,49 +35,54 @@
          title: 'NDJS - SVD Benchmark',
          xaxis: {
            title: 'Input Size',
-           type: 'log'
+//           type: 'log'
          },
          yaxis: {
            title: 'Compute Time [sec.]',
-           type: 'log'
+//           type: 'log'
          }
        };
 
        const plot = document.createElement('div');
+       plot.style = 'width: 100%; height: 90vh;';
        document.body.appendChild(plot);
 
        const svd_methods = Object.entries({
 //         '1-sided': nd.la.svd_jac_1sided,
+         '3-sided': nd.la.svd_jac_2sided_opt,
          '2-sided': nd.la.svd_jac_2sided,
-         'classic': nd.la.svd_jac_classic,
+//         'classic': nd.la.svd_jac_classic,
        }).map(
          ([name, method]) => [name, method, {type: 'scatter2d', name, x: [], y: []}]
        );
 
+       const dtype = 'float32';
+
        const data = svd_methods.map( ([name,method,data]) => data );
 
-       const steps_per_binade = 3;
+       const steps_per_binade = 64;
 
-       for( let run=0; run < 12*steps_per_binade; run++ )
+       for( let run=6*steps_per_binade; run < 12*steps_per_binade; run++ )
        {
-         const N = Math.round(2**(run/steps_per_binade));
+         const N = Math.round( 2 ** (run/steps_per_binade) );
 
-         const A = nd.tabulate([N,N], 'float64', () => Math.random()*2-1),
-               I = nd.la.eye('float64', N);
+         const A = nd.tabulate([N,N], dtype, () => Math.random()*2-1),
+               I = nd.la.eye(dtype, N);
          Object.freeze(A.data.buffer);
          Object.freeze(I.data.buffer);
 
          const A_norm = nd.la.norm(A),
-                  TOL = nd.dt.eps('float64') * N * 8;
+                  TOL = nd.dt.eps(dtype) * N * 8;
 
          for( const [name,method,dat] of svd_methods )
          {
-           await sleep();
-
            // COMPUTE
            const  t0 = performance.now(),
              [U,s,V] = method(A),
                   dt = performance.now() - t0;
+           Object.freeze(U.data.buffer);
+           Object.freeze(s.data.buffer);
+           Object.freeze(V.data.buffer);
 
            // PLOT
            dat.x = dat.x.concat([N]);
@@ -86,12 +91,13 @@
 
            // CHECK
            const S = nd.la.diag_mat(s);
+           Object.freeze(S.data.buffer);
 
-           const err_USV = nd.la.norm( nd.zip_elems([nd.la.matmul(U,S,V), A], (x,y) => x-y) ),
-                 err_UUT = nd.la.norm( nd.zip_elems([nd.la.matmul(U,U.T), I], (x,y) => x-y) ),
-                 err_UTU = nd.la.norm( nd.zip_elems([nd.la.matmul(U.T,U), I], (x,y) => x-y) ),
-                 err_VVT = nd.la.norm( nd.zip_elems([nd.la.matmul(V,V.T), I], (x,y) => x-y) ),
-                 err_VTV = nd.la.norm( nd.zip_elems([nd.la.matmul(V.T,V), I], (x,y) => x-y) );
+           const err_USV = nd.la.norm( nd.zip_elems([nd.la.matmul (U,S,V), A], dtype, (x,y) => x-y) ); await sleep();
+           const err_UUT = nd.la.norm( nd.zip_elems([nd.la.matmul2(U,U.T), I], dtype, (x,y) => x-y) ); await sleep();
+           const err_UTU = nd.la.norm( nd.zip_elems([nd.la.matmul2(U.T,U), I], dtype, (x,y) => x-y) ); await sleep();
+           const err_VVT = nd.la.norm( nd.zip_elems([nd.la.matmul2(V,V.T), I], dtype, (x,y) => x-y) ); await sleep();
+           const err_VTV = nd.la.norm( nd.zip_elems([nd.la.matmul2(V.T,V), I], dtype, (x,y) => x-y) ); await sleep();
            console.assert( err_USV <= TOL*A_norm );
            console.assert( err_UUT <= TOL*Math.sqrt(N) );
            console.assert( err_UTU <= TOL*Math.sqrt(N) );

@@ -25,11 +25,11 @@ export function transpose_inplace(A)
   if( N != M ) throw new Error('In-place transposition is only supported for square matrices.');
   A = A.data;
   for( let off=0; off < A.length; off += N*N )
-  for( let i=0  ; i < N-1; i++ )
-  for( let j=1+i; j < N  ; j++ ) {
-    const
-      ij = off + N*i+j,
-      ji = off + N*j+i,
-      A_ij = A[ij]; A[ij] = A[ji]; A[ji] = A_ij;
+  for( let i=0;   i < N-1; i++ )
+  for( let j=i; ++j < N  ;     ) {
+    const ij = off + N*i+j,
+          ji = off + N*j+i, A_ij = A[ij];
+                                   A[ij] = A[ji];
+                                           A[ji] = A_ij;
   }
 }

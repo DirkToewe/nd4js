@@ -10,10 +10,10 @@ module.exports = function(config) {
     frameworks: ['jasmine'],
 
 //    browserDisconnectTolerance: 1e6,
-    browserDisconnectTimeout: 24*HOUR,
-    browserNoActivityTimeout: 24*HOUR,
-        browserSocketTimeout: 24*HOUR,
-//              captureTimeout: 8*HOUR,
+    browserDisconnectTimeout: 1*HOUR,
+    browserNoActivityTimeout: 1*HOUR,
+        browserSocketTimeout: 1*HOUR,
+//              captureTimeout: 1*HOUR,
 
     plugins: [
       'karma-chrome-launcher',
@@ -28,9 +28,11 @@ module.exports = function(config) {
       jasmine: {
         random: false,
         failFast: true,
-        oneFailurePerSpec: false,
-               timeoutInterval: 8*HOUR,
-        defaultTimeoutInterval: 8*HOUR
+        oneFailurePerSpec: true,
+        stopSpecOnExpectationFailure: true,
+                 timeoutInterval: 8*HOUR,
+          defaultTimeoutInterval: 8*HOUR,
+        DEFAULT_TIMEOUT_INTERVAL: 8*HOUR
       }
     },
 
@@ -40,7 +42,7 @@ module.exports = function(config) {
     },
 
     files: [
-      'src/**/*_test.js'
+      'src/**/*_test.js',
     ],
 
     exclude: [

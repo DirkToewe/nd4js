@@ -19,7 +19,6 @@
     "@babel/core": "^7.5.5",
     "@babel/plugin-transform-regenerator": "^7.4.5",
     "@babel/plugin-transform-runtime": "^7.5.5",
-    "@babel/polyfill": "^7.4.4",
     "@babel/preset-env": "^7.5.5",
     "@babel/runtime": "^7.5.5",
     "acorn": "^6.3.0",
@@ -35,8 +34,8 @@
     "karma-webpack": "^3.0.5",
     "plotly-notebook-js": "^0.1.2",
     "regenerator-loader": "^3.1.0",
-    "webpack": "^4.39.1",
-    "webpack-cli": "^3.3.6"
+    "webpack": "^4.39.2",
+    "webpack-cli": "^3.3.7"
   },
   "author": "Dirk Toewe"
 }

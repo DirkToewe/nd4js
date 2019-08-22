@@ -25,14 +25,15 @@ import {matmul, matmul2} from './matmul'
 import math from '../math'
 import {eye} from './eye'
 import {qr_decomp} from './qr'
+import {eps} from '../dt'
+import {norm} from './norm'
 
 import {svd_rank,
         svd_decomp,
         svd_solve,
         svd_lstsq} from './svd'
-import {svd_jac_1sided } from './svd_jac_1sided'
-import {svd_jac_2sided } from './svd_jac_2sided'
-import {svd_jac_classic} from './svd_jac_classic'
+import {svd_jac_2sided    } from './svd_jac_2sided'
+import {svd_jac_classic   } from './svd_jac_classic'
 
 
 describe('svd', () => {
@@ -243,10 +244,8 @@ describe('svd', () => {
     expect( matmul2(A.T, zip_elems([Ax,y], math.sub) ) ).toBeAllCloseTo(0)
   })
 
-
   const svd_decomps = {
     svd_decomp,
-    svd_jac_1sided,
     svd_jac_2sided,
     svd_jac_classic
   }
@@ -295,20 +294,124 @@ describe('svd', () => {
 
       const a = matmul(U,D,V);
 
+      const U_TOL = eps(A.dtype) * M*4,
+            V_TOL = eps(A.dtype) * N*4;
+
       if( M >= N ) {
         const I = eye(N)
-        expect( matmul2(U.T,U) ).toBeAllCloseTo(I)
-        expect( matmul2(V.T,V) ).toBeAllCloseTo(I)
-        expect( matmul2(V,V.T) ).toBeAllCloseTo(I)
+        expect( matmul2(U.T,U) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
+        expect( matmul2(V.T,V) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
+        expect( matmul2(V,V.T) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
       }
       else {
         const I = eye(M)
-        expect( matmul2(U.T,U) ).toBeAllCloseTo(I)
-        expect( matmul2(U,U.T) ).toBeAllCloseTo(I)
-        expect( matmul2(V,V.T) ).toBeAllCloseTo(I)
+        expect( matmul2(U.T,U) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
+        expect( matmul2(U,U.T) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
+        expect( matmul2(V,V.T) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
       }
       expect(D).toBeDiagonal()
       expect(a).toBeAllCloseTo(A)
+    })
+
+
+  for( const [svd_name,svd_deco] of Object.entries(svd_decomps) )
+    forEachItemIn(
+      function*(){
+        const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
+
+        const steps_per_binade = 3;
+
+        for( let run=0; run <= 8*steps_per_binade; run++ )
+        {
+          const N = Math.round(2**(run/steps_per_binade)),
+            shape = [N,N];
+          const A = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1);
+
+          // CREATE SOME RANK DEFICIENCIES
+          if( Math.random() < 0.25 ) {
+            for( let i=0; i < N; i++ )
+              if( Math.random() < 0.01 ) {
+                const l = randInt(0,N),
+                  scale = Math.random()*4 - 2;
+                for( let j=0; j < N; j++ ) A.set( [i,j], scale*A(l,j) );
+              }
+          }
+          Object.freeze(A.data.buffer)
+          yield A
+        }
+      }()
+    ).it(`${svd_name} is accurate for generated square matrices`, A => {
+      const [M,N]= A.shape,     L = Math.min(M,N),
+         [U,sv,V]= svd_deco(A), D = diag_mat(sv);
+
+      for( let i=1; i < sv.shape[0]; i++ )
+      {
+        expect(sv(i-1)).not.toBeLessThan(sv(i))
+        expect(sv(i  )).not.toBeLessThan(-0.0)
+      }
+
+      const a = matmul(U,D,V);
+
+      const A_TOL = eps(A.dtype) * Math.max(M,N)*4 * norm(A),
+            U_TOL = eps(A.dtype) * M*4,
+            V_TOL = eps(A.dtype) * N*4;
+
+      if( M >= N ) {
+        const I = eye(N)
+        expect( matmul2(U.T,U) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
+        expect( matmul2(V.T,V) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
+        expect( matmul2(V,V.T) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
+      }
+      else {
+        const I = eye(M)
+        expect( matmul2(U.T,U) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
+        expect( matmul2(U,U.T) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
+        expect( matmul2(V,V.T) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
+      }
+      expect(D).toBeDiagonal()
+      expect( zip_elems([A,a], (x,y) => x-y) ).not.toBeGreaterThan(A_TOL);
+    })
+
+
+  for( const [svd_name,svd_deco] of Object.entries(svd_decomps) )
+    forEachItemIn(
+      function*(){
+        const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
+
+        for( let run=1024; run-- > 0; )
+        {
+          const N = randInt(1,24),
+             ndim = randInt(0,4),
+            shape = Array.from({ length: ndim }, () => randInt(1,8) );
+          shape.push(N);
+
+          const S = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1),
+                A = diag_mat(S);
+
+          for( let i=S.data.length; i-- > 0; )
+            S.data[i] = Math.abs(S.data[i]);
+
+          for( let i=S.data.length; (i -= N) >= 0; )
+            S.data.subarray(i,i+N).sort( (x,y) => y-x );
+
+          Object.freeze(S.data.buffer)
+          Object.freeze(A.data.buffer)
+          yield [S,A];
+        }
+      }()
+    ).it(`${svd_name} works on batches of generated diagonal matrices`, ([S,A]) => {
+      const  [N] = A.shape.slice(-1),
+        [U,SV,V] = svd_deco(A);
+
+      const I = eye(N),
+         ztol = {rtol:0, atol:0};
+
+      expect(SV).toBeAllCloseTo(S, ztol);
+      expect( matmul2(U,U.T) ).toBeAllCloseTo(I, ztol)
+      expect( matmul2(U.T,U) ).toBeAllCloseTo(I, ztol)
+      expect( matmul2(V,V.T) ).toBeAllCloseTo(I, ztol)
+      expect( matmul2(V.T,V) ).toBeAllCloseTo(I, ztol)
+      expect( matmul(U,diag_mat(SV),V) ).toBeAllCloseTo(A, ztol)
     })
 
 

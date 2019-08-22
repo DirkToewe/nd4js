@@ -5,5 +5,8 @@
   ],
   "helpers": [],
   "stopSpecOnExpectationFailure": true,
-  "random": false
+  "random": false,
+           "timeoutInterval": 3600000,
+    "defaultTimeoutInterval": 3600000,
+  "DEFAULT_TIMEOUT_INTERVAL": 3600000
 }
