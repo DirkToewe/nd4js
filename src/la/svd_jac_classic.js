@@ -16,13 +16,15 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
+import {ARRAY_TYPES, eps} from '../dt'
 import {asarray, NDArray} from '../nd_array'
 import {matmul2} from './matmul'
 import {qr_decomp} from './qr'
-import {ARRAY_TYPES, eps} from '../dt'
 import {transpose_inplace} from './transpose_inplace'
-
-import math from '../math';
+import {_svd_jac_rot_rows,
+        _svd_jac_rot_cols,
+        _svd_jac_angles,
+        _svd_jac_post } from './_svd_jac_utils'
 
 
 export function svd_jac_classic(A)
@@ -55,9 +57,11 @@ export function svd_jac_classic(A)
         DTypeArray = ARRAY_TYPES[DType],
         TOL = eps(DType) * N,
         U = DTypeArray.from(A.data); A = undefined; // <- potentially allow GC
-  const D = new DTypeArray(N*N), // <- tempory storage for decomposition
+  const S = new DTypeArray(N*N), // <- tempory storage for decomposition
         V = new DTypeArray(U.length),
-        sv= new DTypeArray(U.length/N);
+       sv = new DTypeArray(U.length/N),
+     diag = new DTypeArray(N),
+      ord = Int32Array.from({length: N}, (_,i) => i);
 
   if( 1 >  N ) throw new Error('Assertion failed.');
   if( 1 == N ) {
@@ -86,6 +90,49 @@ export function svd_jac_classic(A)
   }() );
   const treeData = new DTypeArray( treeSizes.reduce( (len,N) => len + (N*N+N >>> 1), 0 ) );
 
+//  const piv = (i,j) => {
+//    const S_ij = S[N*i+j],
+//          S_ji = S[N*j+i];
+//    return S_ij*S_ij + S_ji*S_ji;
+//  };
+
+  const find_pivot = () => {
+    let k=0,
+        l=0,
+        i=0,
+        j=0;
+
+    for( let off=treeData .length,
+              h =treeSizes.length; h-- > 0; )
+    {
+      const val = (k,l) => {
+        k += i;
+        l += j; return treeData[off + (k*k+k >>> 1) + l];
+      };
+      const n = treeSizes[h];
+      off -= n*n+n >>> 1;       
+      let max = val(0,0); k=i;
+                          l=j;
+      if( i+1 < n ) { const v10 = val(1,0); if( v10 > max ) { max = v10; k=i+1; l=j  ; }
+                      const v11 = val(1,1); if( v11 > max ) { max = v11; k=i+1; l=j+1; } }
+      if( i != j )  { const v01 = val(0,1); if( v01 > max ) { max = v01; k=i;   l=j+1; } }
+      i = 2*k;
+      j = 2*l;
+    }
+    let max = -Infinity;
+    const hyp = (s,t) => {
+      s += i;
+      t += j; const S_st = S[N*s+t],
+                    S_ts = S[N*t+s]; return S_st*S_st + S_ts*S_ts;
+    };
+    if( i+1 < N ) { const h10 = hyp(1,0); if( h10 > max ) { max=h10; k=i+1; l=j  ; } }
+    if( j+1 < N ) { const h01 = hyp(0,1); if( h01 > max ) { max=h01; k=i  ; l=j+1; } }
+    if( i != j  ) { const h00 = hyp(0,0); if( h00 > max ) { max=h00; k=i  ; l=j  ; }
+    if( i+1 < N ) { const h11 = hyp(1,1); if( h11 > max ) {          k=i+1; l=j+1; } } }
+
+    return [l,k];
+  };
+
   /** updates the specified row in the triangle tree.
    */
   const update_row = row =>
@@ -94,10 +141,10 @@ export function svd_jac_classic(A)
     // build bottom tree level
     for( let i=row; i < row+2 && i < N; i++ ) { const r = i>>>1, off = r*r+r >>> 1;
     for( let j=0;   j < row+1         ; j++ ) {
-      const x = D[N*i+j],
-            y = D[N*j+i], D_ij = i===j ? -Infinity : x*x + y*y,
+      const x = S[N*i+j],
+            y = S[N*j+i], S_ij = i===j ? -Infinity : x*x + y*y,
             k = off + (j >>> 1);
-      treeData[k] = i%2 || j%2 ? Math.max(treeData[k],D_ij) : D_ij;
+      treeData[k] = i%2 || j%2 ? Math.max(treeData[k],S_ij) : S_ij;
     }}
     // build remaining tree levels
     for( let off=0, h=1; h < treeSizes.length; h++ )
@@ -124,10 +171,10 @@ export function svd_jac_classic(A)
     const J = Math.min(col+2,N);
     for( let i=col; i < N; i++ ) { const r = i>>>1, off = r*r+r >>> 1;
     for( let j=col; j < J; j++ ) {
-      const x = D[N*i+j],
-            y = D[N*j+i], D_ij = i===j ? -Infinity : x*x + y*y,
+      const x = S[N*i+j],
+            y = S[N*j+i], S_ij = i===j ? -Infinity : x*x + y*y,
             k = off + (j >>> 1);
-      treeData[k] = i%2 || j%2 ? Math.max(treeData[k],D_ij) : D_ij;
+      treeData[k] = i%2 || j%2 ? Math.max(treeData[k],S_ij) : S_ij;
     }}
     // build remaining tree levels
     for( let off=0, h=1; h < treeSizes.length; h++ )
@@ -150,9 +197,9 @@ export function svd_jac_classic(A)
            sv_off=0; sv_off < sv.length; UV_off += N*N,
                                          sv_off += N )
   {
-    // MOVE FROM U TO D
+    // MOVE FROM U TO S
     for( let i=0; i < N; i++ )
-    for( let j=0; j < N; j++ ) { D[N*i+j] = U[UV_off + N*i+j]; U[UV_off + N*i+j] = i != j ? 0 : 1 };
+    for( let j=0; j < N; j++ ) { S[N*i+j] = U[UV_off + N*i+j]; U[UV_off + N*i+j] = i != j ? 0 : 1 };
     // INIT V TO IDENTITY
     for( let i=0; i < N; i++ )
     for( let j=0; j < N; j++ ) V[UV_off + N*i+j] = i != j ? 0 : 1;
@@ -166,202 +213,53 @@ export function svd_jac_classic(A)
              t=-1;; )
     {
       // FIND THE OFF DIAGONAL PAIR WITH THE LARGEST HYPOTHENUSE
-      let k,l; {
-        let i=0,
-            j=0;
-        for( let off=treeData .length,
-                 h  =treeSizes.length; h-- > 0; )
-        {
-          const val = (k,l) => {
-            k += i;
-            l += j; return treeData[off + (k*k+k >>> 1) + l];
-          };
-          const n = treeSizes[h];
-          off -= n*n+n >>> 1;       
-          let max = val(0,0); k=i;
-                              l=j;
-          if( i+1 < n ) { const v10 = val(1,0); if( v10 > max ) { max = v10; k=i+1; l=j  ; }
-                          const v11 = val(1,1); if( v11 > max ) { max = v11; k=i+1; l=j+1; } }
-          if( i != j )  { const v01 = val(0,1); if( v01 > max ) { max = v01; k=i;   l=j+1; } }
-          i = 2*k;
-          j = 2*l;
-        }
-        let max = -Infinity;
-        const hyp = (s,t) => {
-          s += i;
-          t += j; const D_st = D[N*s+t],
-                        D_ts = D[N*t+s]; return D_st*D_st + D_ts*D_ts;
-        };
-        if( i+1 < N ) { const h10 = hyp(1,0); if( h10 > max ) { max=h10; k=i+1; l=j  ; } }
-        if( j+1 < N ) { const h01 = hyp(0,1); if( h01 > max ) { max=h01; k=i  ; l=j+1; } }
-        if( i != j  ) { const h00 = hyp(0,0); if( h00 > max ) { max=h00; k=i  ; l=j  ; }
-        if( i+1 < N ) { const h11 = hyp(1,1); if( h11 > max ) {          k=i+1; l=j+1; } } }
-      };
-      if( l >  k ) throw new Error('Assertion failed.')
+      const [l,k] = find_pivot();
+      if( l >= k ) throw new Error('Assertion failed.')
       if( s == k &&
           t == l ) break; // <- DRY PRINCIPLE
       s=k;
       t=l;
 
-//      {
-//        // CHECK THAT THIS IS TRULY THE MAXIMUM (TODO: COMMENT OUT)
-//        const hyp = (i,j) => {
-//          const D_ij = D[N*i+j],
-//                D_ji = D[N*j+i]; return D_ij*D_ij + D_ji*D_ji;
-//        };
-//        for( let i=1; i < N; i++ )
-//        for( let j=0; j < i; j++ )
-//          if( ! (hyp(i,j) <= hyp(k,l)) ) throw new Error(`Assertion failed: ${i}, ${j}.`);
-//      }
+//      // CHECK THAT THIS IS TRULY THE MAXIMUM (TODO: COMMENT OUT)
+//      for( let i=1; i < N; i++ )
+//      for( let j=0; j < i; j++ )
+//        if( ! (piv(i,j) <= piv(k,l)) ) throw new Error(`Assertion failed: ${i}, ${j}.`);
 
       const
-        D_kk = D[N*k+k], D_kl = D[N*k+l],
-        D_lk = D[N*l+k], D_ll = D[N*l+l];
+        S_kk = S[N*k+k],
+        S_kl = S[N*k+l],
+        S_lk = S[N*l+k],
+        S_ll = S[N*l+l];
       // stopping criterion inspiredy by:
       //  "Jacobi's Method is More Accurate than QR"
       //   by James Demmel
       //   SIAM J. Matrix Anal. Appl, vol. 13, pp. 1204-1245, 1992
-      if( ! ( Math.max( Math.abs(D_kl), Math.abs(D_lk) ) > Math.sqrt(Math.abs(D_kk*D_ll)) * TOL ) )
-        continue;
+      if( ! ( Math.max( Math.abs(S_kl), Math.abs(S_lk) ) > Math.sqrt(Math.abs(S_kk*S_ll)) * TOL ) )
+        break;
+ 
+      const [cα,sα,cβ,sβ] = _svd_jac_angles(S_ll, S_lk,
+                                            S_kl, S_kk);
 
-      // determine rotation angles
-      // ┌                ┐ ┌            ┐ ┌                ┐   ┌        ┐
-      // │ cos(β) -sin(β) │ │ D_kk  D_kl │ │ cos(α) -sin(α) │ ! │ d1   0 │
-      // │                │ │            │ │                │ = │        │
-      // │ sin(β)  cos(β) │ │ D_lk  D_ll │ │ sin(α)  cos(α) │   │  0  d2 │
-      // └                ┘ └            ┘ └                ┘   └        ┘
-      //
-      // such that: |d1| >= |d2|
-      //
-      // => 0 = cos(α)*{D_kl*cos(β) - D_ll*sin(β)} + sin(α)*{D_kk*cos(β) - D_lk*sin(β)} = ½⋅{(D_ll - D_kk)⋅sin(α-β) - (D_kk + D_ll)⋅sin(α+β) + (D_kl + D_lk)⋅cos(α-β) + (D_kl - D_lk)⋅cos(α+β)}
-      //    0 = cos(α)*{D_kk*sin(β) + D_lk*cos(β)} - sin(α)*{D_kl*sin(β) + D_ll*cos(β)} = ½⋅{(D_ll - D_kk)⋅sin(α-β) + (D_kk + D_ll)⋅sin(α+β) + (D_kl + D_lk)⋅cos(α-β) - (D_kl - D_lk)⋅cos(α+β)}
-      //   d1 = cos(α)*{D_kk*cos(β) - D_lk*sin(β)} - sin(α)*{D_kl*cos(β) - D_ll*sin(β)}
-      //   d2 = cos(α)*{D_kl*sin(β) + D_ll*cos(β)} + sin(α)*{D_kk*sin(β) + D_lk*cos(β)}
-      //
-      // => 0 = {D_kl⋅cos(α) - D_kk⋅sin(α)}⋅cos(β) + {D_lk⋅sin(α) - D_ll⋅cos(α)}⋅sin(β)
-      //    0 = {D_kl⋅sin(α) + D_kk⋅cos(α)}⋅sin(β) + {D_lk⋅cos(α) + D_ll⋅sin(α)}⋅cos(β)
-      //   d1 = {D_kl⋅sin(α) + D_kk⋅cos(α)}⋅cos(β) + {D_lk⋅cos(α) - D_ll⋅sin(α)}⋅sin(β)
-      //   d2 = {D_kl⋅cos(α) - D_kk⋅sin(α)}⋅sin(β) + {D_lk⋅sin(α) + D_ll⋅cos(α)}⋅cos(β)
-      //
-      // => 0 = (D_kk+D_ll)⋅sin(α-β) + (D_kl-D_lk)⋅cos(α-β)  
-      //    0 = (D_kk-D_ll)⋅sin(α+β) + (D_kl+D_lk)⋅cos(α+β)  
-      const [cα,sα,cβ,sβ] = function(){
-        const m = Math.atan2(D_lk - D_kl, D_ll + D_kk),// = α - β
-              p = Math.atan2(D_lk + D_kl, D_ll - D_kk),// = α + β
-              α = (p+m)/2,
-              β = (p-m)/2;
-        let cα = Math.cos(α), sα = Math.sin(α),
-            cβ = Math.cos(β), sβ = Math.sin(β),
-          d_ll = (D_kk*sα + D_kl*cα)*sβ + (D_lk*sα + D_ll*cα)*cβ,
-          d_kk = (D_kk*cα - D_kl*sα)*cβ - (D_lk*cα - D_ll*sα)*sβ;
-        // ensure descending order
-        if( Math.abs(d_ll) < Math.abs(d_kk) ) {
-          [cα,sα] = [-sα,cα];
-          [cβ,sβ] = [-sβ,cβ]; d_ll = d_kk;
-        }
-        // make the upper left diagonal item positive
-        if( d_ll < 0 ) {
-          cβ = -cβ;
-          sβ = -sβ;
-        }
-        return [cα,sα,cβ,sβ];
-      }();
+      // ROTATE S
+      _svd_jac_rot_rows(S, N, N*l,N*k, cα,sα);
+      _svd_jac_rot_cols(S, N,   l,  k, cβ,sβ);
 
-      // ROTATE COLUMNS IN D
-      for( let i=N; i-- > 0; ) {
-        const D_ik = D[N*i+k],
-              D_il = D[N*i+l];
-        D[N*i+k] = D_ik*cα - D_il*sα;
-        D[N*i+l] = D_il*cα + D_ik*sα;
-      }
-
-      // ROTATE ROWS IN D
-      for( let i=N; i-- > 0; ) {
-        const D_ki = D[N*k+i],
-              D_li = D[N*l+i];
-        D[N*k+i] = D_ki*cβ - D_li*sβ;
-        D[N*l+i] = D_li*cβ + D_ki*sβ;
-      }
-
-//      if( ! math.is_close(0, D[N*k+l]) ) throw new Error(`Assertion failed: 0 =/= ${D[N*k+l]}.`)
-//      if( ! math.is_close(0, D[N*l+k]) ) throw new Error(`Assertion failed: 0 =/= ${D[N*l+k]}.`)
-      if( ! (D[N*l+l] >= 0       ) ) throw new Error('Assertion failed.')
-      if( ! (D[N*l+l] >= D[N*k+k]) ) throw new Error('Assertion failed.')
       // ENTRIES (k,l) AND (l,k) ARE REMAINDERS (CANCELLATION ERROR) FROM ELIMINATION => SHOULD BE SAFELY ZEROABLE
-      D[N*k+l] = 0.0;
-      D[N*l+k] = 0.0;
+      S[N*k+l] = 0.0;
+      S[N*l+k] = 0.0;
 
       // UPDATE TRIANGLE TREE ROWS AND COLUMNS
       update_row(k); update_row(l);
       update_col(k); update_col(l);
 
-      // ROTATE ROWS IN U (TRANSPOSED FOR CACHE LOCALITY REASONS)
-      for( let i=0; i < N; i++ ) {
-        const ki = UV_off + N*k+i, U_ki = U[ki],
-              li = UV_off + N*l+i, U_li = U[li];
-        U[ki] = U_ki*cβ - U_li*sβ;
-        U[li] = U_li*cβ + U_ki*sβ;
-      }
-
-      // ROTATE ROWS IN V
-      for( let i=0; i < N; i++ ) {
-        const ki = UV_off + N*k+i, V_ki = V[ki],
-              li = UV_off + N*l+i, V_li = V[li];
-        V[ki] = V_ki*cα - V_li*sα;
-        V[li] = V_li*cα + V_ki*sα;
-      }
+      // ROTATE U & V
+      _svd_jac_rot_rows(U, N, UV_off + N*l,
+                              UV_off + N*k, cα, sα);
+      _svd_jac_rot_rows(V, N, UV_off + N*l,
+                              UV_off + N*k, cβ,-sβ);
     }
 
-    // MOVE D TO SV
-    for( let i=0; i < N; i++ ) sv[sv_off + i] = D[N*i+i];
-
-//    // SHUFFLE (FIXME: FOR TESTING PURPOSED ONLY)
-//    for( let i=N; i-- > 0; )
-//    {
-//      const j = Math.trunc( Math.random()*(i+1) );
-//      // swap sv
-//      { const sv_j = sv[sv_off + j];
-//                     sv[sv_off + j] = sv[sv_off + i];
-//                                      sv[sv_off + i] = sv_j; }
-//      // swap U and V rows
-//      for( let k=0; k < N; k++ ) { const U_a = U[UV_off + N*i+k]; U[UV_off + N*i+k] = U[UV_off + N*j+k]; U[UV_off + N*j+k] = U_a; }
-//      for( let k=0; k < N; k++ ) { const V_a = V[UV_off + N*i+k]; V[UV_off + N*i+k] = V[UV_off + N*j+k]; V[UV_off + N*j+k] = V_a; }
-//    }
-
-    // USE INSERTION SORT SV (should take as most O(N) because it is heavily pre-sorted by choosing the rotation angles accordingly)
-    for( let i=0; i < N; i++ )
-    {
-      let sv_i = sv[sv_off + i];
-      // flip sign
-      if( sv_i < 0.0 ) {
-        sv[sv_off + i] = (sv_i *= -1);
-        for( let k=0; k < N; k++ ) U[UV_off + N*i+k] *= -1;
-      }
-
-      // insertion sort
-      for( let j=i; j-- > 0; ) {
-        const sv_j = sv[sv_off + j];
-        if( sv_j >= sv_i ) break;
-        // swap sv
-        sv[sv_off + j+1] = sv[sv_off + j];
-                           sv[sv_off + j] = sv_i;
-        // swap U and V rows
-        const rowJ = UV_off + N*j,
-              rowI =  rowJ  + N;
-        for( let k=0; k < N; k++ ) { const U_ik = U[rowI+k]; U[rowI+k] = U[rowJ+k]; U[rowJ+k] = U_ik; }
-        for( let k=0; k < N; k++ ) { const V_ik = V[rowI+k]; V[rowI+k] = V[rowJ+k]; V[rowJ+k] = V_ik; }
-      }
-    }
-
-    // TRANSPOSE U IN-PLACE (TRANSPOSED FOR CACHE LOCALITY REASONS)
-    for( let i=0  ; i < N-1; i++ )
-    for( let j=1+i; j < N  ; j++ ) {
-      const
-        ij = UV_off + N*i+j,
-        ji = UV_off + N*j+i, U_ij = U[ij];
-                                    U[ij] = U[ji];
-                                            U[ji] = U_ij;
-    }
+    _svd_jac_post( N, U,S,V, UV_off, sv, sv_off, ord );
   }
 
   return [
