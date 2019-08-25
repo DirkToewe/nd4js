@@ -173,17 +173,30 @@ export function _svd_jac_angles( S_pp, S_pq,
  */
 export function _svd_jac_post( N, U,S,V, UV_off, sv, sv_off, ord )
 {
-  // MOVE S TO sv (AND MAKE POSITIVE)
+  // 1) MOVE S TO sv (AND MAKE POSITIVE)
+  for( let i=0; i < N; i++ )
+    sv[sv_off + i] = S[N*i+i];
+
+  _svd_jac_post_skip1( N, U,V, UV_off, sv, sv_off, ord )
+}
+
+/** Same as `_svd_jac_post` but skipping the first step.
+ */
+export function _svd_jac_post_skip1( N, U,V, UV_off, sv, sv_off, ord )
+{
+  // 2) MAKE SV POSITIVE
   for( let i=0; i < N; i++ ) {
-    const sv_i = S[N*i+i];
-    // flip sign if necessary
+    const sv_i = sv[sv_off + i];
     if(   sv_i < 0 || Object.is(sv_i,-0) )
+    {
+      sv[sv_off + i] = -sv_i;
+
       for( let j=0; j < N; j++ )
         U[UV_off + N*i+j] *= -1;
-    sv[sv_off + i] = Math.abs(sv_i);
+    }
   }
 
-  // SORT SINGULAR VALUES
+  // 3) SORT SV
   ord.sort( (i,j) => sv[sv_off+j] - sv[sv_off+i] );
 
   // nested loop but actually O(N) operation
@@ -206,7 +219,7 @@ export function _svd_jac_post( N, U,S,V, UV_off, sv, sv_off, ord )
                                 sv[sv_off + j] = tmp;
   }
 
-  // TRANSPOSE U
+  // 4) TRANSPOSE U
   for( let i=0;   i < N-1; i++ )
   for( let j=i; ++j < N  ;     ) {
     const ij = UV_off + N*i+j,
