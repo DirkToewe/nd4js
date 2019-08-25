@@ -1,5 +1,7 @@
 'use strict';
 {
+  console.log('Generating docs...');
+
   const nd = require('./dist/nd.js')
   const version = require('./package.json').version
 

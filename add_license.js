@@ -23,6 +23,8 @@ const license = `\
 
 for( const path of ['./dist/nd.js', './dist/nd.min.js'] )
 {
+  console.log(`Adding license to '${path}'...`);
+
   fs.readFile(path, 'utf-8', (err, contents) => {
     if(err)
       throw err
