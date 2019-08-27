@@ -199,10 +199,11 @@ export function svd_jac_classic(A)
   {
     // MOVE FROM U TO S
     for( let i=0; i < N; i++ )
-    for( let j=0; j < N; j++ ) { S[N*i+j] = U[UV_off + N*i+j]; U[UV_off + N*i+j] = i != j ? 0 : 1 };
+    for( let j=0; j < N; j++ ) { S[N*i+j] = U[UV_off + N*i+j];
+                                            U[UV_off + N*i+j] = +(i===j) };
     // INIT V TO IDENTITY
     for( let i=0; i < N; i++ )
-    for( let j=0; j < N; j++ ) V[UV_off + N*i+j] = i != j ? 0 : 1;
+    for( let j=0; j < N; j++ ) V[UV_off + N*i+j] = +(i===j);
     // INIT TRIANGLE TREE
     for( let i=0; i < N; i += 2 ) update_row(i);
 

@@ -84,10 +84,10 @@ export function svd_jac_2sided(A)
     // MOVE FROM U TO S
     for( let i=0; i < N; i++ )
     for( let j=0; j < N; j++ ) { S[N*i+j] = U[UV_off + N*i+j];
-                                            U[UV_off + N*i+j] = (i===j)*1 };
+                                            U[UV_off + N*i+j] = +(i===j) };
     // INIT V TO IDENTITY
     for( let i=0; i < N; i++ )
-    for( let j=0; j < N; j++ ) V[UV_off + N*i+j] = (i===j)*1;
+    for( let j=0; j < N; j++ ) V[UV_off + N*i+j] = +(i===j);
 
      //
     // JACOBI SVD ITERATIONS
@@ -109,8 +109,6 @@ export function svd_jac_2sided(A)
         //  "Jacobi's Method is More Accurate than QR"
         //   by James Demmel
         //   SIAM J. Matrix Anal. Appl, vol. 13, pp. 1204-1245, 1992
-//        if( ! ( Math.max( Math.abs(S_pq),
-//                          Math.abs(S_qp) ) > Math.sqrt(Math.abs(S_pp*S_qq)) * TOL ) )
         if( ! ( S_pq*S_pq + S_qp*S_qp > Math.abs(S_pp*S_qq) * TOL ) )
           continue;
 
@@ -124,7 +122,7 @@ export function svd_jac_2sided(A)
         _svd_jac_rot_cols(S, N,   p,  q, cβ,sβ);
 
         // ENTRIES (k,l) AND (l,k) ARE REMAINDERS (CANCELLATION ERROR) FROM ELIMINATION => SHOULD BE SAFELY ZEROABLE
-        S[N*p+q] = 0.0;
+        S[N*p+q] =
         S[N*q+p] = 0.0;
   
         // ROTATE U & V

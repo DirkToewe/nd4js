@@ -32,8 +32,9 @@ import {svd_rank,
         svd_decomp,
         svd_solve,
         svd_lstsq} from './svd'
-import {svd_jac_2sided    } from './svd_jac_2sided'
-import {svd_jac_classic   } from './svd_jac_classic'
+import {svd_jac_2sided        } from './svd_jac_2sided'
+import {svd_jac_2sided_blocked} from './svd_jac_2sided_blocked'
+import {svd_jac_classic       } from './svd_jac_classic'
 
 
 describe('svd', () => {
@@ -247,6 +248,7 @@ describe('svd', () => {
   const svd_decomps = {
     svd_decomp,
     svd_jac_2sided,
+    svd_jac_2sided_blocked,
     svd_jac_classic
   }
 
@@ -319,13 +321,20 @@ describe('svd', () => {
       function*(){
         const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
 
-        const steps_per_binade = 3;
+        function* sizes() {
+          for( let N=1; N < 16; N++ )
+            yield N;
 
-        for( let run=0; run <= 8*steps_per_binade; run++ )
+          const steps_per_binade = 4;
+
+          for( let run=4*steps_per_binade; run <= 8*steps_per_binade; run++ )
+            yield Math.round(2**(run/steps_per_binade))
+        }
+
+        for( const N of sizes() )
         {
-          const N = Math.round(2**(run/steps_per_binade)),
-            shape = [N,N];
-          const A = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1);
+          const shape = [N,N],
+                    A = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1);
 
           // CREATE SOME RANK DEFICIENCIES
           if( Math.random() < 0.25 ) {

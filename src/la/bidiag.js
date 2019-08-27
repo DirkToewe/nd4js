@@ -20,6 +20,7 @@ import {asarray, NDArray} from '../nd_array'
 import {super_dtype, ARRAY_TYPES} from '../dt'
 
 
+// TODO consider Householder reflections for eliminating right side of a row
 export function bidiag_decomp(A)
 {
   A = asarray(A);

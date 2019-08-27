@@ -22,7 +22,7 @@
    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
    <title>NDJS - SVD Benchmark</title>
    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-   <script src="../dist/nd.js"></script>
+   <script src="../dist/nd.min.js"></script>
  </head>
  <body>
    <script type="module">
@@ -35,11 +35,11 @@
          title: 'NDJS - SVD Benchmark',
          xaxis: {
            title: 'Input Size',
-//           type: 'log'
+           type: 'log'
          },
          yaxis: {
            title: 'Compute Time [sec.]',
-//           type: 'log'
+           type: 'log'
          }
        };
 
@@ -49,14 +49,14 @@
 
        const svd_methods = Object.entries({
 //         '1-sided': nd.la.svd_jac_1sided,
-         '3-sided': nd.la.svd_jac_2sided_opt,
-         '2-sided': nd.la.svd_jac_2sided,
-//         'classic': nd.la.svd_jac_classic,
+         'blocked'     : nd.la.svd_jac_2sided_blocked,
+         '2-sided'     : nd.la.svd_jac_2sided,
+//         'classic'     : nd.la.svd_jac_classic,
        }).map(
          ([name, method]) => [name, method, {type: 'scatter2d', name, x: [], y: []}]
        );
 
-       const dtype = 'float32';
+       const dtype = 'float64';
 
        const data = svd_methods.map( ([name,method,data]) => data );
 
