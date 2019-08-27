@@ -62,8 +62,8 @@ export function _svd_jac_rot_cols( W, N, i, j, c, s )
 }
 
 
-//function _svd_jac_angles( S_pp, S_pq,
-//                          S_qp, S_qq )
+//export function _svd_jac_angles( S_pp, S_pq,
+//                                 S_qp, S_qq )
 //{
 //  // determine rotation angles such that
 //  // ┌               ┐ ┌            ┐ ┌               ┐   ┌        ┐
@@ -89,8 +89,9 @@ export function _svd_jac_rot_cols( W, N, i, j, c, s )
 //  let   y = Math.abs(x) + Math.sqrt(1 + x*x);
 //  const s = x < 0 ? -1 : +1,
 //        z = 1 / y;
-//  let  cb = 1 / Math.sqrt(1 + z*z),
-//       sb = s / Math.sqrt(1 + y*y);
+//  let  cb =  1  / Math.sqrt(1 + z*z),
+//       sb = s*z / Math.sqrt(1 + z*z);
+////       sb = s / Math.sqrt(1 + y*y);
 //
 //   x = ca*cb + sa*sb;
 //  sa = sa*cb - ca*sb;
@@ -124,21 +125,14 @@ export function _svd_jac_angles( S_pp, S_pq,
   // └               ┘ └            ┘ └               ┘   └        ┘
   //
   // such that: s1 ≥ |s2|
+  //                                                                                      
+  // => 0 = { sin(α)⋅S_qp + cos(α)⋅S_pp }⋅sin(β) + { sin(α)⋅S_qq + cos(α)⋅S_pq }⋅cos(β) = ½⋅{(S_qq - S_pp)⋅sin(α-β) + (S_pp + S_qq)⋅sin(α+β) + (S_pq + S_qp)⋅cos(α-β) + (S_pq - S_qp)⋅cos(α+β)}
+  //    0 = { cos(α)⋅S_qp - sin(α)⋅S_pp }⋅cos(β) - { cos(α)⋅S_qq - sin(α)⋅S_pq }⋅sin(β) = ½⋅{(S_qq - S_pp)⋅sin(α-β) - (S_qq + S_pp)⋅sin(α+β) + (S_pq + S_qp)⋅cos(α-β) - (S_pq - S_qp)⋅cos(α+β)}
+  //   d1 = { sin(α)⋅S_qp + cos(α)⋅S_pp }⋅cos(β) - { sin(α)⋅S_qq + cos(α)⋅S_pq }⋅sin(β)
+  //   d2 = { cos(α)⋅S_qp - sin(α)⋅S_pp }⋅sin(β) + { cos(α)⋅S_qq - sin(α)⋅S_pq }⋅cos(β)
   //
-  // FIXME: update the following documentation
-  //
-  // => 0 = cos(α)*{D_kl*cos(β) - D_ll*sin(β)} + sin(α)*{D_kk*cos(β) - D_lk*sin(β)} = ½⋅{(D_ll - D_kk)⋅sin(α-β) - (D_kk + D_ll)⋅sin(α+β) + (D_kl + D_lk)⋅cos(α-β) + (D_kl - D_lk)⋅cos(α+β)}
-  //    0 = cos(α)*{D_kk*sin(β) + D_lk*cos(β)} - sin(α)*{D_kl*sin(β) + D_ll*cos(β)} = ½⋅{(D_ll - D_kk)⋅sin(α-β) + (D_kk + D_ll)⋅sin(α+β) + (D_kl + D_lk)⋅cos(α-β) - (D_kl - D_lk)⋅cos(α+β)}
-  //   d1 = cos(α)*{D_kk*cos(β) - D_lk*sin(β)} - sin(α)*{D_kl*cos(β) - D_ll*sin(β)}
-  //   d2 = cos(α)*{D_kl*sin(β) + D_ll*cos(β)} + sin(α)*{D_kk*sin(β) + D_lk*cos(β)}
-  //
-  // => 0 = {D_kl⋅cos(α) - D_kk⋅sin(α)}⋅cos(β) + {D_lk⋅sin(α) - D_ll⋅cos(α)}⋅sin(β)
-  //    0 = {D_kl⋅sin(α) + D_kk⋅cos(α)}⋅sin(β) + {D_lk⋅cos(α) + D_ll⋅sin(α)}⋅cos(β)
-  //   d1 = {D_kl⋅sin(α) + D_kk⋅cos(α)}⋅cos(β) + {D_lk⋅cos(α) - D_ll⋅sin(α)}⋅sin(β)
-  //   d2 = {D_kl⋅cos(α) - D_kk⋅sin(α)}⋅sin(β) + {D_lk⋅sin(α) + D_ll⋅cos(α)}⋅cos(β)
-  //
-  // => 0 = (D_kk+D_ll)⋅sin(α-β) + (D_kl-D_lk)⋅cos(α-β)  
-  //    0 = (D_kk-D_ll)⋅sin(α+β) + (D_kl+D_lk)⋅cos(α+β) 
+  // => 0 = (S_qq - S_pp)⋅sin(α-β) + (S_pq + S_qq)⋅cos(α-β)  
+  //    0 = (S_qq + S_pp)⋅sin(α+β) + (S_pq - S_qp)⋅cos(α+β) 
   let x = Math.atan2( S_qp - S_pq, S_qq + S_pp ),
       y = Math.atan2( S_qp + S_pq, S_qq - S_pp );
 
@@ -173,19 +167,28 @@ export function _svd_jac_angles( S_pp, S_pq,
  */
 export function _svd_jac_post( N, U,S,V, UV_off, sv, sv_off, ord )
 {
-  // 1) MOVE S TO sv (AND MAKE POSITIVE)
+  N      |= 0;
+  UV_off |= 0;
+  sv_off |= 0;
+
+  // 1) MOVE S -> sv
   for( let i=0; i < N; i++ )
     sv[sv_off + i] = S[N*i+i];
 
-  _svd_jac_post_skip1( N, U,V, UV_off, sv, sv_off, ord )
+  _svd_jac_post_skip1( N, U,V, UV_off, sv, sv_off, ord );
 }
 
-/** Same as `_svd_jac_post` but skipping the first step.
+
+/** Same as `_svd_jac_post` except that step 1) is skipped.
  */
 export function _svd_jac_post_skip1( N, U,V, UV_off, sv, sv_off, ord )
 {
+  N      |= 0;
+  UV_off |= 0;
+  sv_off |= 0;
+
   // 2) MAKE SV POSITIVE
-  for( let i=0; i < N; i++ ) {
+  for( let i=N; i-- > 0; ) {
     const sv_i = sv[sv_off + i];
     if(   sv_i < 0 || Object.is(sv_i,-0) )
     {
