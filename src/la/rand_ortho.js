@@ -24,6 +24,8 @@ import {FrobeniusNorm} from './norm'
 
 export function rand_ortho( dtype, ...shape )
 {
+  // REFERENCES:
+  //   - https://blogs.sas.com/content/iml/2012/03/28/generating-a-random-orthogonal-matrix.html
   if( ! (dtype in ARRAY_TYPES) ) {
     shape.unshift(dtype);
     dtype = 'float64';
@@ -47,7 +49,6 @@ export function rand_ortho( dtype, ...shape )
         U = new DTypeArray( shape.reduce((x,y) => x*y) ),
         Q = new DTypeArray(L*L),
         x = new DTypeArray(L),
-        y = new DTypeArray(L),
         d = new DTypeArray(L);
 
   const NORM = new FrobeniusNorm();
@@ -62,32 +63,24 @@ export function rand_ortho( dtype, ...shape )
     d[0] = Math.random() <= 0.5 ? -1 : +1;
 
     // apply series of random householder transformations/reflections
-    for( let k=1; k < L; k++ )
+    for( let k=L; k-- > 1; )
     {
       NORM.reset();
-      for( let i=0; i <= k; i++ )
-        NORM.include( x[i] = rand_normal() );
+      for( let i=0;; i++ ) {
+        const  x_i = x[i] = rand_normal(); if(i >= k) break;
+        NORM.include(x_i);
+      }                                     d[k] = (x[k] > 0 ? -1 : +1);
+      const  norm = NORM.resultIncl(x[k]) * d[k];
+      if(0===norm) continue;
+      const   div = NORM.resultIncl(x[k] -= norm);
+      for( let i=k; i >= 0; i-- )
+        x[i] /= div;
 
-      const sgn = x[k] <= 0 ? -1 : +1,
-        s = sgn * NORM.result;
-
-      d[k]  = -sgn;
-      x[k] +=  s;
-
-      y.fill(0, 0,k+1);
-
-      for( let j=0; j <= k; j++ )
-      for( let i=0; i <= k; i++ ) y[i] += x[j]*Q[L*j+i];
-
-      const beta = s*x[k];
-
-      for( let i=0; i <= k; i++ )
-        y[i] /= beta;
-
-      // apply householder transformation/reflection
-      for( let i=0; i <= k; i++ )
-      for( let j=0; j <= k; j++ )
-        Q[L*i+j] -= x[i]*y[j];
+      // apply householder to right of Q
+      for(let i=L; i-- > 0;){
+        let sum = 0; for(let j=k; j >= 0; j--) sum += Q[L*i+j] * x[j];
+            sum*= 2; for(let j=k; j >= 0; j--)        Q[L*i+j]-= x[j] * sum;
+      }
     }
 
     // flip row signs according to d
