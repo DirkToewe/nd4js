@@ -1,0 +1,83 @@
+<!--
+  This file is part of ND.JS.
+  
+  ND.JS is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  ND.JS is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
+-->
+<!DOCTYPE html>
+<html>
+ <head>
+   <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+   <title>nd.la.rand_ortho() cdf</title>
+   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+   <script src="../dist/nd.js"></script>
+ </head>
+ <body>
+   <script type="module">
+     'use strict';
+
+     (async () => {
+       const sleep = dt => new Promise( resolve => setTimeout(resolve,dt) );
+
+       const layout = {
+         title: 'nd.la.rand_ortho() cdf'
+       };
+
+       const data = [];
+
+       const plot = document.createElement('div');
+       plot.style = 'width: 100%; height: 90vh;';
+       document.body.appendChild(plot);
+
+       const N = Math.floor(Math.random()*8) + 1;
+       console.log({N});
+
+       const length = 16*1024;
+
+       for( const run of ['A','B','C','D'] )
+       {
+         const vals = nd.la.rand_ortho('float64', length, N,N);
+         await sleep();
+
+         for( let i=0; i < N; i++ )
+         for( let j=0; j < N; j++ )
+         {
+           const x = Array.from({length}, () => 0);
+
+           let k=0;
+           for( const y of vals.sliceElems('...',i,j).data )
+             x[k++] = y;
+           
+           await sleep();
+         
+           x.sort( (x,y) => x-y );
+         
+           await sleep();
+         
+           const cdf = Array.from(x, (_,i) => (i+1)/x.length );
+         
+           data.push({
+             name: `run${run}[${i},${j}]`,
+             type: 'scattergl',
+             mode: 'lines',
+             x, y: cdf
+           });
+           Plotly.react(plot, data, layout);
+         }
+       }
+     })();
+   </script>
+ </body>
+</html>

@@ -1,0 +1,298 @@
+<!--
+  This file is part of ND.JS.
+  
+  ND.JS is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  ND.JS is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
+-->
+<!DOCTYPE html>
+<html>
+ <head>
+   <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+   <title>NDJS - Decomposition Benchmark</title>
+   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+   <script src="../dist/nd.min.js"></script>
+ </head>
+ <body>
+   <script type="module">
+     'use strict';
+
+     (async () => {
+       const dtype = 'float64';
+
+       const sleep = dt => new Promise( resolve => setTimeout(resolve,dt) );
+
+       let methods = {};
+
+       const diff = (A,B) => nd.la.norm( nd.zip_elems([A,B], dtype, (x,y) => x-y) );
+
+       for( const [shape,m,n] of [['vert'  ,1,0],
+                                  ['square',0,0],
+                                  ['horiz' ,0,1]] )
+       {
+         for( const typ of [0,1] )
+           methods[['rrqr_',
+                      'qr_'][typ]+shape] = async N => {
+             const M = N+m;
+                   N = N+n;
+       
+             let A = nd.tabulate([M,N], dtype, () => Math.random()*2-1);
+             Object.freeze(A.data.buffer);
+
+             await sleep();
+       
+             const  t0 = performance.now(),
+               [Q,R,P] = [nd.la.rrqr_decomp,
+                          nd.la.  qr_decomp][typ](A),
+                    dt = performance.now() - t0;
+             Object.freeze(Q.data.buffer);
+             Object.freeze(R.data.buffer);
+             if(typ === 0) {
+               Object.freeze(P.data.buffer);
+               await sleep();
+               A = nd.la.permute_cols(A,P);
+               Object.freeze(A.data.buffer);
+             }
+
+             await sleep();
+
+             const A_norm = nd.la.norm(A),
+                      TOL = nd.dt.eps(dtype) * Math.max(M,N) * 16;
+
+             await sleep();
+
+             const I = nd.la.eye(dtype, Math.min(M,N));
+             Object.freeze(I.data.buffer);
+
+             await sleep();
+
+             if( ! nd.la.tril(R,-1).data.every(x => x === 0) )
+               throw new Error('R not upper triangular.');
+
+                        if( ! (diff(nd.la.matmul2(Q.T,Q),I) <= TOL*Math.sqrt(N)) ) throw new Error('Q.T @ Q !== I'); await sleep();
+             if(M <= N) if( ! (diff(nd.la.matmul2(Q,Q.T),I) <= TOL*Math.sqrt(N)) ) throw new Error('Q @ Q.T !== I'); await sleep();
+
+             if( ! (diff(nd.la.matmul2(Q,R),A) <= TOL*A_norm) )
+               throw new Error('Q @ R !== A');
+       
+             return dt;
+           };
+
+         methods.bidiag = async N => {
+           const M = N+m;
+                 N = N+n;
+      
+           const A = nd.tabulate([M,N], dtype, () => Math.random()*2-1);
+           Object.freeze(A.data.buffer);
+
+           await sleep();
+      
+           const  t0 = performance.now(),
+             [U,B,V] = nd.la.bidiag_decomp(A),
+                   dt = performance.now() - t0;
+           Object.freeze(U.data.buffer);
+           Object.freeze(B.data.buffer);
+           Object.freeze(V.data.buffer);
+
+           await sleep();
+
+           const A_norm = nd.la.norm(A),
+                    TOL = nd.dt.eps(dtype) * Math.max(M,N) * 16;
+
+           await sleep();
+
+           if( ! nd.la.tril(B,-1).data.every(x => x === 0) ) throw new Error('B not bidiagonal.'); await sleep();
+           if( ! nd.la.triu(B,+2).data.every(x => x === 0) ) throw new Error('B not bidiagonal.'); await sleep();
+
+           if( ! (diff(nd.la.matmul(U,B,V),A) <= TOL*A_norm) )
+             throw new Error('U @ B @ V !== A');
+
+           await sleep();
+
+           if( M >= N ) {
+             const I = nd.la.eye(dtype, N);
+             Object.freeze(I.data.buffer);
+                      if( ! (diff(nd.la.matmul2(U.T,U),I) <= TOL*Math.sqrt(N)) ) throw new Error('U.T @ U !== I'); await sleep();
+             if(M===N)if( ! (diff(nd.la.matmul2(U,U.T),I) <= TOL*Math.sqrt(N)) ) throw new Error('U @ U.T !== I'); await sleep();
+                      if( ! (diff(nd.la.matmul2(V.T,V),I) <= TOL*Math.sqrt(N)) ) throw new Error('V.T @ V !== I'); await sleep();
+                      if( ! (diff(nd.la.matmul2(V,V.T),I) <= TOL*Math.sqrt(N)) ) throw new Error('V @ V.T !== I'); await sleep();
+           }
+           else {
+             const I = nd.la.eye(dtype, M  ),
+                   J = nd.la.eye(dtype, M+1);
+             Object.freeze(I.data.buffer);
+             Object.freeze(J.data.buffer);
+             if( ! (diff(nd.la.matmul2(U,U.T),I) <= TOL*Math.sqrt(N)) ) throw new Error('U @ U.T !== I'); await sleep();
+             if( ! (diff(nd.la.matmul2(U.T,U),I) <= TOL*Math.sqrt(N)) ) throw new Error('U.T @ U !== I'); await sleep();
+             if( ! (diff(nd.la.matmul2(V,V.T),J) <= TOL*Math.sqrt(N)) ) throw new Error('V @ V.T !== I'); await sleep();
+           }
+
+           return dt;
+         };
+       }
+
+
+       methods.hessenberg = async N => {
+         const A = nd.tabulate([N,N], dtype, () => Math.random()*2-1);
+         Object.freeze(A.data.buffer);
+       
+         await sleep();
+       
+         const t0 = performance.now(),
+            [Q,H] = nd.la.hessenberg_decomp(A),
+               dt = performance.now() - t0;
+         Object.freeze(Q.data.buffer);
+         Object.freeze(H.data.buffer);
+       
+         await sleep();
+       
+         const A_norm = nd.la.norm(A),
+                 TOL = nd.dt.eps(dtype) * N * 16;
+       
+         await sleep();
+       
+         if( ! nd.la.tril(H,-2).data.every(x => x === 0) ) throw new Error('B not hessenberg.'); await sleep();
+       
+         if( ! (diff(nd.la.matmul(Q,H,Q.T),A) <= TOL*A_norm) )
+           throw new Error('Q @ H @ Q.T !== A');
+       
+         await sleep();
+
+         const I = nd.la.eye(dtype,N);
+         Object.freeze(I.data.buffer);
+         if( ! (diff(nd.la.matmul2(Q,Q.T),I) <= TOL*Math.sqrt(N)) ) throw new Error('Q @ Q.T !== I'); await sleep();
+         if( ! (diff(nd.la.matmul2(Q.T,Q),I) <= TOL*Math.sqrt(N)) ) throw new Error('Q.T @ Q !== I'); await sleep();
+       
+         return dt;
+       };
+
+
+       methods.schur = async N => {
+         const A = nd.tabulate([N,N], dtype, () => Math.random()*2-1);
+         Object.freeze(A.data.buffer);
+       
+         await sleep();
+       
+         const t0 = performance.now(),
+            [Q,U] = nd.la.schur_decomp(A),
+               dt = performance.now() - t0;
+         Object.freeze(Q.data.buffer);
+         Object.freeze(U.data.buffer);
+       
+         await sleep();
+       
+         const A_norm = nd.la.norm(A),
+                 TOL = nd.dt.eps(dtype) * N * 16;
+       
+         await sleep();
+       
+         if( ! nd.la.tril(U,-2).data.every(x => x === 0) ) throw new Error('U not block triangular.'); await sleep();
+       
+         if( ! (diff(nd.la.matmul(Q,U,Q.T),A) <= TOL*A_norm) )
+           throw new Error('Q @ U @ Q.T !== A');
+       
+         await sleep();
+
+         const I = nd.la.eye(dtype,N);
+         Object.freeze(I.data.buffer);
+         if( ! (diff(nd.la.matmul2(Q,Q.T),I) <= TOL*Math.sqrt(N)) ) throw new Error('Q @ Q.T !== I'); await sleep();
+         if( ! (diff(nd.la.matmul2(Q.T,Q),I) <= TOL*Math.sqrt(N)) ) throw new Error('Q.T @ Q !== I'); await sleep();
+       
+         return dt;
+       };
+
+
+       methods.matmul = async N => {
+         const A = nd.tabulate([N,N], dtype, () => Math.random()*2-1); await sleep();
+         const B = nd.tabulate([N,N], dtype, () => Math.random()*2-1); await sleep();
+         Object.freeze(A.data.buffer);
+         Object.freeze(B.data.buffer);
+       
+         const t0 = performance.now(),
+                C = nd.la.matmul2(A,B),
+               dt = performance.now() - t0;
+         Object.freeze(C.data.buffer);
+       
+         await sleep();
+       
+         const TOL = nd.dt.eps(dtype) * N;
+
+         const c = new nd.NDArray(Int32Array.of(N,N), new Float64Array(N*N));
+         const AA = A.data,
+               BB = B.data,
+               CC = c.data;
+
+         for( let i=0; i < N; i++ )
+         for( let k=0; k < N; k++ )
+         for( let j=0; j < N; j++ )
+           CC[N*i+j] += AA[N*i+k] * BB[N*k+j];
+           
+         Object.freeze(CC.buffer);
+
+         await sleep();
+         if( ! (diff(C,c) <= TOL*Math.sqrt(N)) ) throw new Error('Matrix multiplication failed.');
+         await sleep();
+       
+         return dt;
+       };
+
+
+       const layout = {
+         title: 'NDJS - Decomposition Benchmark',
+         xaxis: {
+           title: 'Input Size',
+           type: 'log'
+         },
+         yaxis: {
+           title: 'Compute Time [sec.]',
+           type: 'log'
+         }
+       };
+
+       const plot = document.createElement('div');
+       plot.style = 'width: 100%; height: 90vh;';
+       document.body.appendChild(plot);
+
+       methods = Object.entries(methods).map(
+         ([name, method]) => [name, method, {type: 'scatter2d', name, x: [], y: []}]
+       );
+
+       const data = methods.map( ([name,method,data]) => data );
+
+       function* sizes()
+       {
+         const mid = 128;
+
+         for( let N=64; N < mid; N++ )
+           yield N;
+         const steps_per_binade = 32;
+
+         for( let run=Math.log2(mid)*steps_per_binade; run <= 11*steps_per_binade; run++ )
+           yield Math.round( 2 ** (run/steps_per_binade) );
+       }
+
+       for( const N of sizes() )
+       for( const [name,method,dat] of methods )
+       {
+         const dt = await method(N);
+         await sleep();
+         // PLOT
+         dat.x = dat.x.concat([N]);
+         dat.y = dat.y.concat([dt/1000]);
+         await Plotly.react(plot, data, layout);
+       }
+     })();
+   </script>
+ </body>
+</html>
