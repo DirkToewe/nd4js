@@ -18,68 +18,56 @@
 
 import {asarray, NDArray} from '../nd_array'
 import {ARRAY_TYPES} from '../dt'
+import {_giv_rot_rows} from './_giv_rot'
+import {_transpose_inplace} from './transpose_inplace'
 
 
 export function qr_decomp_full(A)
 {
   A = asarray(A);
   if( A.ndim < 2 ) throw new Error('A must be at least 2D.');
-  const
-    DTypeArray = ARRAY_TYPES[A.dtype === 'float32' ? 'float32' : 'float64'], // <- ensure at least double precision
+  const DType = A.dtype === 'float32' ? 'float32' : 'float64',
+        DTypeArray = ARRAY_TYPES[DType], // <- ensure at least double precision
+    B = DType === 'float32' ? 64/4 : 64/8,
     R_shape = A.shape,
     Q_shape = Int32Array.from(R_shape),
-    [N,M]   = R_shape.slice(-2),
+    [M,N]   = R_shape.slice(-2),
      R = DTypeArray.from(A.data);
   A = undefined
-  Q_shape[Q_shape.length-1] = N;
-  const Q = new DTypeArray(R.length/M*N);
-  Q.fill(0); // <- in case of an object array
+  Q_shape[Q_shape.length-1] = M;
+  const Q = new DTypeArray(R.length/N*M);
+//  Q.fill(0); // <- in case of an object array
 
   for(
     let Q_off=0,
         R_off=0;
-    Q_off < Q.length;
-    Q_off += N*N,
-    R_off += N*M
+        Q_off < Q.length;
+        Q_off += M*M,
+        R_off += M*N
   )
   {
     // INIT Q TO IDENTITY MATRIX
-    for( let i=0; i < N; i++ ) Q[Q_off+N*i+i] = 1.0;
-
-    for( let i=1; i < N; i++ ) { const I = Math.min(i,M);
-    for( let j=0; j < I; j++ )
+    for( let i=0; i < M; i++ ) Q[Q_off+M*i+i] = 1.0;
+                                                   // The idea of the blocked loop is that the top B rows
+    for( let J=0; J < N; J += B )                  // are cached and used to elimate B columns in the remaining
+    for( let I=J; I < M; I += B )                  // rows. This should reduce the number of cache misses.
+    for( let i=I; i < I+B && i < M         ; i++ ) // Some quick and dirty benchmarks indicate a ~15% perfomance
+    for( let j=J; j < J+B && j < N && j < i; j++ ) // improvement for matrix sizes of [300,300] and above.
     {
       // USE GIVENS ROTATION TO ELIMINATE ELEMENT R_ji
-      const R_ij = R[R_off+M*i+j]; if( R_ij == 0.0 ) continue;
-      const R_jj = R[R_off+M*j+j],
-                   norm = Math.hypot(R_jj,R_ij),
-        c = R_jj / norm,
-        s = R_ij / norm;
-      R[R_off+M*i+j] = 0;
-      R[R_off+M*j+j] = norm;
-      // ROTATE ROW i AND j IN R
-      for( let k=j; ++k < M; ) {
-        const ik = R_off+M*i+k, R_ik = R[ik],
-              jk = R_off+M*j+k, R_jk = R[jk];
-        R[ik] = c*R_ik - s*R_jk;
-        R[jk] = s*R_ik + c*R_jk;
-      }
-      // ROTATE COL i AND j IN Q (Q TRANSPOSED FOR CACHE LOCALITY REASONS) 
-      for( let k=0; k <= i; k++ ) {
-        const ik = Q_off+N*i+k, Q_ik = Q[ik],
-              jk = Q_off+N*j+k, Q_jk = Q[jk];
-        Q[ik] = c*Q_ik - s*Q_jk;
-        Q[jk] = s*Q_ik + c*Q_jk;
-      }
-    }}
-    // TRANSPOSE Q (Q TRANSPOSED FOR CACHE LOCALITY REASONS)
-    for( let i=0;   i < N; i++ )
-    for( let j=i+1; j < N; j++ ) {
-      const
-        ij = Q_off+N*i+j,
-        ji = Q_off+N*j+i,
-        Q_ij = Q[ij]; Q[ij] = Q[ji]; Q[ji] = Q_ij;
+      const ij = R_off+N*i+j, R_ij = R[ij]; if(0 === R_ij) continue;
+      const jj = R_off+N*j+j, R_jj = R[jj],
+                 norm = Math.hypot(R_jj,R_ij),
+      c = R_jj / norm,
+      s = R_ij / norm;
+          R[ij]= 0; if(0 === s) continue;
+          R[jj]= norm;
+      _giv_rot_rows( R, N-1-j, jj+1,
+                               ij+1,      c,s);
+      _giv_rot_rows( Q,   1+i, Q_off+M*j,
+                               Q_off+M*i, c,s);
     }
+    _transpose_inplace(M, Q,Q_off);
   }
 
   return [
@@ -104,12 +92,7 @@ export function qr_decomp(A)
 
   const Q = DTypeArray.from(A.data); // <- we could encourage GC by setting `A = undefined` after this line
   A = undefined
-  const R = new DTypeArray(Q.length/N*M),
-       cs = new DTypeArray( N*M - (M*(M+1) >>> 1) ),
-        r = function(){
-          try      { return    cs.subarray(M); }
-          catch(e) { return new DTypeArray(M); }
-        }();  // <- additional space to temp. store rows of R not contained in the result
+  const R = new DTypeArray(Q.length/N*M);  // <- additional space to temp. store rows of R not contained in the result
 
   for(
     let R_off=0,
@@ -117,59 +100,44 @@ export function qr_decomp(A)
                                    R_off += M*M
   )
   {
-    let csi=0;
-
     // COMPUTE R (inside of Q)
     for( let i=1; i < N; i++ ) { const I = Math.min(i,M);
     for( let j=0; j < I; j++ )
     { // USE GIVENS ROTATION TO ELIMINATE ELEMENT R_ji
-      const R_ij = Q[Q_off + M*i+j]; if( R_ij === 0.0 ) { cs[csi++] = 0.0; continue; }
-      const R_jj = Q[Q_off + M*j+j];
-      let          norm = Math.hypot(R_jj,R_ij),
-        c = R_jj / norm,
-        s = R_ij / norm;
-      if( c < 0 ) {
-           c *= -1;
-           s *= -1;
-        norm *= -1;
-      }
-      cs[csi++] = s;
-      Q[Q_off + M*i+j] = 0;
-      Q[Q_off + M*j+j] = norm;
-      // ROTATE ROW i AND j IN R
-      for( let k=j; ++k < M; ) {
-        const ik = Q_off + M*i+k, R_ik = Q[ik],
-              jk = Q_off + M*j+k, R_jk = Q[jk];
-        Q[ik] = c*R_ik - s*R_jk;
-        Q[jk] = s*R_ik + c*R_jk;
-      }
+      const ij = Q_off + M*i+j, R_ij = Q[ij]; if(0 === R_ij) continue;
+      const jj = Q_off + M*j+j, R_jj = Q[jj];
+      let            norm = Math.hypot(R_jj,R_ij),
+          c = R_jj / norm,
+          s = R_ij / norm;
+      if( s !== 0 ) {
+        if( c < 0 ) {
+            c *= -1;
+            s *= -1;
+         norm *= -1;
+        }
+        _giv_rot_rows(Q, M-1-j, Q_off + M*j+(j+1),
+                                Q_off + M*i+(j+1), c,s);
+        Q[jj] = norm;
+      } Q[ij] = s;
     }}
-
-    if( csi != cs.length ) throw new Error('Assertion failed!');
 
     // MOVE R FROM Q -> R AND INIT Q TO I
     for( let i=0; i < M; i++ )
     for( let j=i; j < M; j++ ) {
       R[R_off + M*i+j] = Q[Q_off + M*i+j];
-                         Q[Q_off + M*i+j] = i !== j ? 0.0 : 1.0;
+                         Q[Q_off + M*i+j] = +(i===j);
     }
 
     // COMPUTE Q
     for( let i=N; --i > 0; ) { const I = Math.min(i,M);
     for( let j=I; j-- > 0; )
     {
-      const s = cs[--csi]; if( 0.0 === s ) continue;
+      const s = Q[Q_off + M*i+j]; if(0 === s) continue;
+                Q[Q_off + M*i+j]  =  0;
       const c = Math.sqrt( (1-s)*(1+s) );
-      // ROTATE ROW i AND j IN Q
-      for( let k=j; k < M; k++ ) {
-        const ik = Q_off + M*i+k, R_ik = Q[ik],
-              jk = Q_off + M*j+k, R_jk = Q[jk];
-        Q[ik] = s*R_jk + c*R_ik;
-        Q[jk] = c*R_jk - s*R_ik;
-      }
+      _giv_rot_rows(Q, M-j, Q_off + M*i+j,
+                            Q_off + M*j+j, c,s);
     }}
-
-    if( csi != 0 ) throw new Error('Assertion failed!');
   }
 
   return [

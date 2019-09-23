@@ -37,7 +37,7 @@ describe('qr', () => {
 
       for( let run=1024; run-- > 0; )
       {
-        const shape = Int32Array.from({ length: randInt(2,5) }, () => randInt(1,24)),
+        const shape = Int32Array.from({ length: randInt(2,5) }, () => randInt(1,32)),
               QR = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1)
         Object.freeze(QR.data.buffer)
         yield QR
