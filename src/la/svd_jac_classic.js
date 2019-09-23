@@ -21,10 +21,10 @@ import {asarray, NDArray} from '../nd_array'
 import {matmul2} from './matmul'
 import {qr_decomp} from './qr'
 import {transpose_inplace} from './transpose_inplace'
-import {_svd_jac_rot_rows,
-        _svd_jac_rot_cols,
-        _svd_jac_angles,
+import {_svd_jac_angles,
         _svd_jac_post } from './_svd_jac_utils'
+import {_giv_rot_rows,
+        _giv_rot_cols} from './_giv_rot'
 
 
 export function svd_jac_classic(A)
@@ -242,8 +242,8 @@ export function svd_jac_classic(A)
                                             S_kl, S_kk);
 
       // ROTATE S
-      _svd_jac_rot_rows(S, N, N*l,N*k, cα,sα);
-      _svd_jac_rot_cols(S, N,   l,  k, cβ,sβ);
+      _giv_rot_rows(S, N, N*l,N*k, cα,sα);
+      _giv_rot_cols(S, N,   l,  k, cβ,sβ);
 
       // ENTRIES (k,l) AND (l,k) ARE REMAINDERS (CANCELLATION ERROR) FROM ELIMINATION => SHOULD BE SAFELY ZEROABLE
       S[N*k+l] = 0.0;
@@ -254,10 +254,10 @@ export function svd_jac_classic(A)
       update_col(k); update_col(l);
 
       // ROTATE U & V
-      _svd_jac_rot_rows(U, N, UV_off + N*l,
-                              UV_off + N*k, cα, sα);
-      _svd_jac_rot_rows(V, N, UV_off + N*l,
-                              UV_off + N*k, cβ,-sβ);
+      _giv_rot_rows(U, N, UV_off + N*l,
+                          UV_off + N*k, cα, sα);
+      _giv_rot_rows(V, N, UV_off + N*l,
+                          UV_off + N*k, cβ,-sβ);
     }
 
     _svd_jac_post( N, U,S,V, UV_off, sv, sv_off, ord );

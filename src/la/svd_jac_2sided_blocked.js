@@ -21,10 +21,10 @@ import {ARRAY_TYPES, eps} from '../dt'
 import {matmul2} from './matmul'
 import {qr_decomp} from './qr'
 import {transpose_inplace} from './transpose_inplace'
-import {_svd_jac_rot_rows,
-        _svd_jac_rot_cols,
-        _svd_jac_angles,
+import {_svd_jac_angles,
         _svd_jac_post_skip1 } from './_svd_jac_utils'
+import {_giv_rot_rows,
+        _giv_rot_cols} from './_giv_rot'
 
 
 const B =  4, // <- block size should match cache line size
@@ -185,8 +185,8 @@ export function svd_jac_2sided_blocked(A)
         const rowP = UV_off + N*(B*P + p),
               rowQ = UV_off + N*(B*Q + q);
         // ROTATE U & V
-        _svd_jac_rot_rows(U, N, rowP,rowQ, cα, sα);
-        _svd_jac_rot_rows(V, N, rowP,rowQ, cβ,-sβ);
+        _giv_rot_rows(U, N, rowP,rowQ, cα, sα);
+        _giv_rot_rows(V, N, rowP,rowQ, cβ,-sβ);
       }
     }
 

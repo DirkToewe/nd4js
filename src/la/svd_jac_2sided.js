@@ -21,10 +21,10 @@ import {asarray, NDArray} from '../nd_array'
 import {matmul2} from './matmul'
 import {qr_decomp} from './qr'
 import {transpose_inplace} from './transpose_inplace'
-import {_svd_jac_rot_rows,
-        _svd_jac_rot_cols,
-        _svd_jac_angles,
+import {_svd_jac_angles,
         _svd_jac_post } from './_svd_jac_utils'
+import {_giv_rot_rows,
+        _giv_rot_cols} from './_giv_rot'
 
 
 export function svd_jac_2sided(A)
@@ -118,18 +118,18 @@ export function svd_jac_2sided(A)
                                                S_qp,S_qq);
 
         // ROTATE S
-        _svd_jac_rot_rows(S, N, N*p,N*q, cα,sα);
-        _svd_jac_rot_cols(S, N,   p,  q, cβ,sβ);
+        _giv_rot_rows(S, N, N*p,N*q, cα,sα);
+        _giv_rot_cols(S, N,   p,  q, cβ,sβ);
 
         // ENTRIES (k,l) AND (l,k) ARE REMAINDERS (CANCELLATION ERROR) FROM ELIMINATION => SHOULD BE SAFELY ZEROABLE
         S[N*p+q] =
         S[N*q+p] = 0.0;
   
         // ROTATE U & V
-        _svd_jac_rot_rows(U, N, UV_off + N*p,
-                                UV_off + N*q, cα, sα);
-        _svd_jac_rot_rows(V, N, UV_off + N*p,
-                                UV_off + N*q, cβ,-sβ);
+        _giv_rot_rows(U, N, UV_off + N*p,
+                            UV_off + N*q, cα, sα);
+        _giv_rot_rows(V, N, UV_off + N*p,
+                            UV_off + N*q, cβ,-sβ);
       }
     }
 
