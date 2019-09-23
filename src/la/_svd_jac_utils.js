@@ -15,51 +15,6 @@
  * You should have received a copy of the GNU General Public License
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
-// THIS FILE IS FOR INTERNAL USE ONLY
-
-import {asarray, NDArray} from '../nd_array'
-import {ARRAY_TYPES, eps} from '../dt'
-import {matmul2} from './matmul'
-import {qr_decomp} from './qr'
-import {transpose_inplace} from './transpose_inplace'
-
-
-/** Applies givens roation to rows i and j.
- */
-export function _svd_jac_rot_rows( W, N, i, j, c, s )
-{
-  i |= 0;
-  j |= 0;
-  c = +c;
-  s = +s;
-  for( let k=N | 0; k-- > 0; ) {
-    const W_i = W[i],
-          W_j = W[j];
-    W[i] = c*W_i + s*W_j;
-    W[j] = c*W_j - s*W_i;
-    i = i+1 | 0;
-    j = j+1 | 0;
-  }
-}
-
-
-/** Applies givens rotation to columns i and j.
- */
-export function _svd_jac_rot_cols( W, N, i, j, c, s )
-{
-  i |= 0;
-  j |= 0;
-  c = +c;
-  s = +s;
-  for( let k=N | 0; k-- > 0; ) {
-    const W_i = W[i],
-          W_j = W[j];
-    W[i] = c*W_i - s*W_j;
-    W[j] = c*W_j + s*W_i;
-    i = i+N | 0;
-    j = j+N | 0;
-  }
-}
 
 
 //export function _svd_jac_angles( S_pp, S_pq,

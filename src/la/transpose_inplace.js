@@ -19,17 +19,23 @@
 import {asarray} from '../nd_array'
 
 
+export function _transpose_inplace( N, A,A_off )
+{
+  for( let i=N; --i > 0; )
+  for( let j=i; j-- > 0; ) {
+    const ij = A_off + N*i+j,
+          ji = A_off + N*j+i, A_ij = A[ij];
+                                     A[ij] = A[ji];
+                                             A[ji] = A_ij;
+  }
+}
+
+
 export function transpose_inplace(A)
 {
   const [N,M] = A.shape.slice(-2);
   if( N != M ) throw new Error('In-place transposition is only supported for square matrices.');
   A = A.data;
-  for( let off=0; off < A.length; off += N*N )
-  for( let i=0;   i < N-1; i++ )
-  for( let j=i; ++j < N  ;     ) {
-    const ij = off + N*i+j,
-          ji = off + N*j+i, A_ij = A[ij];
-                                   A[ij] = A[ji];
-                                           A[ji] = A_ij;
-  }
+  for( let A_off=0; A_off < A.length; A_off += N*N )
+    _transpose_inplace(N, A,A_off);
 }
