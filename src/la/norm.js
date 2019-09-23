@@ -21,6 +21,7 @@ export class FrobeniusNorm
   constructor() {
     this.sum = 0.0;
     this.max = 0.0;
+    Object.seal(this);
   }
 
   reset() {
@@ -29,14 +30,27 @@ export class FrobeniusNorm
 
   include( x ) {
     x = Math.abs(x);
-    if( x > 0 ) {
+    if( x !== 0 ) {
       if(         this.max < x ) {
         const s = this.max / x; this.sum *= s*s;
                   this.max = x;
       }
-      const r = x / this.max;
-      this.sum += r*r;
+      x /= this.max;
+      this.sum += x*x;
     }
+  }
+
+  resultIncl( x ) {
+    x = Math.abs(x);
+    let {sum,max} = this;
+    if( x !== 0 ) {
+      if(         max < x ) {
+        const s = max / x; sum *= s*s;
+                  max = x;
+      }      x /= max;
+      sum += x*x;
+    }
+    return isFinite(max) ? Math.sqrt(sum)*max : max;
   }
 
   get result() {
