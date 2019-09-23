@@ -226,7 +226,7 @@ describe('eigen', () => {
         yield A
       }
     }()
-  ).it('eigen works on random examples', A => {
+  ).it('eigenvals works on random examples', A => {
     const [Λ] = eigen    (A),
            L  = eigenvals(A)
 
