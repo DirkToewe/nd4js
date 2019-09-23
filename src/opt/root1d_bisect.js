@@ -21,8 +21,8 @@ export function root1d_bisect(F,x_min,x_max)
   let f_min = F(x_min),
       f_max = F(x_max);
   if( f_min > f_max )  [f_min,f_max,x_min,x_max] = [f_max,f_min,x_max,x_min];
-  if( f_min > 0 ) { if( f_min <= +Number.EPSILON ) return x_min; else throw new Error('Assertion failed.') }
-  if( f_max < 0 ) { if( f_max >= -Number.EPSILON ) return x_max; else throw new Error('Assertion failed.') }
+  if( f_min > 0 ) { if( f_min <= f_max*Number.EPSILON ) return x_min; else throw new Error('root1d_bisect(F,x_min,x_max): Both F(x_min) and F(x_max) positive.') }
+  if( f_max < 0 ) { if( f_max >= f_min*Number.EPSILON ) return x_max; else throw new Error('root1d_bisect(F,x_min,x_max): Both F(x_min) and F(x_max) negaitive.') }
   if( f_min > 0 ) { return x_min; }
   if( f_max < 0 ) { return x_max; }
   
