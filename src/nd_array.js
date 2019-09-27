@@ -312,7 +312,10 @@ export class NDArray extends Function
   }
 
   mapElems( dtype, mapper ) {
-    if( null == mapper && dtype instanceof Function ) { mapper = dtype; dtype = undefined }
+    if( null == mapper ) {
+      if( dtype == null ) return new NDArray(this.shape, this.data.slice());
+      if( dtype instanceof Function ) { mapper = dtype; dtype = undefined }
+    }
     if( null == mapper ) mapper = x => x;
     return zip_elems([this], dtype, mapper)
   }
