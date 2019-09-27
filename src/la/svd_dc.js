@@ -495,8 +495,7 @@ export function _svd_dc_neves( N, n, U,U_off, B,B_off, V,V_off, outerOrder )
     { const c = B[B_off + 2*i  ],
             s = B[B_off + 2*i+1];
       for( let k=i; k < m; k++ ) // <- k should be started at i
-      {
-        const      W_ki = W[m*k+i],
+      { const      W_ki = W[m*k+i],
                    W_kj = W[m*k+j];
         W[m*k+i] = W_ki* c  +  W_kj*s;
         W[m*k+j] = W_ki*-s  +  W_kj*c;
@@ -599,8 +598,8 @@ export function _svd_dc_neves( N, n, U,U_off, B,B_off, V,V_off, outerOrder )
  */
 function _svd_dc( N, n, U,U_off, B,B_off, V,V_off )
 {
-  if(    n <= N) throw new Error('Assertion failed.');
-  if(0 < n     ) throw new Error('Assertion failed.');
+  if(     n > N) throw new Error('Assertion failed.');
+  if(0 >= n    ) throw new Error('Assertion failed.');
 
   if(2===n) return _svd_1x2(N, U,U_off, B,B_off, V,V_off);
   if(3===n) return _svd_2x3(N, U,U_off, B,B_off, V,V_off);
@@ -698,7 +697,7 @@ export function svd_dc(A)
   const [M,N] = A.shape.slice(-2);
 
   if( M > N ) {
-    const [U,sv,V] = svd_dc()
+    const [U,sv,V] = svd_dc(A)
     transpose_inplace(V);
     return [U.T,sv,V];
   }

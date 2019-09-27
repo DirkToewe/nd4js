@@ -130,14 +130,17 @@ describe('svd', () => {
   forEachItemIn(
     function*(){
       for( let run=0; run < 64; run++ )
-      for( let N=3; N < 64; N++ )
+      for( let N=4; N < 64; N++ )
 //      for( let N=3; N < 8; N++ )
       {
-        const M = N-1;
+        const M = N-1,
+            mid = M >>> 1;
 
         const rng = () => (Math.random()*2-1) * (Math.random() < 0.875),
              diag = Float64Array.from({length: M}, () => Math.random());
         diag[0] = 0;
+
+        // create duplicates in diag
         if( Math.random() >= 0.875 )
         for( let k=Math.random()*(M-1) | 0; k-- > 0; )
         {
@@ -146,59 +149,91 @@ describe('svd', () => {
           diag[i] = diag[j];
         }
         if( 0 !== diag[0] ) throw new Error('Assertion failed.');
-        diag.sort((x,y) => y-x);
+        const diag_0 = diag[0];
+                       diag[0] = diag[mid];
+                                 diag[mid] = diag_0;
 
-        const B = tabulate([M,N], () => 0);
+        const A = tabulate([M,N], 'float64', () => 0);
         for( let i=0; i < M; i++ ) {
-          B.set([ i,i], diag[i]);
-          B.set([-1,i], rng());
+          A.set([  i,i], diag[i]);
+          A.set([mid,i], rng());
         }
-//        B.set([-1,-2], Math.random()*2-1)
 
-        Object.freeze(B.data.buffer);
-        yield B;
+        const L = eye('float64', M),
+              R = eye('float64', N);
+
+        Object.freeze(L.data.buffer);
+        Object.freeze(A.data.buffer);
+        Object.freeze(R.data.buffer);
+        yield [L,A,R];
       }
     }()
-  ).it('_svd_dc_neves works random square examples', B => {
-    const [M,N] = B.shape.slice(-2);
+  ).it('_svd_dc_neves works random square examples', ([L,A,R]) => {
+    const [M,N] = A.shape.slice(-2),
+           mid  = M >>> 1;
 
-    const TOL = eps(B.dtype) * 512*1024,
-       B_norm = norm(B);
+    expect(L.dtype).toBe('float64')
+    expect(A.dtype).toBe('float64')
+    expect(R.dtype).toBe('float64')
 
-    const B_arr = new Float64Array(2*M);
-    for( let i=0; i < M; i++ ) {
-                  B_arr[2*i+1] = B(-1,i)
-      if(i < M-1) B_arr[2*i  ] = B( i,i)
+    // check orthogonality
+    { const I = eye(M);
+      expect(matmul2(L,L.T)).toBeAllCloseTo(I);
+      expect(matmul2(L.T,L)).toBeAllCloseTo(I); }
+    { const I = eye(N);
+      expect(matmul2(R,R.T)).toBeAllCloseTo(I);
+      expect(matmul2(R.T,R)).toBeAllCloseTo(I); }
+
+    const LAR = matmul(L,A,R);
+    expect(LAR.dtype).toBe('float64');
+
+    const B = new Float64Array(M*2),
+        ord =       Int32Array.from({length: M}, (_,i) => i);
+    ord[M-1] = mid;
+    ord[mid] = M-1;
+    ord.subarray(0,M-1).sort((i,j) => A(j,j) - A(i,i));
+    
+    for( let i=0; i < M; i++ )
+    {
+      const j = ord[i];
+      B[2*i  ] = A(  j,j);
+      B[2*i+1] = A(mid,j);
     }
+    B[2*M-2] = 0;
+
+    expect(new Set(ord).size).toBe(M);
 
 //    console.log('\n\n');
 //    console.log('B:\n' + B.toString())
 
-    const U = eye(M),
-          V = eye(N);
+    const U = L.mapElems(),
+          V = R.mapElems();
     U.data.fill(0);
     V.data.fill(0);
+    expect(U.dtype).toBe('float64');
+    expect(V.dtype).toBe('float64');
 
-    const [Q,sv,W] = svd_decomp(B);
+    const [Q,sv,W] = svd_decomp(LAR);
     Object.freeze( Q.data.buffer);
     Object.freeze(sv.data.buffer);
     Object.freeze( W.data.buffer);
 
 //    console.log('sv:\n' + sv.mapElems(x => x/*.toFixed(6)*/) );
 
-    const ord = Int32Array.from({length: M}, (_,i) => i);
-
-    _svd_dc_neves(N, N, U.data,0, B_arr,0, V.data,0, ord)
+    _svd_dc_neves(N, N, U.data,0, B,0, V.data,0, ord)
+    Object.freeze(U.data.buffer);
+    Object.freeze(B     .buffer);
+    Object.freeze(V.data.buffer);
+    Object.freeze(ord   .buffer);
 
 //    console.log('{{{{')
 //    console.log( 'Q:\n' +  Q.mapElems(x => x.toFixed(6)) );
 //    console.log( 'U:\n' +  U.mapElems(x => x.toFixed(6))  + '\n');
 //    console.log('sv:\n' + sv.mapElems(x => x/*.toFixed(6)*/) );
-//    console.log( 'B:\n' + B_arr.filter((_,i)=>0===i%2).map(x => x/*.toFixed(6)*/) + '\n');
+//    console.log( 'B:\n' +  B.filter((_,i)=>0===i%2).map(x => x/*.toFixed(6)*/) + '\n');
 //    console.log( 'W:\n' +  W.mapElems(x => x.toFixed(6)) );
 //    console.log( 'V:\n' +  V.mapElems(x => x.toFixed(6)) );
 //    console.log('}}}}\n\n\n\n')
-
 
     // check orthogonality
     { const I = eye(M);
@@ -209,10 +244,10 @@ describe('svd', () => {
       expect(matmul2(V.T,V)).toBeAllCloseTo(I); }
 
     // check decomposition
-    const S  = tabulate([M,N], (i,j) => B_arr[2*i]*(i===j)),
+    const S  = tabulate([M,N], (i,j) => B[2*i]*(i===j)),
          USV = matmul(U,S,V);
 
-    expect(USV).toBeAllCloseTo(B);
+    expect(USV).toBeAllCloseTo(LAR);
 
 //    const  USV_err = norm( zip_elems([USV, B], B.dtype, (x,y) => x-y) );
 //    expect(USV_err).not.toBeGreaterThan(B_norm*TOL);
@@ -220,7 +255,7 @@ describe('svd', () => {
     expect( U.data.every(x => isFinite(x)) ).toBe(true);
 
     // check singular values
-    const  SV = B_arr.filter((_,i) => 0===i%2);
+    const  SV = B.filter((_,i) => 0===i%2);
     expect(SV).toBeAllCloseTo(sv);
 
 //    console.log('B:\n' + B.toString());
