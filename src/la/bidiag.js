@@ -41,12 +41,13 @@ function _bidiag_decomp_vert( M,N, U,U_off, B,V,BV_off )
   { // ELIMINATE ELEMENTS BELOW (i,i) USING GIVENS
                                const ii = U_off + N*i+i;
     for( let j=i; ++j < M; ) { const ji = U_off + N*j+i;
-      const   B_ii = U[ii],
-              B_ji = U[ji];
+      const   B_ji = U[ji];
+      if( 0===B_ji ) continue;
+      const   B_ii = U[ii];
       let            norm = Math.hypot(B_ii,B_ji),
           c = B_ii / norm,
-          s = B_ji / norm; if(0===s) continue;
-      if( s !== 0 ) {
+          s = B_ji / norm;
+      if( s !== 0 ) { // <- might happen in case of underflow
         if( c  <  0 ) {
             c *= -1;
             s *= -1;
@@ -61,10 +62,10 @@ function _bidiag_decomp_vert( M,N, U,U_off, B,V,BV_off )
     { // ELIMINATE ELEMENTS RIGHT OF (i,i+1) USING HOUSEHOLDER
       NORM.reset();
       for( let j=N; --j > i+1; )
-        NORM.include(U[U_off + N*i+j]);
-      const  norm = NORM.resultIncl(U[ii+1]) * (U[ii+1] > 0 ? -1 : +1);
-      if(0===norm) continue;
-      const   div = NORM.resultIncl(U[ii+1] -= norm);
+          NORM.include(U[U_off + N*i+j]);
+      if( NORM.max === 0 ) continue;
+      const norm = NORM.resultIncl(U[ii+1]) * (U[ii+1] > 0 ? -1 : +1),
+             div = NORM.resultIncl(U[ii+1] -= norm);
       for( let j=i; ++j < N; )
         U[U_off + N*i+j] /= div;
       // apply householder to right of V
@@ -116,12 +117,13 @@ function _bidiag_decomp_square( N, U,B,V, off )
   { // ELIMINATE ELEMENTS BELOW (i,i) USING GIVENS
                                const ii = off + N*i+i;
     for( let j=i; ++j < N; ) { const ji = off + N*j+i;
-      const B_ji = B[ji],
-            B_ii = B[ii], norm = Math.hypot(B_ii,B_ji),
-               c = B_ii / norm,
-               s = B_ji / norm; if(0===s) continue;
-                   B[ii]= norm;
-                   B[ji]= 0;
+      const  B_ji = B[ji];
+      if(0===B_ji) continue;
+      const  B_ii = B[ii], norm = Math.hypot(B_ii,B_ji),
+                c = B_ii / norm,
+                s = B_ji / norm; if(0===s) continue; // <- can happen due to underflow
+                    B[ii]= norm;
+                    B[ji]= 0;
       _giv_rot_rows(B, N-1-i, ii+1,
                               ji+1,      c,s);
       _giv_rot_rows(U,   1+j, off + N*i,
@@ -130,10 +132,10 @@ function _bidiag_decomp_square( N, U,B,V, off )
     // ELIMINATE ELEMENTS RIGHT OF (i,i+1) USING HOUSEHOLDER
     NORM.reset();
     for( let j=N; --j > i+1; )
-      NORM.include(B[off + N*i+j]);
-    const  norm = NORM.resultIncl(B[ii+1]) * (B[ii+1] > 0 ? -1 : +1);
-    if(0===norm) continue;
-    const   div = NORM.resultIncl(B[ii+1]-= norm);
+        NORM.include(B[off + N*i+j]);
+    if( NORM.max === 0 ) continue;
+    const norm = NORM.resultIncl(B[ii+1]) * (B[ii+1] > 0 ? -1 : +1),
+           div = NORM.resultIncl(B[ii+1]-= norm);
     for( let j=i; ++j < N; )
       B[off + N*i+j] /= div;
     // apply householder to right of V
@@ -154,7 +156,7 @@ function _bidiag_decomp_square( N, U,B,V, off )
 }
 
 
-function _bidiag_decomp_horiz( M,N, U,U_off, B,B_off, V,V_off )
+export function _bidiag_decomp_horiz( M,N, U,U_off, B,B_off, V,V_off )
 {
   M              |=0;
   N              |=0;
@@ -162,22 +164,23 @@ function _bidiag_decomp_horiz( M,N, U,U_off, B,B_off, V,V_off )
   B_off          |=0;
   V_off = V_off+N| 0;
 
-  if( M >= N ) throw Error('Assertion failed.');
+  if( M > N ) throw Error('Assertion failed.');
 
   const NORM = new FrobeniusNorm();
   // INIT U TO IDENTITY
   for( let i=M; i-- > 0; ) U[U_off + M*i+i] = 1;
 
-  for( let i=0; i < M; i++ )
+  for( let i=0; i < M && i < N-1; i++ )
   { // ELIMINATE ELEMENTS BELOW (i,i) USING GIVENS
                                const ii = V_off + N*i+i;
     for( let j=i; ++j < M; ) { const ji = V_off + N*j+i;
-      const B_ji = V[ji],
-            B_ii = V[ii], norm = Math.hypot(B_ii,B_ji),
-               c = B_ii / norm,
-               s = B_ji / norm;
-                   V[ji]= 0; if(0===s) continue;
-                   V[ii]= norm;
+      const  B_ji = V[ji];
+      if(0===B_ji) continue
+      const  B_ii = V[ii], norm = Math.hypot(B_ii,B_ji),
+                c = B_ii / norm,
+                s = B_ji / norm;
+                    V[ji]= 0; if(0===s) continue;
+                    V[ii]= norm;
       _giv_rot_rows(V, N-1-i, ii+1,
                               ji+1,        c,s);
       _giv_rot_rows(U,   1+j, U_off + M*i,
@@ -192,10 +195,12 @@ function _bidiag_decomp_horiz( M,N, U,U_off, B,B_off, V,V_off )
       const        V_j = V[above+j] = V[V_off + N*i+j]; if(--j <= i ) break;
       NORM.include(V_j);
     }
-    const  norm = NORM.resultIncl(V[above+(i+1)]) * (V[above+(i+1)] > 0 ? -1 : +1);
-    if(0===norm) continue;
-    const   div = NORM.resultIncl(V[above+(i+1)] -= norm);
-    for( let j=i; ++j < N; )      V[above+ j   ] /= div;
+    if(    0 === NORM.max  )   { V[above+(i+1)] = 0; continue; }
+    const norm = NORM.resultIncl(V[above+(i+1)]) * (V[above+(i+1)] > 0 ? -1 : +1),
+         denom = NORM.resultIncl(V[above+(i+1)] -= norm);
+    for( let j=i; ++j < N; )     V[above+ j   ] /= denom;
+
+    if(0===NORM.max) continue;
 
     // apply householder to right of V
     for( let j=i; ++j < M; ){
@@ -210,12 +215,12 @@ function _bidiag_decomp_horiz( M,N, U,U_off, B,B_off, V,V_off )
 
   // COPY V -> B
   for( let i=M; i-- > 0; ) {
-    B[B_off + (M+1)*i+(i+1)] = V[V_off + N*i+(i+1)];
-    B[B_off + (M+1)*i+ i   ] = V[V_off + N*i+ i   ];
+    B[B_off + (M+1)*i+(i+1)] = i < N-1 ? V[V_off + N*i+(i+1)] : 0;
+    B[B_off + (M+1)*i+ i   ] =           V[V_off + N*i+ i   ];
   }
 
   // COMPUTE V
-  for( let i=M;; ) {
+  for( let i=Math.min(M,N-1);; ) {
          --i;
     V.fill(0.0, V_off+N*i, V_off+N*(i+1));
               V[V_off+N*i+(i+1)] = 1;
@@ -244,7 +249,7 @@ export function bidiag_decomp(A)
     U_shape = Int32Array.from(A.shape),
     B_shape = Int32Array.from(U_shape),
     V_shape = Int32Array.from(U_shape),
-    [N,M] = A.shape.slice(-2),
+    [N,M] = A.shape.slice(-2), // <- TODO should be [M,N]
     len   = A.data.length / (M*N)| 0,
     I     = Math.min(N,M)        | 0,// #rows    of bidiag. matrix B
     J     = (N >= M ? I : I+1)   | 0;// #columns of bidiag. matrix B
@@ -270,9 +275,9 @@ export function bidiag_decomp(A)
             V = new DTypeArray(len*M*M);
       for(
         let U_off=0,
-          BV_off=0; BV_off < B.length;
+           BV_off=0; BV_off < B.length;
             U_off += N*M,
-          BV_off +=   M*M
+           BV_off +=   M*M
       ) _bidiag_decomp_vert(N,M, U,U_off, B,V,BV_off);
 
       return [U,B,V];

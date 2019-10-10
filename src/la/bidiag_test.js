@@ -30,17 +30,19 @@ describe('bidiag', () => {
 
   forEachItemIn(
     function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
+      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from,
+            rng     = () => Math.random() < 0.1 ? 0 : Math.random()*2 - 1;
 
+      for( let run=0; run < 32; run++ )
       for( let M=0; M++ < 8; )
       for( let N=0; N++ < 8; )
-        yield tabulate(Int32Array.of(M,N), 'float64', () => Math.random()*2 - 1 );
+        yield tabulate(Int32Array.of(M,N), 'float64', rng);
 
       for( let run=1024; run-- > 0; )
       {
         const ndim = randInt(2,5),
-             shape = Int32Array.from({ length: ndim }, () => randInt(1,32) )
-        yield tabulate(shape, 'float64', () => Math.random()*2 - 1 )
+             shape = Int32Array.from({ length: ndim }, () => randInt(1,32) );
+        yield tabulate(shape, 'float64', rng);
       }
     }()
   ).it('bidiag_decomp works on random examples', A => {
