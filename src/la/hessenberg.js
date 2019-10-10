@@ -21,7 +21,7 @@ import {ARRAY_TYPES} from '../dt'
 import {FrobeniusNorm} from './norm'
 
 
-export function _hessenberg_decomp_inplace(N, U,H, off)
+export function _hessenberg_decomp(N, U,H, off)
 {
   N   |= 0;
   off |= 0;
@@ -40,10 +40,10 @@ export function _hessenberg_decomp_inplace(N, U,H, off)
     // COMPUTE HOUSEHOLDER VECTOR
     NORM.reset();
     for( let j=i-1; j-- > 0; )
-      NORM.include(H[rowI+j]);
-    const  norm = NORM.resultIncl(H[ii]) * (H[ii] > 0 ? -1 : +1); // <- avoid cancellation error
-    if(0===norm) continue;
-    const denom = NORM.resultIncl(H[ii] -= norm);
+        NORM.include(H[rowI+j]);
+    if( NORM.max === 0 ) continue;
+    const norm = NORM.resultIncl(H[ii]) * (H[ii] > 0 ? -1 : +1), // <- avoid cancellation error
+         denom = NORM.resultIncl(H[ii] -= norm);
     for( let j=i; j-- > 0; )
       H[rowI+j] = H[rowI+j] * Math.SQRT2 / denom;
 
@@ -94,7 +94,7 @@ export function hessenberg_decomp(A)
   const U = new DTypeArray(H.length);
 
   for( let off=H.length; (off -= N*N) >= 0; )
-    _hessenberg_decomp_inplace(N, U,H, off);
+    _hessenberg_decomp(N, U,H, off);
 
   return [
     new NDArray(shape,U),
