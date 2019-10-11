@@ -22,7 +22,7 @@ import {ARRAY_TYPES, eps} from '../dt'
 import {SingularMatrixSolveError} from './singular_matrix_solve_error'
 
 
-export {svd_jac_2sided as svd_decomp} from './svd_jac_2sided'
+export {svd_dc as svd_decomp} from './svd_dc'
 
 
 export function svd_rank( sv )

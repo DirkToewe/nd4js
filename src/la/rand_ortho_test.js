@@ -67,6 +67,7 @@ describe('nd.la.rand_ortho', () => {
 
       const steps_per_binade = 3;
 
+      for( let repeat=0; repeat < 4; repeat++ )
       for( let run=0*steps_per_binade; run <= 3*steps_per_binade; run++ )
       {
         const  N = Math.round(2**(run/steps_per_binade)),

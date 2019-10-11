@@ -43,3 +43,6 @@ export * from './svd_jac_2sided_blocked'
 export * from './svd_jac_classic'
 export * from './tri'
 export * from './rand_ortho'
+
+
+export {svd_dc} from './svd_dc'

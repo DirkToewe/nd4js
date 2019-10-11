@@ -248,6 +248,45 @@
        };
 
 
+       for( const [name,svd] of [['svd_decomp', nd.la.svd_decomp],
+                                 ['svd_dc'    , nd.la.svd_dc    ]] )
+         methods[name] = async N => {
+           const A = nd.tabulate([N,N], dtype, () => Math.random()*2-1); await sleep();
+           Object.freeze(A.data.buffer);
+         
+           const  t0 = performance.now(),
+             [U,sv,V]= svd(A),
+                   dt = performance.now() - t0;
+           Object.freeze(U .data.buffer);
+           Object.freeze(sv.data.buffer);
+           Object.freeze(V .data.buffer);
+         
+           await sleep(); const  S  = nd.la.diag_mat(sv); Object.freeze(S.data.buffer);
+           await sleep(); const USV = nd.la.matmul (U,S,V);
+           await sleep(); const UUT = nd.la.matmul2(U,U.T);
+           await sleep(); const UTU = nd.la.matmul2(U.T,U);
+           await sleep(); const VVT = nd.la.matmul2(V,V.T);
+           await sleep(); const VTV = nd.la.matmul2(V.T,V);
+           await sleep(); const  I  = nd.la.eye(N);
+           await sleep(); const A_norm = nd.la.norm(A),
+                                   TOL = nd.dt.eps(dtype) * N * 8;
+
+           await sleep(); if( ! (diff(USV,A) <= TOL*A_norm      ) ) throw new Error('U @ S @ V != A');
+           await sleep(); if( ! (diff(UUT,I) <= TOL*Math.sqrt(N)) ) throw new Error('U @ U.T != I');
+           await sleep(); if( ! (diff(UTU,I) <= TOL*Math.sqrt(N)) ) throw new Error('U.T @ U != I');
+           await sleep(); if( ! (diff(VVT,I) <= TOL*Math.sqrt(N)) ) throw new Error('V @ V.T != I');
+           await sleep(); if( ! (diff(VTV,I) <= TOL*Math.sqrt(N)) ) throw new Error('V.T @ V != I');
+         
+           return dt;
+         };
+
+
+       methods = {
+         'svd_decomp': methods.svd_decomp,
+         'svd_dc'    : methods.svd_dc,
+       };
+
+
        const layout = {
          title: 'NDJS - Decomposition Benchmark',
          xaxis: {
@@ -276,9 +315,9 @@
 
          for( let N=64; N < mid; N++ )
            yield N;
-         const steps_per_binade = 32;
+         const steps_per_binade = 16;
 
-         for( let run=Math.log2(mid)*steps_per_binade; run <= 11*steps_per_binade; run++ )
+         for( let run=Math.log2(mid)*steps_per_binade; run <= 12*steps_per_binade; run++ )
            yield Math.round( 2 ** (run/steps_per_binade) );
        }
 

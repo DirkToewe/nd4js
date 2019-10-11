@@ -18,17 +18,17 @@
 
 import {ARRAY_TYPES, eps} from '../dt'
 import {asarray, NDArray} from '../nd_array'
-import {matmul2} from './matmul'
 import {transpose_inplace} from './transpose_inplace'
-import {_svd_jac_angles} from './_svd_jac_utils'
 import {_giv_rot_rows} from './_giv_rot'
 import {FrobeniusNorm} from './norm'
-import {root1d_bisect} from '../opt/root1d_bisect'
+import {_bidiag_decomp_horiz} from './bidiag'
 
-
-// TODO:
-//   * [_svd_dc_neves]      Use matrix multiplication to update U and V
-//   * [_svd_dc_neves] Optimize matrix multiplication to update U and V (exploit sparsity)
+// WARNING:
+//   The following methods expect V to be stored in transposed/colum-major fashion.
+//     * _svd_dc_1x2
+//     * _svd_dc_2x3
+//     * _svd_dc_neves
+//     * _svd_dc_bidiag
 
 /* Computes the SVD of the 1x2 matrix B
  */
@@ -50,8 +50,8 @@ export function _svd_dc_1x2( N, U,U_off, B,B_off, V,V_off )
     B[B_off+1] = NaN;
 
     V[V_off      ] =  c;
-    V[V_off+    1] =  s;
-    V[V_off+N*1  ] = -s;
+    V[V_off+    1] = -s;
+    V[V_off+N*1  ] =  s;
     V[V_off+N*1+1] =  c;
   }
   else {
@@ -89,7 +89,7 @@ export function _svd_dc_2x3( N, U,U_off, B,B_off, V,V_off )
       ca = b3/norm,
       sa = b4/norm;
     V[V_off + N*1+1] =  ca;
-    V[V_off + N*1+2] =  sa;
+    V[V_off + N*2+1] =  sa;
     b3 = norm;
     b4 = -sa*b2;
     b2 =  ca*b2;
@@ -100,15 +100,15 @@ export function _svd_dc_2x3( N, U,U_off, B,B_off, V,V_off )
         sb = b4/norm;
            b1 = norm;
       V[V_off      ] =  cb;
-      V[V_off+    1] =  sb*-sa;
-      V[V_off+    2] =  sb* ca;
-      V[V_off+N*2  ] = -sb;
-      V[V_off+N*2+1] =  cb*-sa;
+      V[V_off+N*1  ] =  sb*-sa;
+      V[V_off+N*2  ] =  sb* ca;
+      V[V_off+    2] = -sb;
+      V[V_off+N*1+2] =  cb*-sa;
       V[V_off+N*2+2] =  cb* ca;
     }
     else {
       V[V_off      ] =   1;
-      V[V_off+N*2+1] = -sa;
+      V[V_off+N*1+2] = -sa;
       V[V_off+N*2+2] =  ca;
     }
   }
@@ -138,14 +138,14 @@ export function _svd_dc_2x3( N, U,U_off, B,B_off, V,V_off )
   U[U_off+M*1+1] =  ca*s;
 
   // ROTATE V
-  V[V_off+N*1] = sb*V[V_off];
-  V[V_off    ]*= cb;
-  const       V_01 = V[V_off+1]*cb - V[V_off+N*1+1]*sb;
-    V[V_off+N*1+1] = V[V_off+1]*sb + V[V_off+N*1+1]*cb;
-    V[V_off+    1] = V_01;
-  const       V_02 = V[V_off+2]*cb - V[V_off+N*1+2]*sb;
-    V[V_off+N*1+2] = V[V_off+2]*sb + V[V_off+N*1+2]*cb;
-    V[V_off+    2] = V_02;
+  V[V_off+1] = sb*V[V_off];
+  V[V_off  ]*= cb;
+  const         V1 = V[V_off+N*1]*cb - V[V_off+N*1+1]*sb;
+    V[V_off+N*1+1] = V[V_off+N*1]*sb + V[V_off+N*1+1]*cb;
+    V[V_off+N*1  ] = V1;
+  const         V2 = V[V_off+N*2]*cb - V[V_off+N*2+1]*sb;
+    V[V_off+N*2+1] = V[V_off+N*2]*sb + V[V_off+N*2+1]*cb;
+    V[V_off+N*2  ] = V2;
 }
 
 
@@ -169,17 +169,52 @@ export function _svd_dc_2x3( N, U,U_off, B,B_off, V,V_off )
  * B = Array(d1, z1, d2, z2, ..., d[n]=0, z[n])
  * 
  * where d[i] >= d[i+1]
+ * 
+ * Keep in mind that V is stored in a column-major order in this method.
  */
-export function _svd_dc_neves( N, n, U,U_off, B,B_off, V,V_off, outerOrder )
+export function _svd_dc_neves(
+  /*int  */N, /*int*/n,
+  /*  T[]*/U, /*int*/U_off,
+  /*  T[]*/B, /*int*/B_off,
+  /*  T[]*/V, /*int*/V_off,
+  /*int[]*/TMPI,
+  /*  T[]*/TMPF
+)
 {
+  //  var. | qualifiers 
+  // ------|------------
+  //   U   |  in, out
+  //   B   |  in, out
+  //   V   |  in, out
+  //  TMPI |  in, temp
+  //  TMPF |      temp
+
   U_off |= 0;
   B_off |= 0;
   V_off |= 0;
   N     |= 0; const M = N-1 | 0;
   n     |= 0; const m = n-1 | 0;
 
-  if( n <= 2 )
-    throw new Error('Assertion failed.');
+  if( TMPI.length < M*3     ) throw new Error('Assertion failed: Integer work matrix TMPI too small.');
+  if( TMPF.length < M*(M+2) ) throw new Error('Assertion failed: Scalar work matrix TMPF too small.');
+
+  // Amount of temp. float memory:
+  //   - m*m entries to store the matrix to update U and V
+  //   -   m entries to store the (shifted) singular values
+  //   -   m entries to compute the matrix multiplication (row by row)
+  const σ_off = M*(M+2) - m,
+       mm_off = M*(M+2) - m*2,
+        W_off = M*(M+2) - m*(m+2); // <- mm as in "matrix multiplication"
+
+  // Amount of temp. int memory:
+  //   - m entries for the outer order
+  //   - m entries for the inner order
+  //   - m entries for the rotation pairings from step 2
+  const  rot_off = m*2,
+    innerOrd_off = m,
+    outerOrd_off = 0;
+
+  if( n < 2 ) throw new Error('Assertion failed.');
 
   //     DIAGONAL ELEMENTS: d[i] = B[B_off + 2*i  ]
   // OFF-DIAGONAL ELEMENTS: z[i] = B[B_off + 2*i+1]
@@ -193,12 +228,29 @@ export function _svd_dc_neves( N, n, U,U_off, B,B_off, V,V_off, outerOrder )
     if( B[B_off + 2*(i-1)] < B[B_off + 2*i] )
       throw new Error('Assertion failed.');
 
-  const TOL = eps('float64'), // <- FIXME make general purpose (independent of dtype)
-       NORM = new FrobeniusNorm();
+  const NORM = new FrobeniusNorm();
 
-  for( let i=0; i < m; i++ )
-    NORM.include(B[B_off + 2*i+1]);
-  const zNorm = NORM.result;
+  const [zNorm,scale] = function(){
+    for( let i=0; i < m; i++ )
+      NORM.include(B[B_off + 2*i+1]);
+
+    let zNorm = NORM.result;
+
+    for( let i=0; i < m; i++ )
+      NORM.include(B[B_off + 2*i]);
+
+    let scale = NORM.result;
+    if( scale===0 )
+        scale = 1;
+
+    return [zNorm/scale, scale];
+  }();
+
+  // normalize
+  for( let i=0; i < 2*m; i++ )
+    B[B_off + i] /= scale;
+
+  const TOL = eps('float64'); // <- FIXME make general purpose (independent of dtype)
 
 
   // STEP 1: DEFLATION
@@ -224,25 +276,22 @@ export function _svd_dc_neves( N, n, U,U_off, B,B_off, V,V_off, outerOrder )
   //   iteratively (using the secular equations). The actual
   //   implementation does not more the deflated values to μ
   //   and not to the left.
-  const      μ = new Float64Array(m),
-    innerOrder = new   Int32Array(m);
-
   const n0 = function(){
     let n0 = 0;
     for( let j=m-1,
              i=m-1; i-- > 0; )
     { const di = B[B_off + 2*i  ],
             zi = B[B_off + 2*i+1],
-            oi = outerOrder[i];
-      if( Math.abs(zi) <= di*TOL ) {
-                 μ[n0] = di;
-        innerOrder[n0] = oi; // <- used as temp. for outerOrder
-                 ++n0;
+            oi = TMPI[outerOrd_off + i];
+      if( Math.abs(zi)/TOL <= di ) { // <- FIXME this could be estimated more accurately
+        TMPF[       σ_off + n0] = di;
+        TMPI[innerOrd_off + n0] = oi; // <- used as temp. for outerOrder
+                          ++n0;
       }
-      else {      --j;
-        B[B_off + 2*j  ] = di;
-        B[B_off + 2*j+1] = B[B_off + 2*i+1];
-           innerOrder[j] = oi; // <- used as temp. for outerOrder
+      else {            --j;
+              B[B_off + 2*j  ] = di;
+              B[B_off + 2*j+1] = B[B_off + 2*i+1];
+        TMPI[innerOrd_off + j] = oi; // <- used as temp. for outerOrder
       }
     }
     return n0;
@@ -250,7 +299,7 @@ export function _svd_dc_neves( N, n, U,U_off, B,B_off, V,V_off, outerOrder )
 
   // innerOrder just used as temp. memory, move to outerOrder
   for( let i=0; i < n0; i++ )
-    outerOrder[i] = innerOrder[i];
+    TMPI[outerOrd_off + i] = TMPI[innerOrd_off + i];
 
 
   // STEP 2:
@@ -314,42 +363,39 @@ export function _svd_dc_neves( N, n, U,U_off, B,B_off, V,V_off, outerOrder )
   //                           └                                   ┘
   //
   // Thus z'[i] is now 0 and can be moved to the left side (similar to Step 1)
-  const W = new Float64Array(m*m), // <- temp. storage to update U and V
-     rotJ = new Int32Array(m);
-
   const n1 = function(){
     let n1 = n0;
     for( let j=m-1,
              i=m-1; i-- > n0; )
     { const di = B[B_off + 2*i  ],
-            dj = B[B_off + 2*j  ],  d = (di+dj) / 2,
+            dj = B[B_off + 2*j  ], oi = TMPI[innerOrd_off + i],
             zi = B[B_off + 2*i+1],
-            zj = B[B_off + 2*j+1], oi = innerOrder[i];
-      if( d === di ||
-          d === dj ) {
-        const      z = Math.hypot(zi,zj),
+            zj = B[B_off + 2*j+1], z = Math.hypot(zi,zj);
+      if( (di-dj)/TOL <= di || ! isFinite( Math.sqrt(m) / (di-dj) ) ) // <- TODO find better criteria
+      {
+        const
           c = zj / z,
           s = zi / z;
-        W[2*n1  ] = c;
-        W[2*n1+1] = s;
+        TMPF[W_off + 2*n1  ] = c;
+        TMPF[W_off + 2*n1+1] = s;
         B[B_off + 2*j+1] = z;
-        B[B_off + 2*j  ] = μ[n1] = di;
-                  outerOrder[n1] = oi; // <- used as temp. for outerOrder
-                        rotJ[n1] =  j;
-                           ++n1;
+        B[B_off + 2*j  ] = TMPF[       σ_off + n1] = di;
+                           TMPI[outerOrd_off + n1] = oi; // <- used as temp. for outerOrder
+                           TMPI[     rot_off + n1] =  j;
+                                             ++n1;
       }
-      else {      --j;
-        B[B_off + 2*j  ] = di;
-        B[B_off + 2*j+1] = B[B_off + 2*i+1];
-           outerOrder[j] = oi;
+      else {            --j;
+              B[B_off + 2*j  ] = di;
+              B[B_off + 2*j+1] = B[B_off + 2*i+1];
+        TMPI[outerOrd_off + j] = oi;
       }
     }
     return n1;
   }();
   for( let i = 2*n0;
            i < 2*n1; i++ ) {
-    B[B_off + i] = W[i];
-                   W[i] = 0;
+    B[B_off + i] = TMPF[W_off + i];
+                   TMPF[W_off + i] = 0;
   }
 
 
@@ -378,7 +424,7 @@ export function _svd_dc_neves( N, n, U,U_off, B,B_off, V,V_off, outerOrder )
               * (zi / (di+mid));
         }
         if( ! isFinite(sum) ) throw new Error('Assertion failed.');
-        if( sum > 0 ) { const s=sHi; sLo = sLo-sHi; sHi = -Number.MIN_VALUE; return s; }
+        if( sum < 0 ) { const s=sHi; sLo = sLo-sHi; sHi = -Number.MIN_VALUE; return s; }
       }                 const s=sLo; sHi = sHi-sLo; sLo = +Number.MIN_VALUE; return s;
     }();
 
@@ -387,7 +433,7 @@ export function _svd_dc_neves( N, n, U,U_off, B,B_off, V,V_off, outerOrder )
       const s  = (sLo + sHi) / 2;
       if(   s === sLo
          || s === sHi ) {
-        μ[i] = s; // FIXME at this point sLo and sHi still have to be compared
+        TMPF[σ_off + i] = s; // FIXME at this point sLo and sHi still have to be compared
         break;
       }
       // evalue the secular equation
@@ -406,7 +452,7 @@ export function _svd_dc_neves( N, n, U,U_off, B,B_off, V,V_off, outerOrder )
   }
   if( Math.abs(B[B_off + 2*m-1]) === 0 ) {
     B[B_off + 2*m-2] = 0;
-    B[B_off + 2*m-1] = 0; μ[m-1] = 0;
+    B[B_off + 2*m-1] = 0; TMPF[σ_off + m-1] = 0;
   }
 
 
@@ -414,8 +460,8 @@ export function _svd_dc_neves( N, n, U,U_off, B,B_off, V,V_off, outerOrder )
   //   RECOMPUTE z TO ORTHOGONALIZE U & V
   //   (as originally suggested by Gu and Eisenstat)
   {
-    const σn = μ[m-1],
-          sn = B[B_off + 2*(m-1) - 2*(σn < 0)]; // <- shift
+    const σn = TMPF[σ_off + m-1],
+          sn = B[B_off + 2*(m-1 - (σn < 0))]; // <- shift
     for( let i=n1; i < m; i++ )
     {
       const di = B[B_off + 2*i];
@@ -423,17 +469,17 @@ export function _svd_dc_neves( N, n, U,U_off, B,B_off, V,V_off, outerOrder )
                * (sn+di+σn);
 
       for( let j=n1; j < i; j++ )
-      { const σj = μ[j],
-              sj = B[B_off + 2*j - 2*(σj < 0)], // <- shift
-              dj = B[B_off + 2*j];
+      { const σj = TMPF[σ_off + j],
+              sj =    B[B_off + 2*(j - (σj < 0))], // <- shift
+              dj =    B[B_off + 2*j];
         zi *= ( (sj-di+σj) / (dj-di) )
            *  ( (sj+di+σj) / (dj+di) );
       }
 
       for( let j=i; j < m-1; j++ )
-      { const σj = μ[j],
-              sj = B[B_off + 2*j - 2*(σj < 0)], // <- shift
-              dj = B[B_off + 2*j+2];
+      { const σj = TMPF[σ_off + j],
+              sj =    B[B_off + 2*(j - (σj < 0))], // <- shift
+              dj =    B[B_off + 2*j+2];
         zi *= ( (sj-di+σj) / (dj-di) )
            *  ( (sj+di+σj) / (dj+di) );
       }
@@ -449,142 +495,190 @@ export function _svd_dc_neves( N, n, U,U_off, B,B_off, V,V_off, outerOrder )
            j=n1,
            k= 0; k < m; k++ )
   { let val = -Infinity,
-       best = 4;
-    if( j <  m )                    { best=2; val = μ[j] + B[B_off + 2*j - 2*(μ[j] < 0)]; }
-    if( i >= n0 && ! (μ[i] < val) ) { best=1; val = μ[i]; }
-    if( h >=  0 && ! (μ[h] < val) ) { best=0; val = μ[h]; }
+       best = 3;
+    if( j <  m  ) { const σj = TMPF[σ_off + j];                      best=2; val = σj + B[B_off + 2*(j - (σj < 0))]; }
+    if( i >= n0 ) { const σi = TMPF[σ_off + i]; if( ! (σi < val) ) { best=1; val = σi; } }
+    if( h >=  0 ) { const σh = TMPF[σ_off + h]; if( ! (σh < val) ) { best=0; val = σh; } }
     switch(best){
-      case 0: innerOrder[h--] = k; continue;
-      case 1: innerOrder[i--] = k; continue;
-      case 2: innerOrder[j++] = k; continue;
+      case 0: TMPI[innerOrd_off + h--] = k; continue;
+      case 1: TMPI[innerOrd_off + i--] = k; continue;
+      case 2: TMPI[innerOrd_off + j++] = k; continue;
       default: throw new Error('Assertion failed.');
     }
   }
-  Object.freeze(innerOrder.buffer);
+
 
   // STEP 5:
   //   UPDATE U
   for( let i=n1; i < m; i++ )
   {
-    const σi = μ[i],
-          si = B[B_off + 2*i - 2*(σi < 0)]; // <- shift
+    const σi = TMPF[σ_off + i],
+          si = B[B_off + 2*(i - (σi < 0))]; // <- shift
     NORM.reset();
     for( let j=n1; j < m-1; j++ ) {
       const dj = B[B_off + 2*j  ],
             zj = B[B_off + 2*j+1],
           W_ij = ( zj / (dj-si-σi) )
                * ( dj / (dj+si+σi) );
-      NORM.include(W[m*i+j] = W_ij);
+      NORM.include(TMPF[W_off + m*i+j] = W_ij);
     }
-    NORM.include(W[m*i+m-1] = -1);
+    NORM.include(TMPF[W_off + m*i+m-1] = -1);
     const norm = NORM.result;
 
     if( ! (0 < norm) ) throw new Error('Assertion failed.');
 
     for( let j=n1; j < m; j++ )
-      W[m*i+j] /= norm;
+      TMPF[W_off + m*i+j] /= norm;
   }
 
-  // rotate W
-  for( let i=n0; i < n1; i++ )
-    W[m*i+i] = 1;
+  // transpose dense part of W
+  for( let i=n1;   i < m; i++ )
+  for( let j=i ; ++j < m;     ) {
+    const W_ij = TMPF[W_off + m*i+j];
+                 TMPF[W_off + m*i+j] = TMPF[W_off + m*j+i];
+                                       TMPF[W_off + m*j+i] = W_ij;
+  }
 
-  for( let i=n1; i-- > n0; )
-  { const j = rotJ[i];
-    if(   j < m-1 )
-    { const c = B[B_off + 2*i  ],
-            s = B[B_off + 2*i+1];
-      for( let k=i; k < m; k++ ) // <- k should be started at i
-      { const      W_ki = W[m*k+i],
-                   W_kj = W[m*k+j];
-        W[m*k+i] = W_ki* c  +  W_kj*s;
-        W[m*k+j] = W_ki*-s  +  W_kj*c;
+  if( n0 < n1 )
+  { // init deflated region in W
+    for( let i=n0; i < n1; i++ ) {
+      TMPF.fill(0.0, W_off + m*i+n0,
+                     W_off + m*i+m);
+      TMPF[W_off + m*i+i] = 1;
+    }
+    for( let i=n1; i < m; i++ )
+      TMPF.fill(0.0, W_off + m*i+n0,
+                     W_off + m*i+n1);
+    // rotate W
+    for(  let i = n1; i-- > n0; )
+    {   const j = TMPI[rot_off + i];
+      if(     j < m-1 )
+      { const c = B[B_off + 2*i  ],
+              s = B[B_off + 2*i+1];
+        _giv_rot_rows(TMPF, m-i, W_off + m*i+i,
+                                 W_off + m*j+i, c,s);
       }
     }
   }
 
+  // UPDATE U: U = U⋅Wᵀ
+  for( let r=0; r < m; r++ )
+  {
+    // compute dense part of row (matrix multiplication)
+    // U is fairly sparse so the matrix multiplication
+    // is designed to benefit from that fact
+    TMPF.fill(0.0, mm_off + n0,
+                   mm_off + m);
+                     for( let i=n0; i < m; i++ ) { const               U_ri = U[U_off + M*r + TMPI[outerOrd_off + i]];
+    if( 0 !== U_ri ) for( let j=n0; j < m; j++ ) { TMPF[mm_off + j] += U_ri * TMPF[W_off + m*i+j]; }}
 
-  // TEST ONLY: write W -> U
-  for( let i=0; i < n0; i++ )
-    U[U_off + M*outerOrder[i]
-            +   innerOrder[i]] = 1;
+    // compute deflated part of row
+    for( let i=0; i < n0; i++ ) {
+      const                            c = TMPI[outerOrd_off + i];
+      TMPF[mm_off + i] = U[U_off + M*r+c];
+    }
 
-  for( let i=n0; i < m; i++ )
-  for( let j=n0; j < m; j++ )
-    U[U_off + M*outerOrder[i]
-            +   innerOrder[j]] = W[m*j+i];
+    // write back row
+    for( let i=0; i < m; i++ ) {
+      const         c  = TMPI[innerOrd_off + i];
+      U[U_off + M*r+c] = TMPF[      mm_off + i];
+    }
+  }
 
 
   // STEP 6:
   //   UPDATE V
-  W.fill(0.0);
-
   for( let i=n1; i < m; i++ )
   {
-    const σi = μ[i],
-          si = B[B_off + 2*i - 2*(σi < 0)];
+    const σi = TMPF[σ_off + i],
+          si = B[B_off + 2*(i - (σi < 0))];
     NORM.reset();
     for( let j=n1; j < m; j++ ) {
       const dj = B[B_off + 2*j  ],
             zj = B[B_off + 2*j+1],
           W_ij = zj / (dj-si-σi)
                     / (dj+si+σi);
-      NORM.include(W[m*i+j] = W_ij);
+      NORM.include(TMPF[W_off + m*i+j] = W_ij);
     }
     const norm = NORM.result;
 
     if( ! (0 < norm || i === m-1) ) throw new Error('Assertion failed.');
 
     for( let j=n1; j < m; j++ )
-      W[m*i+j] /= norm;
+      TMPF[W_off + m*i+j] /= norm;
   }
 
   if( 0 === B[B_off + 2*m-1] ) {
     for( let i=n1; i < m-1; i++ )
-      W[m*(m-1)+i] = 0;
-    W[m*(m-1)+(m-1)] = 1;
+      TMPF[W_off + m*(m-1)+i] = 0;
+    TMPF[W_off + m*(m-1)+(m-1)] = 1;
   }
 
+  // transpose dense part of W
+  for( let i=n1;   i < m; i++ )
+  for( let j=i ; ++j < m;     ) {
+    const W_ij = TMPF[W_off + m*i+j];
+                 TMPF[W_off + m*i+j] = TMPF[W_off + m*j+i];
+                                       TMPF[W_off + m*j+i] = W_ij;
+  }
 
-  // rotate W
-  for( let i=n0; i < n1; i++ )
-    W[m*i+i] = 1;
-
-  for( let i=n1; i-- > n0; )
-  {
-    const j = rotJ[i],
-          c = B[B_off + 2*i  ],
-          s = B[B_off + 2*i+1];
-    for( let k=i; k < m; k++ ) // <- k should be started at i
-    { const      W_ki = W[m*k+i],
-                 W_kj = W[m*k+j];
-      W[m*k+i] = W_ki* c  +  W_kj*s;
-      W[m*k+j] = W_ki*-s  +  W_kj*c;
+  if( n0 < n1 ) {
+    // init deflated region in W
+    for( let i=n0; i < n1; i++ ) {
+      TMPF.fill(0.0, W_off + m*i+n0,
+                     W_off + m*i+m);
+      TMPF[W_off + m*i+i] = 1;
+    }
+    for( let i=n1; i < m; i++ )
+      TMPF.fill(0.0, W_off + m*i+n0,
+                     W_off + m*i+n1);
+    // rotate W
+    for( let i=n1; i-- > n0; )
+    { const  j = TMPI[rot_off + i],
+             c = B[B_off + 2*i  ],
+             s = B[B_off + 2*i+1];
+      for( let k=i; k < m; k++ )
+      { const                 W_ik = TMPF[W_off + m*i+k],
+                              W_jk = TMPF[W_off + m*j+k];
+        TMPF[W_off + m*i+k] = W_ik* c  +  W_jk*s;
+        TMPF[W_off + m*j+k] = W_ik*-s  +  W_jk*c;
+      }
     }
   }
 
 
-  // TEST ONLY: write W -> V
-  for( let i=0; i < n0; i++ )
-    V[V_off + N*innerOrder[i]
-            +   outerOrder[i]] = 1;
+  // UPDATE V: V = V⋅Wᵀ
+  for( let r=0; r < n; r++ )
+  { // compute dense part of row (matrix multiplication)
+    // U is fairly sparse so the matrix multiplication
+    // is designed to benefit from that fact
+    TMPF.fill(0.0, mm_off + n0,
+                   mm_off + m);
+                     for( let i=n0; i < m; i++ ) { const               V_ri = V[V_off + N*r + TMPI[outerOrd_off + i]];
+    if( 0 !== V_ri ) for( let j=n0; j < m; j++ ) { TMPF[mm_off + j] += V_ri * TMPF[W_off + m*i+j]; }}
 
-  for( let i=n0; i < m; i++ )
-  for( let j=n0; j < m; j++ )
-    V[V_off + N*innerOrder[i]
-            +   outerOrder[j]] = W[m*i+j];
+    // compute deflated part of row
+    for( let i=0; i < n0; i++ ) {
+      const                            c = TMPI[outerOrd_off + i];
+      TMPF[mm_off + i] = V[V_off + N*r+c];
+    }
 
-  V[V_off + N*m+m] = 1;
+    // write back row
+    for( let i=0; i < m; i++ ) {
+      const         c  = TMPI[innerOrd_off + i];
+      V[V_off + N*r+c] = TMPF[      mm_off + i];
+    }
+  }
 
 
   // STEP 7:
   //   GENERAL POSTPROCESSING
   for( let i=n1; i < m; i++ )
-    μ[i] += B[B_off + 2*i - 2*(μ[i] < 0)];
+    TMPF[σ_off + i] += B[B_off + 2*(i - (TMPF[σ_off + i] < 0))];
 
   for( let i=0; i < m; i++ ) {
-    const j = innerOrder[i];
-    B[B_off + 2*j  ] = μ[i];
+    const  j =  TMPI[innerOrd_off + i];
+    B[B_off + 2*j  ] = TMPF[σ_off + i] * scale;
     B[B_off + 2*j+1] = NaN; // <- TEST ONLY
   }
 }
@@ -596,93 +690,211 @@ export function _svd_dc_neves( N, n, U,U_off, B,B_off, V,V_off, outerOrder )
  * entry B(i,i) and B[B_off+2*i+1] is the off-diagonal
  * element B(i,i+1).
  */
-function _svd_dc( N, n, U,U_off, B,B_off, V,V_off )
+export function _svd_dc_bidiag( N, n, U,U_off, B,B_off, V,V_off, TMPI, TMPF )
 {
   if(     n > N) throw new Error('Assertion failed.');
-  if(0 >= n    ) throw new Error('Assertion failed.');
+  if(1 >= n    ) throw new Error('Assertion failed.');
 
-  if(2===n) return _svd_1x2(N, U,U_off, B,B_off, V,V_off);
-  if(3===n) return _svd_2x3(N, U,U_off, B,B_off, V,V_off);
+  if(2===n) return _svd_dc_1x2(N, U,U_off, B,B_off, V,V_off);
+  if(3===n) return _svd_dc_2x3(N, U,U_off, B,B_off, V,V_off);
 
-  // V1ᵀ[-1] ≙ Last  row of V1ᵀ
-  // V2ᵀ[ 0] ≙ First row of V2ᵀ
-  // S1'     ≙ The square part of S1
-  // S2'     ≙ The square part of S2
-  //
-  // The first step is to divide the bidiagonal matrix 
-  //     ┏                     ┓     ┏                     ┓
-  //     ┃          ┆          ┃     ┃          ┆          ┃
-  //     ┃    B1    ┆          ┃     ┃ U1⋅S1⋅V1 ┆          ┃
-  //     ┃          ┆          ┃     ┃          ┆          ┃
-  //     ┃┄┄┄┄┄┄┄┬┄┄┼┄┄┐       ┃(SVD)┃┄┄┄┄┄┄┄┬┄┄┼┄┄┐       ┃
-  // B = ┃       ┆b1┆b2┆       ┃  =  ┃       ┆b1┆b2┆       ┃
-  //     ┃       └┄┄┼┄┄┴┄┄┄┄┄┄┄┃     ┃       └┄┄┼┄┄┴┄┄┄┄┄┄┄┃
-  //     ┃          ┆          ┃     ┃          ┆          ┃
-  //     ┃          ┆    B2    ┃     ┃          ┆ U2⋅S2⋅V2 ┃
-  //     ┃          ┆          ┃     ┃          ┆          ┃
-  //     ┗                     ┛     ┗                     ┛
-  //                                              ┏                     ┓                                                       
-  //     ┏               ┓ ┏                    ┓ ┃          ┆          ┃
-  //     ┃      ┆        ┃ ┃        ┆ ┆         ┃ ┃          ┆          ┃
-  //     ┃  U1  ┆        ┃ ┃   S1'  ┆0┆         ┃ ┃    V1    ┆          ┃
-  //     ┃      ┆        ┃ ┃        ┆ ┆         ┃ ┃          ┆          ┃
-  //     ┃┄┄┄┄┄┄┼┄┐      ┃ ┃┄┄┄┄┄┄┄┄┴┄┼┄┄┄┄┄┄┄┄┄┃ ┃          ┆          ┃
-  //   = ┃      ┆1┆      ┃ ┃b1⋅V1ᵀ[-1]┆b2⋅V2ᵀ[0]┃ ┃┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┄┄┄┄┄┄┃
-  //     ┃      └┄┼┄┄┄┄┄┄┃ ┃┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┄┄┄┬┄┃ ┃          ┆          ┃
-  //     ┃        ┆      ┃ ┃          ┆       ┆ ┃ ┃          ┆          ┃
-  //     ┃        ┆  U2  ┃ ┃          ┆   S2' ┆0┃ ┃          ┆    V2    ┃
-  //     ┃        ┆      ┃ ┃          ┆       ┆ ┃ ┃          ┆          ┃
-  //     ┗               ┛ ┗                    ┛ ┃          ┆          ┃
-  //                                              ┗                     ┛
-  // Let's now get the middle matrix into neves (backwards seven) shape,
-  // stating with permuting rows and columns.
-  //
-  // W1 := V1[:-1]
-  //       ┏             ┓
-  //       ┃   V2[ -2]   ┃
-  //       ┃┄┄┄┄┄┄┄┄┄┄┄┄┄┃
-  // W2 := ┃             ┃
-  //       ┃   V2[:-2]   ┃
-  //       ┃             ┃
-  //       ┗             ┛
-  // w1 := V1[-1]
-  // w2 := V2[-1]
-  //
-  // C2 =   b1⋅V1ᵀ[-1,:-1]
-  //         ┏          ╷                  ┓
-  // C2 = b2⋅┃ V2[-2,0] ┆    V2ᵀ[0,:-2]    ┃
-  //         ┗          ╵                  ┛
-  // c1 = b1⋅V1[-1,0]
-  // c2 = b2⋅V2[-1,0]                            ┏                     ┓                                                       
-  //     ┏               ┓ ┏                   ┓ ┃          ┆          ┃
-  //     ┃ ┆      ┆      ┃ ┃  C1  ┆  C2  ┆c1┆c2┃ ┃    W1    ┆          ┃
-  //     ┃ ┆  U1  ┆      ┃ ┃┄┄┄┄┄┄┼┄┄┄┄┄┄┴┄┄┴┄┄┃ ┃          ┆          ┃
-  //     ┃ ┆      ┆      ┃ ┃      ┆            ┃ ┃┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┄┄┄┄┄┄┃
-  //     ┃┄┼┄┄┄┄┄┄┤      ┃ ┃  S1' ┆            ┃ ┃          ┆          ┃
-  // B = ┃1┆      ┆      ┃ ┃      ┆            ┃ ┃          ┆    W2    ┃
-  //     ┃┄┘      ├┄┄┄┄┄┄┃ ┃┄┄┄┄┄┄┼┄┄┄┄┄┄┐     ┃ ┃          ┆          ┃
-  //     ┃        ┆      ┃ ┃      ┆      ┆     ┃ ┃┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┄┄┄┄┄┄┃
-  //     ┃        ┆  U2  ┃ ┃      ┆  S2' ┆     ┃ ┃    w1    ┆          ┃
-  //     ┃        ┆      ┃ ┃      ┆      ┆     ┃ ┃┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┄┄┄┄┄┄┃
-  //     ┗               ┛ ┗                   ┛ ┃          ┆    w2    ┃
-  //                                             ┗                     ┛
-  // We can no use a single Given's rotation to turn the matrix into Neves shape.
-  //           h := √( c1² + c2²)
-  // c := c1 / h
-  // s := c2 / h                                ┏                     ┓                                                       
-  //     ┏               ┓ ┏                  ┓ ┃          ┆          ┃
-  //     ┃ ┆      ┆      ┃ ┃  C1  ┆  C2  ┆h┆  ┃ ┃    W1    ┆          ┃
-  //     ┃ ┆  U1  ┆      ┃ ┃┄┄┄┄┄┄┼┄┄┄┄┄┄┴┄┘  ┃ ┃          ┆          ┃
-  //     ┃ ┆      ┆      ┃ ┃      ┆           ┃ ┃┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┄┄┄┄┄┄┃
-  //     ┃┄┼┄┄┄┄┄┄┤      ┃ ┃  S1' ┆           ┃ ┃          ┆          ┃
-  // B = ┃1┆      ┆      ┃ ┃      ┆           ┃ ┃          ┆    W2    ┃
-  //     ┃┄┘      ├┄┄┄┄┄┄┃ ┃┄┄┄┄┄┄┼┄┄┄┄┄┄┐    ┃ ┃          ┆          ┃
-  //     ┃        ┆      ┃ ┃      ┆      ┆    ┃ ┃┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┄┄┄┄┄┄┃
-  //     ┃        ┆  U2  ┃ ┃      ┆  S2' ┆    ┃ ┃   c*w1   ┆  s*w2    ┃
-  //     ┃        ┆      ┃ ┃      ┆      ┆    ┃ ┃┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┄┄┄┄┄┄┃
-  //     ┗               ┛ ┗                  ┛ ┃  -s*w1   ┆  c*w2    ┃
-  //                                            ┗                     ┛
-  throw new Error('Not yet implemented!');
+  const M  = N-1,
+        m  = n-1,
+        n0 = n >>> 1,
+        m0 = n0-1;
+
+  if( TMPI.length < M  ) throw new Error('Assertion failed: Integer work matrix TMPI too small.');
+  if( TMPF.length < M*2) throw new Error('Assertion failed: Scalar work matrix TMPF too small.');
+
+
+  // STEP 1: DIVIDE
+  // --------------
+  // The idea is to divide the bidiagonal matrix into an upper left block B1 and
+  // a lower right block B2 with one row of the bidiagonal with the non-zero entries
+  // b1 and b2 separating the two blocks.
+  //       ┏                     ┓     ┏                     ┓
+  //       ┃          ┆          ┃     ┃          ┆          ┃
+  //       ┃    B1    ┆          ┃     ┃ U1⋅S1⋅V1 ┆          ┃
+  //       ┃          ┆          ┃     ┃          ┆          ┃
+  //       ┃┄┄┄┄┄┄┄┬┄┄┼┄┄┐       ┃(SVD)┃┄┄┄┄┄┄┄┬┄┄┼┄┄┐       ┃
+  //   B = ┃       ┆b1┆b2┆       ┃  =  ┃       ┆b1┆b2┆       ┃
+  //       ┃       └┄┄┼┄┄┴┄┄┄┄┄┄┄┃     ┃       └┄┄┼┄┄┴┄┄┄┄┄┄┄┃
+  //       ┃          ┆          ┃     ┃          ┆          ┃
+  //       ┃          ┆    B2    ┃     ┃          ┆ U2⋅S2⋅V2 ┃
+  //       ┃          ┆          ┃     ┃          ┆          ┃
+  //       ┗                     ┛     ┗                     ┛
+  _svd_dc_bidiag(N,  n0, U,U_off          , B,B_off,      V,V_off          , TMPI, TMPF);
+  _svd_dc_bidiag(N,n-n0, U,U_off + M*n0+n0, B,B_off+2*n0, V,V_off + N*n0+n0, TMPI, TMPF);
+                         U[U_off + M*m0+m0] = 1;
+
+  const b1 = B[B_off + 2*m0  ],
+        b2 = B[B_off + 2*m0+1];
+
+//  if( ! isFinite(b1) ) throw new Error('Assertion failed.');
+//  if( ! isFinite(b2) ) throw new Error('Assertion failed.');
+
+  // The orthogonal matrix U1,U2,V1,V2 can moved to separate left and right orthogonal
+  // matrices. V1ᵀ[-1] is the last row of the transpose of V1. V2ᵀ[0] is the first row of
+  // the transpose of V2.                                                   ┏                     ┓
+  //     ┏                     ┓   ┏               ┓ ┏                    ┓ ┃          ┆          ┃
+  //     ┃          ┆          ┃   ┃      ┆        ┃ ┃        ┆ ┆         ┃ ┃          ┆          ┃
+  //     ┃ U1⋅S1⋅V1 ┆          ┃   ┃  U1  ┆        ┃ ┃   S1'  ┆0┆         ┃ ┃    V1    ┆          ┃
+  //     ┃          ┆          ┃   ┃      ┆        ┃ ┃        ┆ ┆         ┃ ┃          ┆          ┃
+  //     ┃┄┄┄┄┄┄┄┬┄┄┼┄┄┐       ┃   ┃┄┄┄┄┄┄┼┄┐      ┃ ┃┄┄┄┄┄┄┄┄┴┄┼┄┄┄┄┄┄┄┄┄┃ ┃          ┆          ┃
+  // B = ┃       ┆b1┆b2┆       ┃ = ┃      ┆1┆      ┃ ┃b1⋅V1ᵀ[-1]┆b2⋅V2ᵀ[0]┃ ┃┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┄┄┄┄┄┄┃
+  //     ┃       └┄┄┼┄┄┴┄┄┄┄┄┄┄┃   ┃      └┄┼┄┄┄┄┄┄┃ ┃┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┄┄┄┬┄┃ ┃          ┆          ┃
+  //     ┃          ┆          ┃   ┃        ┆      ┃ ┃          ┆       ┆ ┃ ┃          ┆          ┃
+  //     ┃          ┆ U2⋅S2⋅V2 ┃   ┃        ┆  U2  ┃ ┃          ┆   S2' ┆0┃ ┃          ┆    V2    ┃
+  //     ┃          ┆          ┃   ┃        ┆      ┃ ┃          ┆       ┆ ┃ ┃          ┆          ┃
+  //     ┗                     ┛   ┗               ┛ ┗                    ┛ ┃          ┆          ┃
+  //                                                                        ┗                     ┛
+  for( let i= 0; i < m0; i++ ) B[B_off + 2*i +1] = b1 * V[V_off + N*m0 + i];
+  for( let i=n0; i < m ; i++ ) B[B_off + 2*i +1] = b2 * V[V_off + N*n0 + i];
+
+  // With the following definitions:
+  //                 ┏          ╷    ┓
+  //   b1⋅V1ᵀ[-1] =: ┃    R1    ┆ r1 ┃
+  //                 ┗          ╵    ┛
+  //                 ┏          ╷    ┓
+  //   b2⋅V2ᵀ[ 0] =: ┃    R2    ┆ r2 ┃
+  //                 ┗          ╵    ┛
+  //   h := √(r1² + r2²)
+  //   c = r1 / h
+  //   s = r2 / h
+  //         ┏             ┓
+  //         ┃             ┃
+  //         ┃      W1     ┃
+  //   V1 =: ┃             ┃
+  //         ┃┄┄┄┄┄┄┄┄┄┄┄┄┄┃
+  //         ┃      w1     ┃
+  //         ┗             ┛
+  //         ┏             ┓
+  //         ┃             ┃
+  //         ┃      W2     ┃
+  //   V2 =: ┃             ┃
+  //         ┃┄┄┄┄┄┄┄┄┄┄┄┄┄┃
+  //         ┃      w2     ┃
+  //         ┗             ┛
+  // And a single Givens rotation, we can make the right-most column of the middle matrix zero.
+  //                                                  ┏                     ┓                                            ┏                     ┓
+  //       ┏               ┓ ┏                      ┓ ┃          ┆          ┃   ┏               ┓ ┏                    ┓ ┃          ┆          ┃
+  //       ┃      ┆        ┃ ┃        ┆  ┆          ┃ ┃          ┆          ┃   ┃      ┆        ┃ ┃        ┆ ┆         ┃ ┃     W1   ┆          ┃
+  //       ┃  U1  ┆        ┃ ┃   S1'  ┆ 0┆          ┃ ┃    V1    ┆          ┃   ┃  U1  ┆        ┃ ┃   S1'  ┆0┆         ┃ ┃          ┆          ┃
+  //       ┃      ┆        ┃ ┃        ┆  ┆          ┃ ┃          ┆          ┃   ┃      ┆        ┃ ┃        ┆ ┆         ┃ ┃┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┄┄┄┄┄┄┃
+  //       ┃┄┄┄┄┄┄┼┄┐      ┃ ┃┄┄┄┄┄┄┄┄┼┄┄┼┄┄┄┄┄┄┄┬┄┄┃ ┃          ┆          ┃   ┃┄┄┄┄┄┄┼┄┐      ┃ ┃┄┄┄┄┄┄┄┄┼┄┼┄┄┄┄┄┄┄┬┄┃ ┃   c*w1   ┆  s*w2    ┃
+  //   B = ┃      ┆1┆      ┃ ┃   R1   ┆r1┆  R2   ┆r2┃ ┃┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┄┄┄┄┄┄┃ = ┃      ┆1┆      ┃ ┃   R1   ┆h┆  R2   ┆ ┃ ┃┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┄┄┄┄┄┄┃
+  //       ┃      └┄┼┄┄┄┄┄┄┃ ┃┄┄┄┄┄┄┄┄┴┄┄┼┄┄┄┄┄┄┄┼┄┄┃ ┃          ┆          ┃   ┃      └┄┼┄┄┄┄┄┄┃ ┃┄┄┄┄┄┄┄┄┴┄┼┄┄┄┄┄┄┄┤ ┃ ┃          ┆          ┃
+  //       ┃        ┆      ┃ ┃           ┆       ┆  ┃ ┃          ┆          ┃   ┃        ┆      ┃ ┃          ┆       ┆0┃ ┃          ┆    W2    ┃
+  //       ┃        ┆  U2  ┃ ┃           ┆   S2' ┆ 0┃ ┃          ┆    V2    ┃   ┃        ┆  U2  ┃ ┃          ┆   S2' ┆ ┃ ┃          ┆          ┃
+  //       ┃        ┆      ┃ ┃           ┆       ┆  ┃ ┃          ┆          ┃   ┃        ┆      ┃ ┃          ┆       ┆ ┃ ┃┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┄┄┄┄┄┄┃
+  //       ┗               ┛ ┗                      ┛ ┃          ┆          ┃   ┗               ┛ ┗                    ┛ ┃  -s*w1   ┆  c*w2    ┃
+  //                                                  ┗                     ┛                                            ┗                     ┛
+  const [c,s,h] = function(){
+    let   c = b1 * V[V_off + N*m0 + m0],
+          s = b2 * V[V_off + N*n0 + m ];
+    const h = Math.hypot(c,s);
+    return [c/h, s/h, h];
+  }();
+
+//  if( ! isFinite(h) ) throw new Error('Assertion failed.'); 
+
+  B[B_off + 2*m0  ] = 0;
+  B[B_off + 2*m0+1] = h;
+
+  if( 0 !== h ) {
+    for( let i= 0; i < n0; i++ ) { V[V_off + N*i + m ] = V[V_off + N*i + m0] * -s;
+                                                         V[V_off + N*i + m0] *= c; }
+    for( let i=n0; i < n ; i++ ) { V[V_off + N*i + m0] = V[V_off + N*i + m ] *  s;
+                                                         V[V_off + N*i + m ] *= c; }
+  }
+
+
+  // STEP 2: CONQUER
+  // ---------------
+  // After step 1, row and column swaps can be used to turn the middle matrix into a Neves matrix.
+  // See _svd_dc_neves() for more information about the shape of the Neves matrix. An integer array
+  // called the "outer order" is used to keep track of the row and column swaps. The outer order
+  // indicates where the rows and column of the middle matrix have originaally been.
+  TMPI[m-1] = m0;
+  // merge sort diagonal entries
+  for( let i = 0,
+           j =n0,
+           k = 0; k < m-1; k++ )
+    TMPI[k] = j >= m || (i < m0 && B[B_off + 2*i]
+                                >= B[B_off + 2*j]) ? i++ : j++;
+
+//  if( TMPI.slice(0,m).sort().some((i,j) => i !== j) ) throw new Error('Assertion failed.');
+
+  for( let i=0; i < m; i++ ) {
+    const                     j = TMPI[i];
+    TMPF[2*i  ] = B[B_off + 2*j  ];
+    TMPF[2*i+1] = B[B_off + 2*j+1];
+  }
+
+  for( let i=0; i < m; i++ ) {
+    B[B_off + 2*i  ] = TMPF[2*i  ];
+    B[B_off + 2*i+1] = TMPF[2*i+1];
+  }
+
+  _svd_dc_neves(N,n, U,U_off, B,B_off, V,V_off, TMPI, TMPF);
+}
+
+
+export function _svd_dc( M,N, U,U_off, sv,sv_off, V,V_off, TMPI, TMPF )
+{
+  if( M > N ) throw new Error('Assertion failed.');
+
+  if( TMPI.length < M*3                                   ) throw new Error('Assertion failed: Integer work matrix TMPI too small.');
+  if( TMPF.length < M*(M+2) + M*2 + (M+1)*(M+1) + (M+1)*N ) throw new Error( 'Assertion failed: Scalar work matrix TMPF too small.');
+
+  const B_off =          M   *(M+2),
+       V1_off =  B_off + M*2,
+       V2_off = V1_off +(M+1)*(M+1);
+
+  TMPF.fill(0.0, V1_off,
+                 V2_off + N);
+
+  // COPY A FROM V TO V2
+  for( let i=0; i < M; i++ )
+  for( let j=0; j < N; j++ )
+    TMPF[V2_off+N + N*i+j] = V[V_off + N*i+j];
+
+  V.fill(0.0,  V_off,
+               V_off + M*N);
+
+  _bidiag_decomp_horiz(M,N, U,U_off, TMPF,0, TMPF,V2_off);
+
+  for( let i=0; i < M; i++ ) {
+    TMPF[B_off + 2*i  ] = TMPF[(M+1)*i + i  ];
+    TMPF[B_off + 2*i+1] = TMPF[(M+1)*i + i+1];
+  }
+
+  _svd_dc_bidiag(
+    M+1, M+1,
+    V,     V_off,
+    TMPF,  B_off,
+    TMPF, V1_off,
+    TMPI,
+    TMPF
+  );
+
+  for( let i=0; i < M; i++ )
+    sv[sv_off + i] = TMPF[B_off + 2*i];
+
+  // update U = U @ U2 (U2 is stored in V)
+  for( let i=0; i < M; i++ )
+  {
+    TMPF.fill(0.0, 0,M);
+    for( let k=0; k < M; k++ )
+    for( let j=0; j < M; j++ )                    TMPF[j] += U[U_off + M*i+k] * V[V_off + M*k+j];
+    for( let j=0; j < M; j++ ) U[U_off + M*i+j] = TMPF[j];
+  }
+
+  // update V = V1 @ V2 (keep in mind that VV was computed in a transposed/column-major fashion)
+  V.fill(0.0, V_off,V_off + M*M);
+  for( let k=0; k < M+1; k++ )
+  for( let i=0; i < M;   i++ )
+  for( let j=0; j < N;   j++ ) V[V_off + N*i+j] += TMPF[V1_off + (M+1)*k+i] * TMPF[V2_off + N*k+j];
 }
 
 
@@ -697,10 +909,42 @@ export function svd_dc(A)
   const [M,N] = A.shape.slice(-2);
 
   if( M > N ) {
-    const [U,sv,V] = svd_dc(A)
-    transpose_inplace(V);
-    return [U.T,sv,V];
+    const [U,sv,V] = svd_dc(A.T)
+    transpose_inplace(U);
+    return [V.T,sv,U];
   }
 
-  
+  const V_shape = A.shape,
+        U_shape = V_shape.slice(),
+       sv_shape = V_shape.slice(0, -1);
+  U_shape[U_shape.length - 1] = M;
+
+  const DType = A.dtype === 'float32' ? 'float32' : 'float64',
+        DTypeArray = ARRAY_TYPES[DType];
+  A = A.data;
+
+  const len = A.length / (M*N),
+          V = A.slice();
+
+  A = undefined;
+
+  const U = new DTypeArray(len * M*M),
+       sv = new DTypeArray(len *   M),
+     TMPF = new DTypeArray(M*(M+2)/*TMPF*/ + M*2/*B*/ + (M+1)*(M+1)/*V1*/ + (M+1)*Math.max(1+M,N)/*V2*/),
+     TMPI = new Int32Array(M*3);
+
+  for(
+    let U_off=0,
+       sv_off=0,
+        V_off=0; sv_off < sv.length;
+        U_off += M*M,
+       sv_off +=   M,
+        V_off +=   M*N
+  ) _svd_dc(M,N, U,U_off, sv,sv_off, V,V_off, TMPI, TMPF);
+
+  return [
+    new NDArray( U_shape, U),
+    new NDArray(sv_shape,sv),
+    new NDArray( V_shape, V)
+  ];
 }
