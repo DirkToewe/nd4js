@@ -62,16 +62,15 @@ describe('svd', () => {
     }()
   ).it('_svd_dc_1x2 works random square examples', B => {
     const U_arr = new Float64Array(1),
-          B_arr =     Float64Array.of( B(0,0), B(0,1) ),
-          V_arr = new Float64Array(4);
+         BV_arr =     Float64Array.of( B(0,0), B(0,1), 0,0,0,0 );
 
-    _svd_dc_1x2(2, U_arr,0, B_arr,0, V_arr,0);
+    _svd_dc_1x2(2, U_arr,0, BV_arr,0,2);
 
     const U = new NDArray(Int32Array.of(1,1), U_arr),
-          V = new NDArray(Int32Array.of(2,2), V_arr),
-          S = new NDArray(Int32Array.of(1,2), Float64Array.of(B_arr[0], 0) );
+          V = new NDArray(Int32Array.of(2,2), BV_arr.slice(2)),
+          S = new NDArray(Int32Array.of(1,2), Float64Array.of(BV_arr[0], 0) );
 
-    expect(B_arr[0]).not.toBeLessThan(0);
+    expect(BV_arr[0]).not.toBeLessThan(0);
 
     const I = eye(2);
 
@@ -103,18 +102,17 @@ describe('svd', () => {
     }()
   ).it('_svd_dc_2x3 works random square examples', B => {
     const U_arr = new Float64Array(4),
-          B_arr =     Float64Array.of(B(0,0), B(0,1), B(1,1), B(1,2)),
-          V_arr = new Float64Array(9);
+         BV_arr =     Float64Array.of(B(0,0), B(0,1), B(1,1), B(1,2), ...new Float64Array(9));
 
-    _svd_dc_2x3(3, U_arr,0, B_arr,0, V_arr,0);
+    _svd_dc_2x3(3, U_arr,0, BV_arr,0,4);
 
     const U = new NDArray(Int32Array.of(2,2), U_arr),
-          V = new NDArray(Int32Array.of(3,3), V_arr),
-          S = new NDArray(Int32Array.of(2,3), Float64Array.of(B_arr[0],       0,  0,
-                                                                    0,  B_arr[2], 0) );
+          V = new NDArray(Int32Array.of(3,3), BV_arr.slice(4)),
+          S = new NDArray(Int32Array.of(2,3), Float64Array.of(BV_arr[0],        0,  0,
+                                                                     0,  BV_arr[2], 0) );
 
-    expect(B_arr[2]).not.toBeLessThan(0);
-    expect(B_arr[0]).not.toBeLessThan(B_arr[2]);
+    expect(BV_arr[2]).not.toBeLessThan(0);
+    expect(BV_arr[0]).not.toBeLessThan(BV_arr[2]);
 
     const I2 = eye(2),
           I3 = eye(3);
@@ -164,7 +162,7 @@ describe('svd', () => {
             if( 0 === diag[i] ) diag[i] = Number.MIN_VALUE*Math.random()*(200 - 100);
           }
 
-        if( 0 !== diag[0] ) throw new Error('Assertion failed.');
+        if(      0 !== diag[0] ) throw new Error('Assertion failed.');
         const diag_0 = diag[0];
                        diag[0] = diag[mid];
                                  diag[mid] = diag_0;
@@ -203,34 +201,46 @@ describe('svd', () => {
     const LAR = matmul(L,A,R);
     expect(LAR.dtype).toBe('float64');
 
-    const B = new Float64Array(M*2),
-       TMPI =       Int32Array.from({length: 3*M}, (_,i) => i),
-       TMPF = new Float64Array( M*(M+2) );
-    TMPI[M-1] = mid;
-    TMPI[mid] = M-1;
-    TMPI.subarray(0,M-1).sort((i,j) => A(j,j) - A(i,i));
+    const I =       Int32Array.from({length: 3*M}, (_,i) => i),
+          F = new Float64Array( M*(M+2) + 2*M + (M+1)*(M+1) );
+    I[M-1] = mid;
+    I[mid] = M-1;
+    I.subarray(0,M-1).sort((i,j) => A(j,j) - A(i,i));
+
+    const [B_off,V_off] = function(){
+      switch(Math.random()*2 | 0) {
+        case 0: return [M*(M+2)              , M*(M+2) + 2*M];
+        case 1: return [M*(M+2) + (M+1)*(M+1), M*(M+2)      ];
+        default: throw new Error('Unexpected fall-through');
+      }
+    }();
     
     for( let i=0; i < M; i++ )
-    { const  j = TMPI[i];
-      B[2*i  ] = A(  j,j);
-      B[2*i+1] = A(mid,j);
+    { const  j = I[i];
+      F[B_off + 2*i  ] = A(  j,j);
+      F[B_off + 2*i+1] = A(mid,j);
     }
-    B[2*M-2] = 0;
+    F[B_off + 2*M-2] = 0;
+
+    for( let i=0; i <= M; i++ )
+    for( let j=0; j <= M; j++ )
+      F[V_off + (M+1)*i+j] = R(j,i);
 
     expect(
-      TMPI.slice(0,M).sort()
+      I.slice(0,M).sort()
     ).toEqual(
       Int32Array.from({length: M}, (_,i) => i)
     );
 
-    const U = L.mapElems(),
-          V = R.T;
+    const U = L.mapElems();
     expect(U.dtype).toBe('float64');
-    expect(V.dtype).toBe('float64');
 
-    _svd_dc_neves(N, N, U.data,0, B,0, V.data,0, TMPI, TMPF);
+    _svd_dc_neves(N, N, U.data,0, F,B_off,V_off, I);
     Object.freeze(U.data.buffer);
-    Object.freeze(B     .buffer);
+    Object.freeze(F     .buffer);
+
+    const V = new NDArray( Int32Array.of(M+1,M+1), F.slice(V_off,
+                                                           V_off + (M+1)*(M+1)) );
     Object.freeze(V.data.buffer);
 
     // check orthogonality
@@ -242,12 +252,12 @@ describe('svd', () => {
       expect(matmul2(V.T,V)).toBeAllCloseTo(I); }
 
     // check decomposition
-    const S  = tabulate([M,N], (i,j) => B[2*i]*(i===j)),
+    const S  = tabulate([M,N], (i,j) => F[B_off + 2*i]*(i===j)),
          USV = matmul(U,S,V.T);
 
     expect(USV).toBeAllCloseTo(LAR);
 
-    const sv = B.filter((_,i) => i%2 === 0);
+    const sv = F.subarray(B_off,B_off+2*M).filter((_,i) => i%2 === 0);
 
     // check order of singular values
     for( let i=1; i < M; i++ )
@@ -278,20 +288,28 @@ describe('svd', () => {
   ).it('_svd_dc_bidiag works for random examples', A => {
     const [M,N] = A.shape.slice(-2);
 
-    const B = new Float64Array(2*M);
+    const U = tabulate([M,M], 'float64', () => 0),
+          I = new   Int32Array(M*3),
+          F = new Float64Array(M*(M+2) + 2*M + (M+1)*(M+1));
+
+    const [B_off,V_off] = function(){
+      switch(Math.random()*2 | 0) {
+        case 0: return [M*(M+2)              , M*(M+2) + 2*M];
+        case 1: return [M*(M+2) + (M+1)*(M+1), M*(M+2)      ];
+        default: throw new Error('Unexpected fall-through');
+      }
+    }();
+
     for( let i=0; i < M; i++ ) {
-      B[2*i  ] = A(i,i);
-      B[2*i+1] = A(i,i+1);
+      F[B_off + 2*i  ] = A(i,i);
+      F[B_off + 2*i+1] = A(i,i+1);
     }
 
-    const U = tabulate([M,M], 'float64', () => 0),
-          V = tabulate([N,N], 'float64', () => 0),
-       TMPI = new   Int32Array(M*3),
-       TMPF = new Float64Array(M*(M+2));
+    _svd_dc_bidiag( N,N, U.data,0, F,B_off,V_off, I);
 
-    _svd_dc_bidiag( N,N, U.data,0, B,0, V.data,0, TMPI, TMPF);
-
-    const S = tabulate([M,N], (i,j) => i !== j ? 0 : B[2*i]);
+    const S = tabulate([M,N], (i,j) => i !== j ? 0 : F[B_off + 2*i]),
+          V = new NDArray( Int32Array.of(M+1,M+1), F.slice(V_off,
+                                                           V_off + (M+1)*(M+1)) );
 
     // check orthogonality
     { const I = eye(M);

@@ -34,15 +34,13 @@ export {rrqr_decomp,
         rrqr_rank,
         rrqr_lstsq,
         rrqr_solve} from './rrqr'
-export * from './schur'
-export * from './singular_matrix_solve_error'
-export * from './solve'
-export * from './svd'
-export * from './svd_jac_2sided'
-export * from './svd_jac_2sided_blocked'
-export * from './svd_jac_classic'
-export * from './tri'
-export * from './rand_ortho'
-
-
+export        * from './schur'
+export        * from './singular_matrix_solve_error'
+export        * from './solve'
+export        * from './svd'
 export {svd_dc} from './svd_dc'
+export        * from './svd_jac_2sided'
+export        * from './svd_jac_2sided_blocked'
+export        * from './svd_jac_classic'
+export        * from './tri'
+export        * from './rand_ortho'

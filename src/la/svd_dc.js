@@ -20,6 +20,7 @@ import {ARRAY_TYPES, eps} from '../dt'
 import {asarray, NDArray} from '../nd_array'
 import {transpose_inplace} from './transpose_inplace'
 import {_giv_rot_rows} from './_giv_rot'
+import {_svd_jac_angles} from './_svd_jac_utils'
 import {FrobeniusNorm} from './norm'
 import {_bidiag_decomp_horiz} from './bidiag'
 
@@ -32,31 +33,31 @@ import {_bidiag_decomp_horiz} from './bidiag'
 
 /* Computes the SVD of the 1x2 matrix B
  */
-export function _svd_dc_1x2( N, U,U_off, B,B_off, V,V_off )
+export const _svd_dc_1x2 = ( N, U,U_off, F,B_off,V_off ) =>
 {
   N     |= 0;
   U_off |= 0;
   B_off |= 0;
   V_off |= 0;
 
-  let c = B[B_off  ],
-      s = B[B_off+1];
+  let c = F[B_off  ],
+      s = F[B_off+1];
   const  norm = Math.hypot(c,s);
   if(0!==norm) {
     c /= norm;
     s /= norm;
 
-    B[B_off  ] = norm;
-    B[B_off+1] = NaN;
+    F[B_off  ] = norm;
+    F[B_off+1] = NaN;
 
-    V[V_off      ] =  c;
-    V[V_off+    1] = -s;
-    V[V_off+N*1  ] =  s;
-    V[V_off+N*1+1] =  c;
+    F[V_off      ] =  c;
+    F[V_off+    1] = -s;
+    F[V_off+N*1  ] =  s;
+    F[V_off+N*1+1] =  c;
   }
   else {
-    V[V_off      ] = 1;
-    V[V_off+N*1+1] = 1;
+    F[V_off      ] = 1;
+    F[V_off+N*1+1] = 1;
   }
   U[U_off] = 1;
 }
@@ -69,7 +70,7 @@ export function _svd_dc_1x2( N, U,U_off, B,B_off, V,V_off )
  *     │ 0   b3  b4 │
  *     └            ┘
  */
-export function _svd_dc_2x3( N, U,U_off, B,B_off, V,V_off )
+export const _svd_dc_2x3 = ( N, U,U_off, F,B_off,V_off ) =>
 {
   U_off  |= 0;
   B_off  |= 0;
@@ -77,10 +78,10 @@ export function _svd_dc_2x3( N, U,U_off, B,B_off, V,V_off )
   N      |= 0; const
   M = N-1|  0;
 
-  let b1 = B[B_off  ],
-      b2 = B[B_off+1],
-      b3 = B[B_off+2],
-      b4 = B[B_off+3];
+  let b1 = F[B_off  ],
+      b2 = F[B_off+1],
+      b3 = F[B_off+2],
+      b4 = F[B_off+3];
   // STEP 1:
   //   RQ-decompose down to 2x2 problem
   if( 0 !== b4 )
@@ -88,8 +89,8 @@ export function _svd_dc_2x3( N, U,U_off, B,B_off, V,V_off )
     const     norm = Math.hypot(b3,b4),
       ca = b3/norm,
       sa = b4/norm;
-    V[V_off + N*1+1] =  ca;
-    V[V_off + N*2+1] =  sa;
+    F[V_off + N*1+1] =  ca;
+    F[V_off + N*2+1] =  sa;
     b3 = norm;
     b4 = -sa*b2;
     b2 =  ca*b2;
@@ -99,23 +100,23 @@ export function _svd_dc_2x3( N, U,U_off, B,B_off, V,V_off )
         cb = b1/norm,
         sb = b4/norm;
            b1 = norm;
-      V[V_off      ] =  cb;
-      V[V_off+N*1  ] =  sb*-sa;
-      V[V_off+N*2  ] =  sb* ca;
-      V[V_off+    2] = -sb;
-      V[V_off+N*1+2] =  cb*-sa;
-      V[V_off+N*2+2] =  cb* ca;
+      F[V_off      ] =  cb;
+      F[V_off+N*1  ] =  sb*-sa;
+      F[V_off+N*2  ] =  sb* ca;
+      F[V_off+    2] = -sb;
+      F[V_off+N*1+2] =  cb*-sa;
+      F[V_off+N*2+2] =  cb* ca;
     }
     else {
-      V[V_off      ] =   1;
-      V[V_off+N*1+2] = -sa;
-      V[V_off+N*2+2] =  ca;
+      F[V_off      ] =   1;
+      F[V_off+N*1+2] = -sa;
+      F[V_off+N*2+2] =  ca;
     }
   }
   else {
-    V[V_off      ] = 1;
-    V[V_off+N*1+1] = 1;
-    V[V_off+N*2+2] = 1;
+    F[V_off      ] = 1;
+    F[V_off+N*1+1] = 1;
+    F[V_off+N*2+2] = 1;
   }
 
   // STEP 2;
@@ -123,13 +124,13 @@ export function _svd_dc_2x3( N, U,U_off, B,B_off, V,V_off )
   const [ca,sa, cb,sb] = _svd_jac_angles(b1,b2,
                                          0 ,b3);
   // WRITE SINGULAR VALUES TO B  
-  B[B_off+1] = NaN; // <- TODO remove after testing
-  B[B_off+3] = NaN; // <- TODO remove after testing
+  F[B_off+1] = NaN; // <- TODO remove after testing
+  F[B_off+3] = NaN; // <- TODO remove after testing
 
-  B[B_off] = ca*b1*cb - ( ca*b2 + sa*b3)*sb;
+  F[B_off] = ca*b1*cb - ( ca*b2 + sa*b3)*sb;
                    b3 = (-sa*b2 + ca*b3)*cb - sa*b1*sb;
   const        s = b3 < 0 ? -1 : +1;
-  B[B_off+2] = s * b3;
+  F[B_off+2] = s * b3;
 
   // WRITE U
   U[U_off      ] =  ca;
@@ -138,14 +139,14 @@ export function _svd_dc_2x3( N, U,U_off, B,B_off, V,V_off )
   U[U_off+M*1+1] =  ca*s;
 
   // ROTATE V
-  V[V_off+1] = sb*V[V_off];
-  V[V_off  ]*= cb;
-  const         V1 = V[V_off+N*1]*cb - V[V_off+N*1+1]*sb;
-    V[V_off+N*1+1] = V[V_off+N*1]*sb + V[V_off+N*1+1]*cb;
-    V[V_off+N*1  ] = V1;
-  const         V2 = V[V_off+N*2]*cb - V[V_off+N*2+1]*sb;
-    V[V_off+N*2+1] = V[V_off+N*2]*sb + V[V_off+N*2+1]*cb;
-    V[V_off+N*2  ] = V2;
+  F[V_off+1] = sb*F[V_off];
+  F[V_off  ]*= cb;
+  const         V1 = F[V_off+N*1]*cb - F[V_off+N*1+1]*sb;
+    F[V_off+N*1+1] = F[V_off+N*1]*sb + F[V_off+N*1+1]*cb;
+    F[V_off+N*1  ] = V1;
+  const         V2 = F[V_off+N*2]*cb - F[V_off+N*2+1]*sb;
+    F[V_off+N*2+1] = F[V_off+N*2]*sb + F[V_off+N*2+1]*cb;
+    F[V_off+N*2  ] = V2;
 }
 
 
@@ -172,31 +173,16 @@ export function _svd_dc_2x3( N, U,U_off, B,B_off, V,V_off )
  * 
  * Keep in mind that V is stored in a column-major order in this method.
  */
-export function _svd_dc_neves(
-  /*int  */N, /*int*/n,
-  /*  T[]*/U, /*int*/U_off,
-  /*  T[]*/B, /*int*/B_off,
-  /*  T[]*/V, /*int*/V_off,
-  /*int[]*/TMPI,
-  /*  T[]*/TMPF
-)
+export const _svd_dc_neves = (N,n, U,U_off, F,B_off,V_off, I) =>
 {
-  //  var. | qualifiers 
-  // ------|------------
-  //   U   |  in, out
-  //   B   |  in, out
-  //   V   |  in, out
-  //  TMPI |  in, temp
-  //  TMPF |      temp
-
   U_off |= 0;
   B_off |= 0;
   V_off |= 0;
   N     |= 0; const M = N-1 | 0;
   n     |= 0; const m = n-1 | 0;
 
-  if( TMPI.length < M*3     ) throw new Error('Assertion failed: Integer work matrix TMPI too small.');
-  if( TMPF.length < M*(M+2) ) throw new Error('Assertion failed: Scalar work matrix TMPF too small.');
+  if( I.length < M*3                                   ) throw new Error('Assertion failed: Integer work matrix I too small.');
+  if( F.length < M*(M+2) + M*2/*B*/ + (M+1)*(M+1)/*V*/ ) throw new Error('Assertion failed: Scalar work matrix F too small.');
 
   // Amount of temp. float memory:
   //   - m*m entries to store the matrix to update U and V
@@ -207,37 +193,37 @@ export function _svd_dc_neves(
         W_off = M*(M+2) - m*(m+2); // <- mm as in "matrix multiplication"
 
   // Amount of temp. int memory:
-  //   - m entries for the outer order
-  //   - m entries for the inner order
+  //   - m entries for the outer (row   ) order of U & V update matrices
+  //   - m entries for the inner (column) order of U & V update matrices
   //   - m entries for the rotation pairings from step 2
-  const  rot_off = m*2,
-    innerOrd_off = m,
-    outerOrd_off = 0;
+  const rot_off = m*2,
+        inn_off = m, // <- inner order
+        out_off = 0; // <- outer order
 
   if( n < 2 ) throw new Error('Assertion failed.');
 
-  //     DIAGONAL ELEMENTS: d[i] = B[B_off + 2*i  ]
-  // OFF-DIAGONAL ELEMENTS: z[i] = B[B_off + 2*i+1]
+  //     DIAGONAL ELEMENTS: d[i] = F[B_off + 2*i  ]
+  // OFF-DIAGONAL ELEMENTS: z[i] = F[B_off + 2*i+1]
 
   // TODO remove checks after testing
   // ensure d[-1] === 1
-  if( B[B_off + 2*m-2] !== 0 )
+  if( F[B_off + 2*m-2] !== 0 )
     throw new Error('Assertion failed.');
   // ensure d[i] >= d[i+1]
   for( let i=1; i < m; i++ )
-    if( B[B_off + 2*(i-1)] < B[B_off + 2*i] )
+    if( F[B_off + 2*(i-1)] < F[B_off + 2*i] )
       throw new Error('Assertion failed.');
 
   const NORM = new FrobeniusNorm();
 
   const [zNorm,scale] = function(){
     for( let i=0; i < m; i++ )
-      NORM.include(B[B_off + 2*i+1]);
+      NORM.include(F[B_off + 2*i+1]);
 
     let zNorm = NORM.result;
 
     for( let i=0; i < m; i++ )
-      NORM.include(B[B_off + 2*i]);
+      NORM.include(F[B_off + 2*i]);
 
     let scale = NORM.result;
     if( scale===0 )
@@ -248,7 +234,7 @@ export function _svd_dc_neves(
 
   // normalize
   for( let i=0; i < 2*m; i++ )
-    B[B_off + i] /= scale;
+    F[B_off + i] /= scale;
 
   const TOL = eps('float64'); // <- FIXME make general purpose (independent of dtype)
 
@@ -274,24 +260,24 @@ export function _svd_dc_neves(
   //
   //   This way only the lower right quadrant needs to be solved
   //   iteratively (using the secular equations). The actual
-  //   implementation does not more the deflated values to μ
-  //   and not to the left.
+  //   implementation moves the deflated values to μ and not to
+  //   the left.
   const n0 = function(){
     let n0 = 0;
     for( let j=m-1,
              i=m-1; i-- > 0; )
-    { const di = B[B_off + 2*i  ],
-            zi = B[B_off + 2*i+1],
-            oi = TMPI[outerOrd_off + i];
+    { const di = F[  B_off + 2*i  ],
+            zi = F[  B_off + 2*i+1],
+            oi = I[out_off +   i  ];
       if( Math.abs(zi)/TOL <= di ) { // <- FIXME this could be estimated more accurately
-        TMPF[       σ_off + n0] = di;
-        TMPI[innerOrd_off + n0] = oi; // <- used as temp. for outerOrder
-                          ++n0;
+        F[  σ_off + n0] = di;
+        I[inn_off + n0] = oi; // <- used as temp. for outerOrder
+                  ++n0;
       }
-      else {            --j;
-              B[B_off + 2*j  ] = di;
-              B[B_off + 2*j+1] = B[B_off + 2*i+1];
-        TMPI[innerOrd_off + j] = oi; // <- used as temp. for outerOrder
+      else {             --j;
+        F[  B_off + 2*j  ] = di;
+        F[  B_off + 2*j+1] = F[B_off + 2*i+1];
+        I[inn_off +   j  ] = oi; // <- used as temp. for outerOrder
       }
     }
     return n0;
@@ -299,7 +285,7 @@ export function _svd_dc_neves(
 
   // innerOrder just used as temp. memory, move to outerOrder
   for( let i=0; i < n0; i++ )
-    TMPI[outerOrd_off + i] = TMPI[innerOrd_off + i];
+    I[out_off + i] = I[inn_off + i];
 
 
   // STEP 2:
@@ -367,35 +353,35 @@ export function _svd_dc_neves(
     let n1 = n0;
     for( let j=m-1,
              i=m-1; i-- > n0; )
-    { const di = B[B_off + 2*i  ],
-            dj = B[B_off + 2*j  ], oi = TMPI[innerOrd_off + i],
-            zi = B[B_off + 2*i+1],
-            zj = B[B_off + 2*j+1], z = Math.hypot(zi,zj);
+    { const di = F[B_off + 2*i  ],
+            dj = F[B_off + 2*j  ], oi = I[inn_off + i],
+            zi = F[B_off + 2*i+1],
+            zj = F[B_off + 2*j+1], z = Math.hypot(zi,zj);
       if( (di-dj)/TOL <= di || ! isFinite( Math.sqrt(m) / (di-dj) ) ) // <- TODO find better criteria
       {
         const
           c = zj / z,
           s = zi / z;
-        TMPF[W_off + 2*n1  ] = c;
-        TMPF[W_off + 2*n1+1] = s;
-        B[B_off + 2*j+1] = z;
-        B[B_off + 2*j  ] = TMPF[       σ_off + n1] = di;
-                           TMPI[outerOrd_off + n1] = oi; // <- used as temp. for outerOrder
-                           TMPI[     rot_off + n1] =  j;
-                                             ++n1;
+        F[W_off + 2*n1  ] = c;
+        F[W_off + 2*n1+1] = s;
+        F[B_off + 2*j+1] = z;
+        F[B_off + 2*j  ] = F[  σ_off + n1] = di;
+                           I[out_off + n1] = oi; // <- used as temp. for outerOrder
+                           I[rot_off + n1] =  j;
+                                     ++n1;
       }
-      else {            --j;
-              B[B_off + 2*j  ] = di;
-              B[B_off + 2*j+1] = B[B_off + 2*i+1];
-        TMPI[outerOrd_off + j] = oi;
+      else {      --j;
+        F[B_off + 2*j  ] = di;
+        F[B_off + 2*j+1] = F[B_off + 2*i+1];
+        I[out_off + j  ] = oi;
       }
     }
     return n1;
   }();
   for( let i = 2*n0;
            i < 2*n1; i++ ) {
-    B[B_off + i] = TMPF[W_off + i];
-                   TMPF[W_off + i] = 0;
+    F[B_off + i] = F[W_off + i];
+                   F[W_off + i] = 0;
   }
 
 
@@ -408,8 +394,8 @@ export function _svd_dc_neves(
   //
   for( let i=n1; i < m; i++ )
   {
-    let sLo =          B[B_off + 2*i  ],
-        sHi = n1 < i ? B[B_off + 2*i-2] : (sLo + zNorm);
+    let sLo =          F[B_off + 2*i  ],
+        sHi = n1 < i ? F[B_off + 2*i-2] : (sLo + zNorm);
 
     if( sLo > sHi ) throw new Error('Assertion failed.');
 
@@ -418,8 +404,8 @@ export function _svd_dc_neves(
       { const mid = (sLo + sHi) / 2;
         let   sum = 1;
         for( let i=n1; i < m; i++ ) {
-          const  di = B[B_off + 2*i  ],
-                 zi = B[B_off + 2*i+1];
+          const  di = F[B_off + 2*i  ],
+                 zi = F[B_off + 2*i+1];
           sum += zi / (di-mid)
               * (zi / (di+mid));
         }
@@ -428,19 +414,20 @@ export function _svd_dc_neves(
       }                 const s=sLo; sHi = sHi-sLo; sLo = +Number.MIN_VALUE; return s;
     }();
 
+    // TODO: Make bisection more accurate (see nd.opt.root1d_bisect)
     for(;;)
     { // bisect
       const s  = (sLo + sHi) / 2;
       if(   s === sLo
          || s === sHi ) {
-        TMPF[σ_off + i] = s; // FIXME at this point sLo and sHi still have to be compared
+        F[σ_off + i] = s; // FIXME at this point sLo and sHi still have to be compared
         break;
       }
       // evalue the secular equation
       let sum = 1;
       for( let i=n1; i < m; i++ ) {
-        const  di = B[B_off + 2*i  ],
-               zi = B[B_off + 2*i+1];
+        const  di = F[B_off + 2*i  ],
+               zi = F[B_off + 2*i+1];
         sum += zi / (di-shift-s)
             * (zi / (di+shift+s));
       }
@@ -450,9 +437,9 @@ export function _svd_dc_neves(
       if( sum >= 0 ) sHi = s;
     }
   }
-  if( Math.abs(B[B_off + 2*m-1]) === 0 ) {
-    B[B_off + 2*m-2] = 0;
-    B[B_off + 2*m-1] = 0; TMPF[σ_off + m-1] = 0;
+  if( Math.abs(F[B_off + 2*m-1]) === 0 ) {
+    F[B_off + 2*m-2] = 0;
+    F[B_off + 2*m-1] = 0; F[σ_off + m-1] = 0;
   }
 
 
@@ -460,31 +447,31 @@ export function _svd_dc_neves(
   //   RECOMPUTE z TO ORTHOGONALIZE U & V
   //   (as originally suggested by Gu and Eisenstat)
   {
-    const σn = TMPF[σ_off + m-1],
-          sn = B[B_off + 2*(m-1 - (σn < 0))]; // <- shift
+    const σn = F[σ_off + m-1],
+          sn = F[B_off + 2*(m-1 - (σn < 0))]; // <- shift
     for( let i=n1; i < m; i++ )
     {
-      const di = B[B_off + 2*i];
+      const di = F[B_off + 2*i];
       let   zi = (sn-di+σn)
                * (sn+di+σn);
 
       for( let j=n1; j < i; j++ )
-      { const σj = TMPF[σ_off + j],
-              sj =    B[B_off + 2*(j - (σj < 0))], // <- shift
-              dj =    B[B_off + 2*j];
+      { const σj = F[σ_off + j],
+              sj = F[B_off + 2*(j - (σj < 0))], // <- shift
+              dj = F[B_off + 2*j];
         zi *= ( (sj-di+σj) / (dj-di) )
            *  ( (sj+di+σj) / (dj+di) );
       }
 
       for( let j=i; j < m-1; j++ )
-      { const σj = TMPF[σ_off + j],
-              sj =    B[B_off + 2*(j - (σj < 0))], // <- shift
-              dj =    B[B_off + 2*j+2];
+      { const σj = F[σ_off + j],
+              sj = F[B_off + 2*(j - (σj < 0))], // <- shift
+              dj = F[B_off + 2*j+2];
         zi *= ( (sj-di+σj) / (dj-di) )
            *  ( (sj+di+σj) / (dj+di) );
       }
 
-      B[B_off + 2*i+1] = Math.sign(B[B_off + 2*i+1]) * Math.sqrt(zi);
+      F[B_off + 2*i+1] = Math.sign(F[B_off + 2*i+1]) * Math.sqrt(zi);
     }
   }
 
@@ -496,13 +483,13 @@ export function _svd_dc_neves(
            k= 0; k < m; k++ )
   { let val = -Infinity,
        best = 3;
-    if( j <  m  ) { const σj = TMPF[σ_off + j];                      best=2; val = σj + B[B_off + 2*(j - (σj < 0))]; }
-    if( i >= n0 ) { const σi = TMPF[σ_off + i]; if( ! (σi < val) ) { best=1; val = σi; } }
-    if( h >=  0 ) { const σh = TMPF[σ_off + h]; if( ! (σh < val) ) { best=0; val = σh; } }
+    if( j <  m  ) { const σj = F[σ_off + j];                      best=2; val = σj + F[B_off + 2*(j - (σj < 0))]; }
+    if( i >= n0 ) { const σi = F[σ_off + i]; if( ! (σi < val) ) { best=1; val = σi; } }
+    if( h >=  0 ) { const σh = F[σ_off + h]; if( ! (σh < val) ) { best=0; val = σh; } }
     switch(best){
-      case 0: TMPI[innerOrd_off + h--] = k; continue;
-      case 1: TMPI[innerOrd_off + i--] = k; continue;
-      case 2: TMPI[innerOrd_off + j++] = k; continue;
+      case 0: I[inn_off + h--] = k; continue;
+      case 1: I[inn_off + i--] = k; continue;
+      case 2: I[inn_off + j++] = k; continue;
       default: throw new Error('Assertion failed.');
     }
   }
@@ -512,51 +499,51 @@ export function _svd_dc_neves(
   //   UPDATE U
   for( let i=n1; i < m; i++ )
   {
-    const σi = TMPF[σ_off + i],
-          si = B[B_off + 2*(i - (σi < 0))]; // <- shift
+    const σi = F[σ_off + i],
+          si = F[B_off + 2*(i - (σi < 0))]; // <- shift
     NORM.reset();
     for( let j=n1; j < m-1; j++ ) {
-      const dj = B[B_off + 2*j  ],
-            zj = B[B_off + 2*j+1],
+      const dj = F[B_off + 2*j  ],
+            zj = F[B_off + 2*j+1],
           W_ij = ( zj / (dj-si-σi) )
                * ( dj / (dj+si+σi) );
-      NORM.include(TMPF[W_off + m*i+j] = W_ij);
+      NORM.include(F[W_off + m*i+j] = W_ij);
     }
-    NORM.include(TMPF[W_off + m*i+m-1] = -1);
+    NORM.include(F[W_off + m*i+m-1] = -1);
     const norm = NORM.result;
 
     if( ! (0 < norm) ) throw new Error('Assertion failed.');
 
     for( let j=n1; j < m; j++ )
-      TMPF[W_off + m*i+j] /= norm;
+      F[W_off + m*i+j] /= norm;
   }
 
   // transpose dense part of W
   for( let i=n1;   i < m; i++ )
   for( let j=i ; ++j < m;     ) {
-    const W_ij = TMPF[W_off + m*i+j];
-                 TMPF[W_off + m*i+j] = TMPF[W_off + m*j+i];
-                                       TMPF[W_off + m*j+i] = W_ij;
+    const W_ij = F[W_off + m*i+j];
+                 F[W_off + m*i+j] = F[W_off + m*j+i];
+                                    F[W_off + m*j+i] = W_ij;
   }
 
   if( n0 < n1 )
   { // init deflated region in W
     for( let i=n0; i < n1; i++ ) {
-      TMPF.fill(0.0, W_off + m*i+n0,
-                     W_off + m*i+m);
-      TMPF[W_off + m*i+i] = 1;
+      F.fill(0.0, W_off + m*i+n0,
+                  W_off + m*i+m);
+      F[W_off + m*i+i] = 1;
     }
     for( let i=n1; i < m; i++ )
-      TMPF.fill(0.0, W_off + m*i+n0,
-                     W_off + m*i+n1);
+      F.fill(0.0, W_off + m*i+n0,
+                  W_off + m*i+n1);
     // rotate W
     for(  let i = n1; i-- > n0; )
-    {   const j = TMPI[rot_off + i];
+    {   const j = I[rot_off + i];
       if(     j < m-1 )
-      { const c = B[B_off + 2*i  ],
-              s = B[B_off + 2*i+1];
-        _giv_rot_rows(TMPF, m-i, W_off + m*i+i,
-                                 W_off + m*j+i, c,s);
+      { const c = F[B_off + 2*i  ],
+              s = F[B_off + 2*i+1];
+        _giv_rot_rows(F, m-i, W_off + m*i+i,
+                              W_off + m*j+i, c,s);
       }
     }
   }
@@ -567,21 +554,21 @@ export function _svd_dc_neves(
     // compute dense part of row (matrix multiplication)
     // U is fairly sparse so the matrix multiplication
     // is designed to benefit from that fact
-    TMPF.fill(0.0, mm_off + n0,
+    F.fill(0.0, mm_off + n0,
                    mm_off + m);
-                     for( let i=n0; i < m; i++ ) { const               U_ri = U[U_off + M*r + TMPI[outerOrd_off + i]];
-    if( 0 !== U_ri ) for( let j=n0; j < m; j++ ) { TMPF[mm_off + j] += U_ri * TMPF[W_off + m*i+j]; }}
+                     for( let i=n0; i < m; i++ ) { const            U_ri = U[U_off + M*r + I[out_off + i]];
+    if( 0 !== U_ri ) for( let j=n0; j < m; j++ ) { F[mm_off + j] += U_ri * F[W_off + m*i+j]; }}
 
     // compute deflated part of row
     for( let i=0; i < n0; i++ ) {
-      const                            c = TMPI[outerOrd_off + i];
-      TMPF[mm_off + i] = U[U_off + M*r+c];
+      const                            c = I[out_off + i];
+      F[mm_off + i] = U[U_off + M*r+c];
     }
 
     // write back row
     for( let i=0; i < m; i++ ) {
-      const         c  = TMPI[innerOrd_off + i];
-      U[U_off + M*r+c] = TMPF[      mm_off + i];
+      const         c  = I[inn_off + i];
+      U[U_off + M*r+c] = F[ mm_off + i];
     }
   }
 
@@ -589,60 +576,55 @@ export function _svd_dc_neves(
   // STEP 6:
   //   UPDATE V
   for( let i=n1; i < m; i++ )
-  {
-    const σi = TMPF[σ_off + i],
-          si = B[B_off + 2*(i - (σi < 0))];
+  { const σi = F[σ_off + i],
+          si = F[B_off + 2*(i - (σi < 0))];
     NORM.reset();
     for( let j=n1; j < m; j++ ) {
-      const dj = B[B_off + 2*j  ],
-            zj = B[B_off + 2*j+1],
+      const dj = F[B_off + 2*j  ],
+            zj = F[B_off + 2*j+1],
           W_ij = zj / (dj-si-σi)
                     / (dj+si+σi);
-      NORM.include(TMPF[W_off + m*i+j] = W_ij);
+      NORM.include(F[W_off + m*i+j] = W_ij);
     }
     const norm = NORM.result;
 
     if( ! (0 < norm || i === m-1) ) throw new Error('Assertion failed.');
 
     for( let j=n1; j < m; j++ )
-      TMPF[W_off + m*i+j] /= norm;
+      F[W_off + m*i+j] /= norm;
   }
 
-  if( 0 === B[B_off + 2*m-1] ) {
-    for( let i=n1; i < m-1; i++ )
-      TMPF[W_off + m*(m-1)+i] = 0;
-    TMPF[W_off + m*(m-1)+(m-1)] = 1;
+  if( 0 === F[B_off + 2*m-1] )
+  { for( let i=n1; i < m-1; i++ )
+      F[W_off + m*(m-1)+i] = 0;
+    F[W_off + m*(m-1)+(m-1)] = 1;
   }
 
   // transpose dense part of W
   for( let i=n1;   i < m; i++ )
   for( let j=i ; ++j < m;     ) {
-    const W_ij = TMPF[W_off + m*i+j];
-                 TMPF[W_off + m*i+j] = TMPF[W_off + m*j+i];
-                                       TMPF[W_off + m*j+i] = W_ij;
+    const W_ij = F[W_off + m*i+j];
+                 F[W_off + m*i+j] = F[W_off + m*j+i];
+                                    F[W_off + m*j+i] = W_ij;
   }
 
   if( n0 < n1 ) {
     // init deflated region in W
     for( let i=n0; i < n1; i++ ) {
-      TMPF.fill(0.0, W_off + m*i+n0,
-                     W_off + m*i+m);
-      TMPF[W_off + m*i+i] = 1;
+      F.fill(0.0, W_off + m*i+n0,
+                  W_off + m*i+m);
+      F[W_off + m*i+i] = 1;
     }
     for( let i=n1; i < m; i++ )
-      TMPF.fill(0.0, W_off + m*i+n0,
-                     W_off + m*i+n1);
+      F.fill(0.0, W_off + m*i+n0,
+                  W_off + m*i+n1);
     // rotate W
     for( let i=n1; i-- > n0; )
-    { const  j = TMPI[rot_off + i],
-             c = B[B_off + 2*i  ],
-             s = B[B_off + 2*i+1];
-      for( let k=i; k < m; k++ )
-      { const                 W_ik = TMPF[W_off + m*i+k],
-                              W_jk = TMPF[W_off + m*j+k];
-        TMPF[W_off + m*i+k] = W_ik* c  +  W_jk*s;
-        TMPF[W_off + m*j+k] = W_ik*-s  +  W_jk*c;
-      }
+    { const  j = I[rot_off + i],
+             c = F[B_off + 2*i  ],
+             s = F[B_off + 2*i+1];
+      _giv_rot_rows(F, m-i, W_off + m*i+i,
+                            W_off + m*j+i, c,s);
     }
   }
 
@@ -652,21 +634,21 @@ export function _svd_dc_neves(
   { // compute dense part of row (matrix multiplication)
     // U is fairly sparse so the matrix multiplication
     // is designed to benefit from that fact
-    TMPF.fill(0.0, mm_off + n0,
-                   mm_off + m);
-                     for( let i=n0; i < m; i++ ) { const               V_ri = V[V_off + N*r + TMPI[outerOrd_off + i]];
-    if( 0 !== V_ri ) for( let j=n0; j < m; j++ ) { TMPF[mm_off + j] += V_ri * TMPF[W_off + m*i+j]; }}
+    F.fill(0.0, mm_off + n0,
+                mm_off + m);
+                     for( let i=n0; i < m; i++ ) { const            V_ri = F[V_off + N*r + I[out_off + i]];
+    if( 0 !== V_ri ) for( let j=n0; j < m; j++ ) { F[mm_off + j] += V_ri * F[W_off + m*i+j]; }}
 
     // compute deflated part of row
     for( let i=0; i < n0; i++ ) {
-      const                            c = TMPI[outerOrd_off + i];
-      TMPF[mm_off + i] = V[V_off + N*r+c];
+      const                         c = I[out_off + i];
+      F[mm_off + i] = F[V_off + N*r+c];
     }
 
     // write back row
     for( let i=0; i < m; i++ ) {
-      const         c  = TMPI[innerOrd_off + i];
-      V[V_off + N*r+c] = TMPF[      mm_off + i];
+      const         c  = I[inn_off + i];
+      F[V_off + N*r+c] = F[ mm_off + i];
     }
   }
 
@@ -674,12 +656,12 @@ export function _svd_dc_neves(
   // STEP 7:
   //   GENERAL POSTPROCESSING
   for( let i=n1; i < m; i++ )
-    TMPF[σ_off + i] += B[B_off + 2*(i - (TMPF[σ_off + i] < 0))];
+    F[σ_off + i] += F[B_off + 2*(i - (F[σ_off + i] < 0))];
 
   for( let i=0; i < m; i++ ) {
-    const  j =  TMPI[innerOrd_off + i];
-    B[B_off + 2*j  ] = TMPF[σ_off + i] * scale;
-    B[B_off + 2*j+1] = NaN; // <- TEST ONLY
+    const       j =  I[inn_off + i];
+    F[B_off + 2*j  ] = F[σ_off + i] * scale;
+    F[B_off + 2*j+1] = NaN; // <- TEST ONLY
   }
 }
 
@@ -690,21 +672,21 @@ export function _svd_dc_neves(
  * entry B(i,i) and B[B_off+2*i+1] is the off-diagonal
  * element B(i,i+1).
  */
-export function _svd_dc_bidiag( N, n, U,U_off, B,B_off, V,V_off, TMPI, TMPF )
+export function _svd_dc_bidiag( N, n, U,U_off, F,B_off,V_off, I )
 {
   if(     n > N) throw new Error('Assertion failed.');
   if(1 >= n    ) throw new Error('Assertion failed.');
 
-  if(2===n) return _svd_dc_1x2(N, U,U_off, B,B_off, V,V_off);
-  if(3===n) return _svd_dc_2x3(N, U,U_off, B,B_off, V,V_off);
+  if(2===n) return _svd_dc_1x2(N, U,U_off, F,B_off,V_off);
+  if(3===n) return _svd_dc_2x3(N, U,U_off, F,B_off,V_off);
 
   const M  = N-1,
         m  = n-1,
         n0 = n >>> 1,
         m0 = n0-1;
 
-  if( TMPI.length < M  ) throw new Error('Assertion failed: Integer work matrix TMPI too small.');
-  if( TMPF.length < M*2) throw new Error('Assertion failed: Scalar work matrix TMPF too small.');
+  if( I.length < M  ) throw new Error('Assertion failed: Integer work matrix I too small.');
+  if( F.length < M*2) throw new Error('Assertion failed: Scalar work matrix F too small.');
 
 
   // STEP 1: DIVIDE
@@ -723,12 +705,12 @@ export function _svd_dc_bidiag( N, n, U,U_off, B,B_off, V,V_off, TMPI, TMPF )
   //       ┃          ┆    B2    ┃     ┃          ┆ U2⋅S2⋅V2 ┃
   //       ┃          ┆          ┃     ┃          ┆          ┃
   //       ┗                     ┛     ┗                     ┛
-  _svd_dc_bidiag(N,  n0, U,U_off          , B,B_off,      V,V_off          , TMPI, TMPF);
-  _svd_dc_bidiag(N,n-n0, U,U_off + M*n0+n0, B,B_off+2*n0, V,V_off + N*n0+n0, TMPI, TMPF);
+  _svd_dc_bidiag(N,  n0, U,U_off          , F,B_off,      V_off          , I);
+  _svd_dc_bidiag(N,n-n0, U,U_off + M*n0+n0, F,B_off+2*n0, V_off + N*n0+n0, I);
                          U[U_off + M*m0+m0] = 1;
 
-  const b1 = B[B_off + 2*m0  ],
-        b2 = B[B_off + 2*m0+1];
+  const b1 = F[B_off + 2*m0  ],
+        b2 = F[B_off + 2*m0+1];
 
 //  if( ! isFinite(b1) ) throw new Error('Assertion failed.');
 //  if( ! isFinite(b2) ) throw new Error('Assertion failed.');
@@ -748,8 +730,8 @@ export function _svd_dc_bidiag( N, n, U,U_off, B,B_off, V,V_off, TMPI, TMPF )
   //     ┃          ┆          ┃   ┃        ┆      ┃ ┃          ┆       ┆ ┃ ┃          ┆          ┃
   //     ┗                     ┛   ┗               ┛ ┗                    ┛ ┃          ┆          ┃
   //                                                                        ┗                     ┛
-  for( let i= 0; i < m0; i++ ) B[B_off + 2*i +1] = b1 * V[V_off + N*m0 + i];
-  for( let i=n0; i < m ; i++ ) B[B_off + 2*i +1] = b2 * V[V_off + N*n0 + i];
+  for( let i= 0; i < m0; i++ ) F[B_off + 2*i +1] = b1 * F[V_off + N*m0 + i];
+  for( let i=n0; i < m ; i++ ) F[B_off + 2*i +1] = b2 * F[V_off + N*n0 + i];
 
   // With the following definitions:
   //                 ┏          ╷    ┓
@@ -790,22 +772,22 @@ export function _svd_dc_bidiag( N, n, U,U_off, B,B_off, V,V_off, TMPI, TMPF )
   //       ┗               ┛ ┗                      ┛ ┃          ┆          ┃   ┗               ┛ ┗                    ┛ ┃  -s*w1   ┆  c*w2    ┃
   //                                                  ┗                     ┛                                            ┗                     ┛
   const [c,s,h] = function(){
-    let   c = b1 * V[V_off + N*m0 + m0],
-          s = b2 * V[V_off + N*n0 + m ];
+    let   c = b1 * F[V_off + N*m0 + m0],
+          s = b2 * F[V_off + N*n0 + m ];
     const h = Math.hypot(c,s);
     return [c/h, s/h, h];
   }();
 
 //  if( ! isFinite(h) ) throw new Error('Assertion failed.'); 
 
-  B[B_off + 2*m0  ] = 0;
-  B[B_off + 2*m0+1] = h;
+  F[B_off + 2*m0  ] = 0;
+  F[B_off + 2*m0+1] = h;
 
   if( 0 !== h ) {
-    for( let i= 0; i < n0; i++ ) { V[V_off + N*i + m ] = V[V_off + N*i + m0] * -s;
-                                                         V[V_off + N*i + m0] *= c; }
-    for( let i=n0; i < n ; i++ ) { V[V_off + N*i + m0] = V[V_off + N*i + m ] *  s;
-                                                         V[V_off + N*i + m ] *= c; }
+    for( let i= 0; i < n0; i++ ) { F[V_off + N*i + m ] = F[V_off + N*i + m0] * -s;
+                                                         F[V_off + N*i + m0] *= c; }
+    for( let i=n0; i < n ; i++ ) { F[V_off + N*i + m0] = F[V_off + N*i + m ] *  s;
+                                                         F[V_off + N*i + m ] *= c; }
   }
 
 
@@ -815,86 +797,84 @@ export function _svd_dc_bidiag( N, n, U,U_off, B,B_off, V,V_off, TMPI, TMPF )
   // See _svd_dc_neves() for more information about the shape of the Neves matrix. An integer array
   // called the "outer order" is used to keep track of the row and column swaps. The outer order
   // indicates where the rows and column of the middle matrix have originaally been.
-  TMPI[m-1] = m0;
+  I[m-1] = m0;
   // merge sort diagonal entries
   for( let i = 0,
            j =n0,
            k = 0; k < m-1; k++ )
-    TMPI[k] = j >= m || (i < m0 && B[B_off + 2*i]
-                                >= B[B_off + 2*j]) ? i++ : j++;
+    I[k] = j >= m || (i < m0 && F[B_off + 2*i]
+                             >= F[B_off + 2*j]) ? i++ : j++;
 
-//  if( TMPI.slice(0,m).sort().some((i,j) => i !== j) ) throw new Error('Assertion failed.');
+//  if( I.slice(0,m).sort().some((i,j) => i !== j) ) throw new Error('Assertion failed.');
 
   for( let i=0; i < m; i++ ) {
-    const                     j = TMPI[i];
-    TMPF[2*i  ] = B[B_off + 2*j  ];
-    TMPF[2*i+1] = B[B_off + 2*j+1];
+    const                     j = I[i];
+    F[2*i  ] = F[B_off + 2*j  ];
+    F[2*i+1] = F[B_off + 2*j+1];
   }
 
   for( let i=0; i < m; i++ ) {
-    B[B_off + 2*i  ] = TMPF[2*i  ];
-    B[B_off + 2*i+1] = TMPF[2*i+1];
+    F[B_off + 2*i  ] = F[2*i  ];
+    F[B_off + 2*i+1] = F[2*i+1];
   }
 
-  _svd_dc_neves(N,n, U,U_off, B,B_off, V,V_off, TMPI, TMPF);
+  _svd_dc_neves(N,n, U,U_off, F,B_off,V_off, I);
 }
 
 
-export function _svd_dc( M,N, U,U_off, sv,sv_off, V,V_off, TMPI, TMPF )
+export function _svd_dc( M,N, U,U_off, sv,sv_off, V,V_off, I, F )
 {
   if( M > N ) throw new Error('Assertion failed.');
 
-  if( TMPI.length < M*3                                   ) throw new Error('Assertion failed: Integer work matrix TMPI too small.');
-  if( TMPF.length < M*(M+2) + M*2 + (M+1)*(M+1) + (M+1)*N ) throw new Error( 'Assertion failed: Scalar work matrix TMPF too small.');
+  if( I.length < M*3                                   ) throw new Error('Assertion failed: Integer work matrix I too small.');
+  if( F.length < M*(M+2) + M*2 + (M+1)*(M+1) + (M+1)*N ) throw new Error( 'Assertion failed: Scalar work matrix F too small.');
 
   const B_off =          M   *(M+2),
        V1_off =  B_off + M*2,
        V2_off = V1_off +(M+1)*(M+1);
 
-  TMPF.fill(0.0, V1_off,
-                 V2_off + N);
+  F.fill(0.0, V1_off,
+              V2_off + N);
 
   // COPY A FROM V TO V2
   for( let i=0; i < M; i++ )
   for( let j=0; j < N; j++ )
-    TMPF[V2_off+N + N*i+j] = V[V_off + N*i+j];
+    F[V2_off+N + N*i+j] = V[V_off + N*i+j];
 
   V.fill(0.0,  V_off,
                V_off + M*N);
 
-  _bidiag_decomp_horiz(M,N, U,U_off, TMPF,0, TMPF,V2_off);
+  _bidiag_decomp_horiz(M,N, U,U_off, F,0, F,V2_off);
 
   for( let i=0; i < M; i++ ) {
-    TMPF[B_off + 2*i  ] = TMPF[(M+1)*i + i  ];
-    TMPF[B_off + 2*i+1] = TMPF[(M+1)*i + i+1];
+    F[B_off + 2*i  ] = F[(M+1)*i + i  ];
+    F[B_off + 2*i+1] = F[(M+1)*i + i+1];
   }
 
   _svd_dc_bidiag(
     M+1, M+1,
-    V,     V_off,
-    TMPF,  B_off,
-    TMPF, V1_off,
-    TMPI,
-    TMPF
+    V, V_off,
+    F, B_off,
+      V1_off,
+    I
   );
 
   for( let i=0; i < M; i++ )
-    sv[sv_off + i] = TMPF[B_off + 2*i];
+    sv[sv_off + i] = F[B_off + 2*i];
 
   // update U = U @ U2 (U2 is stored in V)
   for( let i=0; i < M; i++ )
-  {
-    TMPF.fill(0.0, 0,M);
+  { F.fill(0.0, 0,M);
     for( let k=0; k < M; k++ )
-    for( let j=0; j < M; j++ )                    TMPF[j] += U[U_off + M*i+k] * V[V_off + M*k+j];
-    for( let j=0; j < M; j++ ) U[U_off + M*i+j] = TMPF[j];
+    for( let j=0; j < M; j++ )                    F[j] += U[U_off + M*i+k] * V[V_off + M*k+j];
+    for( let j=0; j < M; j++ ) U[U_off + M*i+j] = F[j];
   }
 
   // update V = V1 @ V2 (keep in mind that VV was computed in a transposed/column-major fashion)
   V.fill(0.0, V_off,V_off + M*M);
   for( let k=0; k < M+1; k++ )
   for( let i=0; i < M;   i++ )
-  for( let j=0; j < N;   j++ ) V[V_off + N*i+j] += TMPF[V1_off + (M+1)*k+i] * TMPF[V2_off + N*k+j];
+  for( let j=0; j < N;   j++ ) V[V_off + N*i+j] += F[V1_off + (M+1)*k+i] * F[V2_off + N*k+j];
 }
 
 
@@ -930,8 +910,8 @@ export function svd_dc(A)
 
   const U = new DTypeArray(len * M*M),
        sv = new DTypeArray(len *   M),
-     TMPF = new DTypeArray(M*(M+2)/*TMPF*/ + M*2/*B*/ + (M+1)*(M+1)/*V1*/ + (M+1)*Math.max(1+M,N)/*V2*/),
-     TMPI = new Int32Array(M*3);
+        F = new DTypeArray(M*(M+2)/*F*/ + M*2/*B*/ + (M+1)*(M+1)/*V1*/ + (M+1)*Math.max(1+M,N)/*V2*/),
+        I = new Int32Array(M*3);
 
   for(
     let U_off=0,
@@ -940,7 +920,7 @@ export function svd_dc(A)
         U_off += M*M,
        sv_off +=   M,
         V_off +=   M*N
-  ) _svd_dc(M,N, U,U_off, sv,sv_off, V,V_off, TMPI, TMPF);
+  ) _svd_dc(M,N, U,U_off, sv,sv_off, V,V_off, I, F);
 
   return [
     new NDArray( U_shape, U),
