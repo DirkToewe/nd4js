@@ -51,6 +51,7 @@
 //         '1-sided': nd.la.svd_jac_1sided,
          'blocked'     : nd.la.svd_jac_2sided_blocked,
          '2-sided'     : nd.la.svd_jac_2sided,
+         'D & C'       : nd.la.svd_dc,
 //         'classic'     : nd.la.svd_jac_classic,
        }).map(
          ([name, method]) => [name, method, {type: 'scatter2d', name, x: [], y: []}]
@@ -62,7 +63,8 @@
 
        const steps_per_binade = 64;
 
-       for( let run=6*steps_per_binade; run < 11*steps_per_binade; run++ )
+//       for( let run=6*steps_per_binade; run < 11*steps_per_binade; run++ )
+       for( let run=11*steps_per_binade; run >= 0; run-- )
        {
          const N = Math.round( 2 ** (run/steps_per_binade) );
 

@@ -1,7 +1,7 @@
 {
   "name": "nd4js",
   "description": "A freedom-respecting nd-array and linear algebra library.",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "main": "./lib/index.js",
   "license": "GPL-3.0-only",
   "scripts": {
