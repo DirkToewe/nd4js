@@ -236,7 +236,10 @@ export const _svd_dc_neves = (N,n, U,U_off, F,B_off,V_off, I) =>
   for( let i=0; i < 2*m; i++ )
     F[B_off + i] /= scale;
 
-  const TOL = eps('float64'); // <- FIXME make general purpose (independent of dtype)
+  const TOL = eps(
+    U instanceof Float32Array ? 'float32'
+                              : 'float64'
+  );
 
 
   // STEP 1: DEFLATION
@@ -260,7 +263,7 @@ export const _svd_dc_neves = (N,n, U,U_off, F,B_off,V_off, I) =>
   //
   //   This way only the lower right quadrant needs to be solved
   //   iteratively (using the secular equations). The actual
-  //   implementation moves the deflated values to μ and not to
+  //   implementation moves the deflated values to σ and not to
   //   the left.
   const n0 = function(){
     let n0 = 0;
@@ -274,7 +277,7 @@ export const _svd_dc_neves = (N,n, U,U_off, F,B_off,V_off, I) =>
         I[inn_off + n0] = oi; // <- used as temp. for outerOrder
                   ++n0;
       }
-      else {             --j;
+      else {        --j;
         F[  B_off + 2*j  ] = di;
         F[  B_off + 2*j+1] = F[B_off + 2*i+1];
         I[inn_off +   j  ] = oi; // <- used as temp. for outerOrder
@@ -358,10 +361,8 @@ export const _svd_dc_neves = (N,n, U,U_off, F,B_off,V_off, I) =>
             zi = F[B_off + 2*i+1],
             zj = F[B_off + 2*j+1], z = Math.hypot(zi,zj);
       if( (di-dj)/TOL <= di || ! isFinite( Math.sqrt(m) / (di-dj) ) ) // <- TODO find better criteria
-      {
-        const
-          c = zj / z,
-          s = zi / z;
+      { const c = zj / z,
+              s = zi / z;
         F[W_off + 2*n1  ] = c;
         F[W_off + 2*n1+1] = s;
         F[B_off + 2*j+1] = z;
@@ -403,8 +404,8 @@ export const _svd_dc_neves = (N,n, U,U_off, F,B_off,V_off, I) =>
       if( i > n1 )
       { const mid = (sLo + sHi) / 2;
         let   sum = 1;
-        for( let i=n1; i < m; i++ ) {
-          const  di = F[B_off + 2*i  ],
+        for( let i=n1; i < m; i++ )
+        { const  di = F[B_off + 2*i  ],
                  zi = F[B_off + 2*i+1];
           sum += zi / (di-mid)
               * (zi / (di+mid));
@@ -419,14 +420,14 @@ export const _svd_dc_neves = (N,n, U,U_off, F,B_off,V_off, I) =>
     { // bisect
       const s  = (sLo + sHi) / 2;
       if(   s === sLo
-         || s === sHi ) {
-        F[σ_off + i] = s; // FIXME at this point sLo and sHi still have to be compared
+         || s === sHi )
+      { F[σ_off + i] = s; // FIXME at this point sLo and sHi still have to be compared
         break;
       }
       // evalue the secular equation
       let sum = 1;
-      for( let i=n1; i < m; i++ ) {
-        const  di = F[B_off + 2*i  ],
+      for( let i=n1; i < m; i++ )
+      { const  di = F[B_off + 2*i  ],
                zi = F[B_off + 2*i+1];
         sum += zi / (di-shift-s)
             * (zi / (di+shift+s));
@@ -450,8 +451,7 @@ export const _svd_dc_neves = (N,n, U,U_off, F,B_off,V_off, I) =>
     const σn = F[σ_off + m-1],
           sn = F[B_off + 2*(m-1 - (σn < 0))]; // <- shift
     for( let i=n1; i < m; i++ )
-    {
-      const di = F[B_off + 2*i];
+    { const di = F[B_off + 2*i];
       let   zi = (sn-di+σn)
                * (sn+di+σn);
 
@@ -498,12 +498,11 @@ export const _svd_dc_neves = (N,n, U,U_off, F,B_off,V_off, I) =>
   // STEP 5:
   //   UPDATE U
   for( let i=n1; i < m; i++ )
-  {
-    const σi = F[σ_off + i],
+  { const σi = F[σ_off + i],
           si = F[B_off + 2*(i - (σi < 0))]; // <- shift
     NORM.reset();
-    for( let j=n1; j < m-1; j++ ) {
-      const dj = F[B_off + 2*j  ],
+    for( let j=n1; j < m-1; j++ )
+    { const dj = F[B_off + 2*j  ],
             zj = F[B_off + 2*j+1],
           W_ij = ( zj / (dj-si-σi) )
                * ( dj / (dj+si+σi) );
@@ -520,8 +519,8 @@ export const _svd_dc_neves = (N,n, U,U_off, F,B_off,V_off, I) =>
 
   // transpose dense part of W
   for( let i=n1;   i < m; i++ )
-  for( let j=i ; ++j < m;     ) {
-    const W_ij = F[W_off + m*i+j];
+  for( let j=i ; ++j < m;     )
+  { const W_ij = F[W_off + m*i+j];
                  F[W_off + m*i+j] = F[W_off + m*j+i];
                                     F[W_off + m*j+i] = W_ij;
   }
@@ -550,24 +549,23 @@ export const _svd_dc_neves = (N,n, U,U_off, F,B_off,V_off, I) =>
 
   // UPDATE U: U = U⋅Wᵀ
   for( let r=0; r < m; r++ )
-  {
-    // compute dense part of row (matrix multiplication)
+  { // compute dense part of row (matrix multiplication)
     // U is fairly sparse so the matrix multiplication
     // is designed to benefit from that fact
     F.fill(0.0, mm_off + n0,
-                   mm_off + m);
+                mm_off + m);
                      for( let i=n0; i < m; i++ ) { const            U_ri = U[U_off + M*r + I[out_off + i]];
     if( 0 !== U_ri ) for( let j=n0; j < m; j++ ) { F[mm_off + j] += U_ri * F[W_off + m*i+j]; }}
 
     // compute deflated part of row
-    for( let i=0; i < n0; i++ ) {
-      const                            c = I[out_off + i];
+    for( let i=0; i < n0; i++ )
+    { const                         c = I[out_off + i];
       F[mm_off + i] = U[U_off + M*r+c];
     }
 
     // write back row
-    for( let i=0; i < m; i++ ) {
-      const         c  = I[inn_off + i];
+    for( let i=0; i < m; i++ )
+    { const         c  = I[inn_off + i];
       U[U_off + M*r+c] = F[ mm_off + i];
     }
   }
@@ -674,6 +672,19 @@ export const _svd_dc_neves = (N,n, U,U_off, F,B_off,V_off, I) =>
  */
 export function _svd_dc_bidiag( N, n, U,U_off, F,B_off,V_off, I )
 {
+  // TODO:
+  //   Replacing this recursion with a loop would likely
+  //   increase performance by a significant amount
+  // TODO:
+  //   For small enough bidiagonal matrices (around m <= 64),
+  //   the QR method could be used to compute the SVD not just
+  //   fast but also more accurately, see:
+  //     * "Accurate Singular Values of Bidiagonal Matrices"
+  //       by James Demmel & W. Kahan
+  //       Lapack Working Note (LAWN) No. 3
+  //       http://www.netlib.org/lapack/lawnspdf/lawn03.pdf
+  //     * "Computing Small Singular Values of Bidiagonal Matrices with Guaranteed High Relative Accuracy"
+  //       by James Demmel & W. Kahan
   if(     n > N) throw new Error('Assertion failed.');
   if(1 >= n    ) throw new Error('Assertion failed.');
 
