@@ -19,6 +19,7 @@
 export * from './bidiag'
 export * from './cholesky'
 export * from './diag'
+export * from './det'
 export * from './eigen'
 export * from './eye'
 export {hessenberg_decomp} from './hessenberg'
