@@ -63,8 +63,8 @@ export function svd_jac_classic(A)
      diag = new DTypeArray(N),
       ord = Int32Array.from({length: N}, (_,i) => i);
 
-  if( 1 >  N ) throw new Error('Assertion failed.');
-  if( 1 == N ) {
+  if( 1 > N ) throw new Error('Assertion failed.');
+  if( 1===N ) {
     for( let i=U.length; i-- > 0; )
       if( U[i] < +0.0 ) {
           U[i] *= -1.0;

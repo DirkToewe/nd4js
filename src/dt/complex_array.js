@@ -59,6 +59,7 @@ function createComplexArrayType( FloatArray )
         if( null != length ) length *= 2;
         this._array = new FloatArray(buffer,byteOffset,length);
       }
+      Object.seal(this);
       return new Proxy(this,HANDLER)
     }
   

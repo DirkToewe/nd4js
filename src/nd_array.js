@@ -104,6 +104,7 @@ export class NDArray extends Function
     Object.freeze(shape.buffer);
     self.shape = shape;
     self.data  = data;
+    Object.seal(self);
     return self;
   }
 
