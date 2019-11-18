@@ -1,8 +1,9 @@
 # Introduction
-`nd.js` is a lightweight JavaScript library for ND-Arrays including some optimization functionality and one of the most complete linear algebra modules for the Web. It is strongly inspired by [NumPy](http://www.numpy.org/). There are, however, some key differences. Broadcasting, slicing and reshape work in a similar way as in NumPy. Instead of the predefined operations (+, -, *, /, sin, cos, ...), `nd.js` relies on functional-style map- and zip-like methods.
+`nd.js` is a lightweight JavaScript library for ND-Arrays including some optimization functionality and one of the most complete linear algebra modules for the web. It is strongly inspired by [NumPy](http://www.numpy.org/). There are, however, some key differences. Broadcasting, slicing and reshape work in a similar way as in NumPy. Instead of the predefined operations (+, -, *, /, sin, cos, ...), `nd.js` relies on functional-style map- and zip-like methods.
 
 A function reference can be found [here](https://dirktoewe.github.io/ndjs/doc.html).
 
+  * [Installation](#installation)
   * [Building and Testing](#building-and-testing)
   * [Array Instantiation](#array-instantiation)
   * [Random Access](#random-access)
@@ -10,6 +11,12 @@ A function reference can be found [here](https://dirktoewe.github.io/ndjs/doc.ht
   * [Binary Operations (+, -, *, /, ...)](#binary-operations------)
   * [Ternary Operations (?:, ...)](#ternary-operations--)
   * [Linear Algebra](#linear-algebra)
+
+# Installation
+
+```
+npm i nd4js
+```
 
 # Building and Testing
 `nd.js` is built and tested using [NPM](https://www.npmjs.com/). To initialize the project open the command line, navigate to the project directory and call:
@@ -33,7 +40,7 @@ npm run build
 `nd.js` has some development dependencies, most notably [Babel](https://babeljs.io/) and [Webpack](https://webpack.js.org/) for bundling and [Jasmine](https://jasmine.github.io/) for testing. There are however no deployment dependencies as of yet.
 
 # Array Instantiation
-[nd.array](https://dirktoewe.github.io/ndjs/doc.html#nd.array) allows to create nd.Arrays in a well-readable and intuitive way, using nested JavaScript Arrays.
+[nd.array](https://dirktoewe.github.io/ndjs/doc.html#nd.array) allows to create NDArray instances in a well-readable and intuitive way, using nested JavaScript Arrays.
 
 ```js
 const a = nd.array([
@@ -43,7 +50,7 @@ const a = nd.array([
 ])
 ```
 
-An nd.Array can also be created from its entries' indices using [nd.tabulate](https://dirktoewe.github.io/ndjs/doc.html#nd.tabulate).
+An NDArray can also be created from its entries' indices using [nd.tabulate](https://dirktoewe.github.io/ndjs/doc.html#nd.tabulate).
 
 *Input:*
 ```js
@@ -108,7 +115,7 @@ console.log( a.toString() );
  [ 31, 32, 33 ]]
 ```
 
-If array elements are to me modified, [nd.NDArray.modify](https://dirktoewe.github.io/ndjs/doc.html#nd.NDArray.modify) is a concise
+If array elements are to be modified, [nd.NDArray.modify](https://dirktoewe.github.io/ndjs/doc.html#nd.NDArray.modify) is a concise
 alternative to using [nd.NDArray.get](https://dirktoewe.github.io/ndjs/doc.html#nd.NDArray.get) and
 [nd.NDArray.set](https://dirktoewe.github.io/ndjs/doc.html#nd.NDArray.set).
 
@@ -130,7 +137,7 @@ console.log( a.toString() );
 
 
 # Unary Operations (sin, cos, exp, ...)
-[nd.NDArray.mapElems](https://dirktoewe.github.io/ndjs/doc.html#nd.NDArray.mapElems) is used to apply unary operations on an nd.Array.
+[nd.NDArray.mapElems](https://dirktoewe.github.io/ndjs/doc.html#nd.NDArray.mapElems) is used to apply unary operations on an NDArray.
 
 *Input:*
 ```js
@@ -149,7 +156,7 @@ console.log( b.toString() )
 ```
 
 # Binary Operations (+, -, *, /, ...)
-[nd.zip_elems](https://dirktoewe.github.io/ndjs/doc.html#nd.zip_elems) can be used to apply binary operations on two nd.Arrays.
+[nd.zip_elems](https://dirktoewe.github.io/ndjs/doc.html#nd.zip_elems) can be used to apply binary operations on two NDArrays.
 
 *Input:*
 ```js
