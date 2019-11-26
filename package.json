@@ -1,7 +1,7 @@
 {
   "name": "nd4js",
   "description": "A freedom-respecting nd-array and linear algebra library.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "./lib/index.js",
   "license": "GPL-3.0-only",
   "scripts": {
@@ -14,17 +14,19 @@
     "url": "https://github.com/DirkToewe/ndjs"
   },
   "dependencies": {
-    "@babel/runtime": "^7.7.2"
+    "@babel/runtime": "^7.7.4"
   },
   "devDependencies": {
-    "@babel/cli": "^7.7.0",
-    "@babel/core": "^7.7.2",
-    "@babel/plugin-transform-regenerator": "^7.7.0",
-    "@babel/plugin-transform-runtime": "^7.6.2",
-    "@babel/preset-env": "^7.7.1",
+    "@babel/cli": "^7.7.4",
+    "@babel/core": "^7.7.4",
+    "@babel/plugin-transform-regenerator": "^7.7.4",
+    "@babel/plugin-transform-runtime": "^7.7.4",
+    "@babel/preset-env": "^7.7.4",
     "acorn": "^6.3.0",
     "babel-loader": "^8.0.6",
     "glob": "^7.1.6",
+    "jsdoc": "^3.6.3",
+    "jsdoc-api": "^5.0.4",
     "jsdom": "^13.2.0",
     "karma": "^4.4.1",
     "karma-chrome-launcher": "^2.2.0",
@@ -39,5 +41,24 @@
     "webpack": "^4.41.2",
     "webpack-cli": "^3.3.10"
   },
+  "keywords": [
+    "cholesky decomposition",
+    "eigenvalues",
+    "linear algebra",
+    "linear equations",
+    "linear least squares",
+    "matrix",
+    "ndarray",
+    "numerics",
+    "numpy",
+    "npy file format",
+    "optimization",
+    "qr decomposition",
+    "rrqr decomposition",
+    "schur decomposition",
+    "singular values",
+    "svd",
+    "tensor"
+  ],
   "author": "Dirk Toewe"
 }
