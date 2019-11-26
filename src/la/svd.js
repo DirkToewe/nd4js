@@ -109,9 +109,9 @@ export function svd_lstsq(U,sv,V, y)
     [N,M] = U.shape.slice(-2),
     [I]   = V.shape.slice(-1),
     [J]   = y.shape.slice(-1)
-  if( N !=  y.shape[ y.ndim-2] ) throw new Error("svd_lstsq(U,sv,V, y): U and y don't match.")
-  if( M != sv.shape[sv.ndim-1] ) throw new Error("svd_lstsq(U,sv,V, y): U and sv don't match.")
-  if( M !=  V.shape[ V.ndim-2] ) throw new Error("svd_lstsq(U,sv,V, y): V and sv don't match.")
+  if( N !==  y.shape[ y.ndim-2] ) throw new Error("svd_lstsq(U,sv,V, y): U and y don't match.")
+  if( M !== sv.shape[sv.ndim-1] ) throw new Error("svd_lstsq(U,sv,V, y): U and sv don't match.")
+  if( M !==  V.shape[ V.ndim-2] ) throw new Error("svd_lstsq(U,sv,V, y): V and sv don't match.")
 
   const ndim = Math.max(U.ndim, sv.ndim+1, V.ndim, y.ndim),
        shape = Int32Array.from({length: ndim}, () => 1);
