@@ -1,5 +1,5 @@
 # Introduction
-`nd.js` is a lightweight JavaScript library for ND-Arrays including some optimization functionality and one of the most complete linear algebra modules for the web. It is strongly inspired by [NumPy](http://www.numpy.org/). There are, however, some key differences. Broadcasting, slicing and reshape work in a similar way as in NumPy. Instead of the predefined operations (+, -, *, /, sin, cos, ...), `nd.js` relies on functional-style map- and zip-like methods.
+`nd4js` is a lightweight JavaScript library for ND-Arrays including some optimization functionality and one of the most complete linear algebra modules for the web. It is strongly inspired by [NumPy](http://www.numpy.org/). There are, however, some key differences. Broadcasting, slicing and reshape work in a similar way as in NumPy. Instead of the predefined operations (+, -, *, /, sin, cos, ...), `nd4js` relies on functional-style map- and zip-like methods.
 
 A function reference can be found [here](https://dirktoewe.github.io/ndjs/doc.html).
 
@@ -19,13 +19,13 @@ npm i nd4js
 ```
 
 # Building and Testing
-`nd.js` is built and tested using [NPM](https://www.npmjs.com/). To initialize the project open the command line, navigate to the project directory and call:
+`nd4js` is built and tested using [NPM](https://www.npmjs.com/). To initialize the project open the command line, navigate to the project directory and call:
 
 ```
 npm i
 ```
 
-To cover as many test cases as possible with little effort, `nd.js` mostly uses randomized testing instead of hand crafted test cases. As a result, testing the entire project takes rather long (~50 minutes). If You want to run only a subset of the tests during development, change the [glob](https://en.wikipedia.org/wiki/Glob_(programming)) pattern of the `file` setting inside of `karma.conf.js`, e.g. use `'src/la/**/*_test.js'` instead of `'src/**/*_test.js'` to test linear algebra methods only.
+To cover as many test cases as possible with little effort, `nd4js` mostly uses randomized testing instead of hand crafted test cases. As a result, testing the entire project takes rather long (~50 minutes). If You want to run only a subset of the tests during development, change the [glob](https://en.wikipedia.org/wiki/Glob_(programming)) pattern of the `file` setting inside of `karma.conf.js`, e.g. use `'src/la/**/*_test.js'` instead of `'src/**/*_test.js'` to test linear algebra methods only.
 
 In order to run the tests call:
 ```
@@ -37,12 +37,14 @@ To build/bundle the library, call:
 npm run build
 ```
 
-`nd.js` has some development dependencies, most notably [Babel](https://babeljs.io/) and [Webpack](https://webpack.js.org/) for bundling and [Jasmine](https://jasmine.github.io/) for testing. There are however no deployment dependencies as of yet.
+`nd4js` has some development dependencies, most notably [Babel](https://babeljs.io/) and [Webpack](https://webpack.js.org/) for bundling and [Jasmine](https://jasmine.github.io/) for testing. There are however no deployment dependencies as of yet.
 
 # Array Instantiation
 [nd.array](https://dirktoewe.github.io/ndjs/doc.html#nd.array) allows to create NDArray instances in a well-readable and intuitive way, using nested JavaScript Arrays.
 
 ```js
+const nd = require('nd4js')
+
 const a = nd.array([
   [1,0,0],
   [0,2,0],
@@ -231,7 +233,7 @@ console.log( c.toString() )
 ```
 
 # Linear Algebra
-`nd.js` now offers a fairly wide variety of Linear Algebra operations in the [nd.la](https://dirktoewe.github.io/ndjs/doc.html#nd.la) subpackage.
+`nd4js` now offers a fairly wide variety of Linear Algebra operations in the [nd.la](https://dirktoewe.github.io/ndjs/doc.html#nd.la) subpackage.
 [la.matmul](https://dirktoewe.github.io/ndjs/doc.html#nd.la.matmul) computes the matrix product of two or more matrices. The order of multiplication
 is automatically optimized to minimize the number of floating point operations.
 
