@@ -17,7 +17,7 @@
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
-import {NDArray} from '../nd_array'
+import {array, NDArray} from '../nd_array'
 import {tabulate} from '../tabulate'
 import {zip_elems} from '../zip_elems'
 import {matmul, matmul2} from './matmul'
@@ -29,6 +29,32 @@ import {lstsq} from './lstsq'
 describe('lstsq', () => {
   beforeEach( () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
+  })
+
+
+  it('solves int32 examples', () => {
+    for( const [dt1,dt2] of [
+      [  'int32','float64'],
+      ['float64',  'int32'],
+      [  'int32',  'int32']
+    ])
+    {
+      const A = array(dt1,
+        [[1,1],
+         [1,2],
+         [1,3],
+         [1,4],
+         [1,5]]
+      )
+      const y = array(dt2, [[2,3,4,5,6]]).T
+      Object.freeze(A.data.buffer)
+      Object.freeze(y.data.buffer)
+
+      const x = lstsq(A,y)
+
+      expect(x).toBeAllCloseTo([[1],
+                                [1]])
+    }
   })
 
 

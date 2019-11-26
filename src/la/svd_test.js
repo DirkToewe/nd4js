@@ -17,7 +17,7 @@
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
-import {NDArray} from '../nd_array'
+import {array, NDArray} from '../nd_array'
 import {diag_mat} from './diag'
 import {tabulate} from '../tabulate'
 import {zip_elems} from '../zip_elems'
@@ -74,6 +74,33 @@ describe('svd', () => {
                 x  = svd_solve(U,sv,V, y)
   
     expect( matmul2(A,x) ).toBeAllCloseTo(y)
+  })
+
+
+  it('svd_lstsq solves int32 examples', () => {
+    for( const [dt1,dt2] of [
+      [  'int32','float64'],
+      ['float64',  'int32'],
+      [  'int32',  'int32']
+    ])
+    {
+      const A = array(dt1,
+        [[1,1],
+         [1,2],
+         [1,3],
+         [1,4],
+         [1,5]]
+      )
+      const y = array(dt2, [[2,3,4,5,6]]).T
+      Object.freeze(A.data.buffer)
+      Object.freeze(y.data.buffer)
+
+      const [U,sv,V] = svd_decomp(A),
+                  x  = svd_lstsq(U,sv,V, y)
+
+      expect(x).toBeAllCloseTo([[1],
+                                [1]])
+    }
   })
 
 
@@ -253,6 +280,42 @@ describe('svd', () => {
     svd_jac_2sided_blocked,
     svd_jac_classic
   }
+
+  for( const [svd_name,svd_deco] of Object.entries(svd_decomps) )
+    it(`${svd_name} decomposes and int32 input correctly`, () => {
+      const A = array('int32',
+        [[1,1],
+         [1,2],
+         [1,3],
+         [1,4],
+         [1,5]]
+      )
+      Object.freeze(A.data.buffer)
+
+      const [U,sv,V] = svd_deco(A)
+
+      expect(sv.dtype).toMatch(/^float/)
+      expect(U.dtype).toBe(sv.dtype)
+      expect(V.dtype).toBe(sv.dtype)
+
+      const D = diag_mat(sv)
+
+      for( let i=1; i < A.shape[1]; i++ )
+        expect( sv(i-1) ).not.toBeLessThan( sv(i) );
+
+      const a = matmul(U,D,V);
+
+      const U_TOL = eps(A.dtype) * A.shape[0] * 4,
+            V_TOL = eps(A.dtype) * A.shape[1] * 4;
+
+      const I = eye(2)
+      expect( matmul2(U.T,U) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
+      expect( matmul2(V.T,V) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
+      expect( matmul2(V,V.T) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
+
+      expect(D).toBeDiagonal()
+      expect(a).toBeAllCloseTo(A)
+    })
 
   for( const [svd_name,svd_deco] of Object.entries(svd_decomps) )
     forEachItemIn(

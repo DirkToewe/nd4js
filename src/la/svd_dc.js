@@ -915,7 +915,7 @@ export function svd_dc(A)
   A = A.data;
 
   const len = A.length / (M*N),
-          V = A.slice();
+          V = DTypeArray.from(A);
 
   A = undefined;
 
