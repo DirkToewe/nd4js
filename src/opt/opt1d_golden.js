@@ -16,11 +16,24 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import * as line_search from './line_search'
-export {line_search}
+const φ = Math.sqrt(5/4) + 0.5;
 
-export * from './lbfgs'
-export * from './line_search'
-export * from './num_grad'
-export * from './root1d_bisect'
-export * from './opt1d_golden'
+
+export function opt1d_golden(F,x_min,x_max)
+{
+  // https://en.wikipedia.org/wiki/Golden_section_search
+  if( x_min > x_max )
+    throw new Error('opt1d_golden(F,x_min,x_max): x_max must not be less than x_min.');
+
+  for( let a = x_min,
+           b = x_max;; )
+  {
+    const c = b - (b - a) / φ,
+          d = a + (b - a) / φ;
+
+    if( c===d ) return (b + a) / 2;
+
+    if( F(c) < F(d) ) b = d;
+    else              a = c;
+  }
+}
