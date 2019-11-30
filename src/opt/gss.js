@@ -16,24 +16,26 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-const φ = Math.sqrt(5/4) + 0.5;
+const γ = 1.5 - Math.sqrt(5/4);
 
 
-export function opt1d_golden(F,x_min,x_max)
+export function min1d_gss(F,x_min,x_max)
 {
   // https://en.wikipedia.org/wiki/Golden_section_search
   if( x_min > x_max )
     throw new Error('opt1d_golden(F,x_min,x_max): x_max must not be less than x_min.');
 
   for( let a = x_min,
-           b = x_max;; )
+           b = x_max,
+           c = a + (b-a)*γ,
+          Fc = F(c);; )
   {
-    const c = b - (b - a) / φ,
-          d = a + (b - a) / φ;
+    const d = b - (b-a)*γ;
+      if( d===b ) return (b + a) / 2;
 
-    if( c===d ) return (b + a) / 2;
+    const Fd = F(d);
 
-    if( F(c) < F(d) ) b = d;
-    else              a = c;
+    if( Fc < Fd ) { b=a; a=d; }
+    else          { a=c; c=d; Fc=Fd; }
   }
 }

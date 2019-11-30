@@ -16,11 +16,11 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {opt1d_golden} from './opt1d_golden'
+import {min1d_gss} from './gss'
 import {CUSTOM_MATCHERS, forEachItemIn} from '../jasmine_utils'
 
 
-describe('opt1d_golden', () => {
+describe('min1d_gss', () => {
   beforeEach( () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
@@ -34,7 +34,7 @@ describe('opt1d_golden', () => {
     const off = Math.random()*0.2 - 0.1;
 
     const f = x => off + Math.abs(x*x - xx),
-          x = opt1d_golden( f, 0, Math.max(1,xx) )
+          x = min1d_gss( f, 0, Math.max(1,xx) )
     expect(x).toBeAllCloseTo( Math.sqrt(xx));
   })
 
@@ -47,7 +47,7 @@ describe('opt1d_golden', () => {
     const off = Math.random()*0.2 - 0.1;
 
     const f = x => off + Math.abs(x*x*x - xxx),
-          x = opt1d_golden( f, 0, Math.max(1,xxx) )
+          x = min1d_gss( f, 0, Math.max(1,xxx) )
     expect(x).toBeAllCloseTo( xxx**(1/3), {atol:1e-4} );
   })
 })
