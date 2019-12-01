@@ -1,23 +1,23 @@
 'use strict';
 
-/* This file is part of ND.JS.
+/* This file is part of ND4JS.
  *
- * ND.JS is free software: you can redistribute it and/or modify
+ * ND4JS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ND.JS is distributed in the hope that it will be useful,
+ * ND4JS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
+ * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
 import {strong_wolfe} from './line_search/strong_wolfe'
-import {asarray, NDArray} from '../nd_array'
+import {array, NDArray} from '../nd_array'
 import {LineSearchNoProgressError} from './line_search/line_search_error'
 
 
@@ -32,8 +32,14 @@ function dot( u, v )
 
 export function* min_lbfgs_gen( fg, x0, {historySize=8, lineSearch=strong_wolfe(), negDir0 = g=>g} = {} )
 {
-  let x = asarray(x0)//; x0 = undefined
-  let [f,g] = fg(x)
+  let x = x0 instanceof NDArray
+    ? x0.mapElems('float64') // <- make copy
+    : array('float64', x0);
+  x0 = undefined;
+
+  let [f,g] = fg(x);
+  if( ! f.dtype.startsWith('float') ) throw new Error('min_lbfgs_gen(fg, x0, opt): fg must return [float,float[]].');
+  if( ! g.dtype.startsWith('float') ) throw new Error('min_lbfgs_gen(fg, x0, opt): fg must return [float,float[]].');
 
   const [L] = x.shape,
       shape = x.shape

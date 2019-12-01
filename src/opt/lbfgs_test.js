@@ -1,19 +1,19 @@
 'use strict';
 
-/* This file is part of ND.JS.
+/* This file is part of ND4JS.
  *
- * ND.JS is free software: you can redistribute it and/or modify
+ * ND4JS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ND.JS is distributed in the hope that it will be useful,
+ * ND4JS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
+ * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
@@ -66,7 +66,10 @@ describe('lbfgs', () => {
         expect(x.shape).toEqual( Int32Array.of(x0.length) )
         expect(g.shape).toEqual( Int32Array.of(x0.length) )
 
-        const gNorm = g.reduceElems(math.hypot)
+        expect(f).toBeAllCloseTo(rosenbrock     (x), {rtol:0, atol:0})
+        expect(g).toBeAllCloseTo(rosenbrock_grad(x), {rtol:0, atol:0})
+
+        const gNorm = Math.hypot(...g.data)
         if( gNorm <= 1e-8 )
           break
         expect(++nIter).toBeLessThan(128)
