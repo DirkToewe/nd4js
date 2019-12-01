@@ -1,13 +1,13 @@
 'use strict';
 
-/* This file is part of ND.JS.
+/* This file is part of ND4JS.
  *
- * ND.JS is free software: you can redistribute it and/or modify
+ * ND4JS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ND.JS is distributed in the hope that it will be useful,
+ * ND4JS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -57,4 +57,30 @@ export function rosenbrock_grad( x )
     if(j >  0 ) result += 200*( xj    - x(...i,j-1)**2 )
     return result
   })
+}
+
+
+export function rosenbrock_hess( x )
+{
+  x = asarray(x)
+
+  if(         x.ndim    < 1 ) throw new Error('rosenbrock(x): x.ndim must be at least 1.');
+  if( x.shape[x.ndim-1] < 2 ) throw new Error('rosenbrock(x): x.shape[-1] must be at least 2.');
+
+  const N = x.shape[x.ndim-1];
+
+  return tabulate([...x.shape, N], (...h) => {
+    let j = h.pop(),
+        i = h.pop();
+    if( j > i ) [i,j] = [j,i];
+
+    let result = 0;
+    if( i > 0 ) {
+      if (j === i  ) result += 200;
+      if (j === i-1) result -= 400 * x(...h,i-1);
+    }
+    if( i < N-1 && j === i )
+      result -= 400* x(...h,i+1) - 1200 * x(...h,i)**2  -  2;
+    return result;
+  });
 }

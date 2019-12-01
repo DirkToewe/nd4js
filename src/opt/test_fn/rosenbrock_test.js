@@ -1,26 +1,27 @@
 'use strict';
 
-/* This file is part of ND.JS.
+/* This file is part of ND4JS.
  *
- * ND.JS is free software: you can redistribute it and/or modify
+ * ND4JS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ND.JS is distributed in the hope that it will be useful,
+ * ND4JS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
+ * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../../jasmine_utils'
-import {array, NDArray} from '../../nd_array'
+import {array, asarray, NDArray} from '../../nd_array'
+import {stack} from '../../stack'
 import {tabulate} from '../../tabulate'
 import {zip_elems} from '../../zip_elems'
-import {rosenbrock, rosenbrock_grad} from './rosenbrock'
+import {rosenbrock, rosenbrock_grad, rosenbrock_hess} from './rosenbrock'
 import {num_grad} from '../num_grad'
 
 
@@ -41,7 +42,17 @@ describe('rosenbrock', () => {
   })
 
 
-  const rosenbrock_num_grad = num_grad(rosenbrock,2**-16)
+  const rosenbrock_num_grad = num_grad(rosenbrock,2**-16);
+
+  const rosenbrock_num_hess = x => {
+    x = asarray(x);
+
+    const N = x.shape[x.ndim-1];
+
+    return stack(-1, Array.from({length: N}, (_,i) =>
+      num_grad(x => rosenbrock_grad(x)(i),2**-16)(x)
+    ));
+  };
 
 
   forEachItemIn(
@@ -191,5 +202,54 @@ describe('rosenbrock', () => {
     const y = rosenbrock(x)
 
     expect( y.mapElems(x => x >= 0) ).toBeAllCloseTo(true, {rtol:0, atol:0})
+  })
+
+
+  forEachItemIn(
+    function*(){
+      const  S = 3.14, Δ = 0.042
+
+      for( let x = -S; x <= +S; x+=Δ )
+      for( let y = -S; y <= +S; y+=Δ )
+        yield array([x,y])
+    }()
+  ).it('rosenbrock_hess (2d) works for generated examples', (xy) => {
+    const h = rosenbrock_hess(xy),
+          H = rosenbrock_num_hess(xy)
+
+    expect(h).toBeAllCloseTo(H, {rtol:1e-4, atol:1e-6})
+  })
+
+  forEachItemIn(
+    function*(){
+      const  S = 1.57, Δ = 0.136
+
+      for( let x = -S; x <= +S; x+=Δ )
+      for( let y = -S; y <= +S; y+=Δ )
+      for( let z = -S; z <= +S; z+=Δ )
+        yield array([x,y,z])
+    }()
+  ).it('rosenbrock_hess (3d) works on generated examples', (xyz) => {
+    const h = rosenbrock_hess(xyz),
+          H = rosenbrock_num_hess(xyz)
+
+    expect(h).toBeAllCloseTo(H, {rtol:1e-4, atol:1e-6})
+  })
+
+  forEachItemIn(
+    function*(){
+      const  S = 1.57, Δ = 0.272
+
+      for( let w = -S; w <= +S; w+=Δ )
+      for( let x = -S; x <= +S; x+=Δ )
+      for( let y = -S; y <= +S; y+=Δ )
+      for( let z = -S; z <= +S; z+=Δ )
+        yield array([w,x,y,z])
+    }()
+  ).it('rosenbrock_hess (4d) works on generated examples', (wxyz) => {
+    const h = rosenbrock_hess(wxyz),
+          H = rosenbrock_num_hess(wxyz)
+
+    expect(h).toBeAllCloseTo(H, {rtol:1e-4, atol:1e-6})
   })
 })
