@@ -16,7 +16,7 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {asarray} from '../../nd_array'
+import {asarray, NDArray} from '../../nd_array'
 import {tabulate} from '../../tabulate'
 
 
@@ -27,15 +27,27 @@ export function rosenbrock( x )
   if(         x.ndim    < 1 ) throw new Error('rosenbrock(x): x.ndim must be at least 1.');
   if( x.shape[x.ndim-1] < 2 ) throw new Error('rosenbrock(x): x.shape[-1] must be at least 2.');
 
-  const N = x.shape[x.ndim-1],
-    dtype = x.dtype==='float32' ? 'float32' : 'float64'
+  const N = x.shape[x.ndim-1];
 
-  return tabulate(x.shape.slice(0,-1), dtype, (...i) => {
-    let sum = 0
-    for( let j=N-1; j-- > 0; )
-      sum += 100*( x(...i,j+1) - x(...i,j)**2 )**2 + ( 1 - x(...i,j) )**2
-    return sum
-  })
+  const F_shape = x.shape.slice(0,-1),
+        F       = new (x.dtype==='float32' ? Float32Array
+                                           : Float64Array)(x.data.length/N);
+  x = x.data;
+
+  for( let x_off=x.length,
+           F_off=F.length;
+           F_off-- > 0; )
+  {        x_off -= N;
+    for( let i=N-1; i-- > 0; ) {
+      const xj = x[x_off + i+1],
+            xi = x[x_off + i],
+             u = xj - xi*xi,
+             v = 1-xi;
+      F[F_off] += 100*u*u + v*v;
+    }
+  }
+
+  return new NDArray(F_shape, F);
 }
 
 
@@ -46,17 +58,28 @@ export function rosenbrock_grad( x )
   if(         x.ndim    < 1 ) throw new Error('rosenbrock(x): x.ndim must be at least 1.');
   if( x.shape[x.ndim-1] < 2 ) throw new Error('rosenbrock(x): x.shape[-1] must be at least 2.');
 
-  const N = x.shape[x.ndim-1],
-    dtype = x.dtype==='float32' ? 'float32' : 'float64'
+  const N = x.shape[x.ndim-1];
 
-  return x.mapElems(dtype, (xj,...i) => {
-    const j = i.pop()
+  const G_shape = x.shape,
+        G       = new (x.dtype==='float32' ? Float32Array
+                                           : Float64Array)(x.data.length);
+  x = x.data;
 
-    let result = 0
-    if(j < N-1) result += 400*( xj**2 - x(...i,j+1)    )*xj - 2*(1 - xj)
-    if(j >  0 ) result += 200*( xj    - x(...i,j-1)**2 )
-    return result
-  })
+  for( let off=x.length;
+           off >= 0; )
+  {        off -= N;
+    for( let i=N; i-- > 0; )
+    {
+      const xh = x[off + i-1],
+            xi = x[off + i  ],
+            xj = x[off + i+1];
+
+      if(     i < N-1 ) G[off + i]  = 400*(xi*xi - xj   )*xi - 2*(1-xi);
+      if( 0 < i       ) G[off + i] += 200*(xi    - xh*xh);
+    }
+  }
+
+  return new NDArray(G_shape, G);
 }
 
 
@@ -69,18 +92,28 @@ export function rosenbrock_hess( x )
 
   const N = x.shape[x.ndim-1];
 
-  return tabulate([...x.shape, N], (...h) => {
-    let j = h.pop(),
-        i = h.pop();
-    if( j > i ) [i,j] = [j,i];
+  const H_shape = Int32Array.of(...x.shape, N),
+        H = new (x.dtype==='float32' ? Float32Array
+                                     : Float64Array)(x.data.length*N);
+  x = x.data;
 
-    let result = 0;
-    if( i > 0 ) {
-      if (j === i  ) result += 200;
-      if (j === i-1) result -= 400 * x(...h,i-1);
+  for( let H_off=H.length,
+           x_off=x.length;
+           x_off >= 0; )
+  {        x_off -= N;
+           H_off -= N*N;
+    for( let i=N; i-- > 0; ) {
+      if( 0 < i ) {
+        H[H_off + N* i   + i   ] = 200;
+        H[H_off + N*(i-1)+ i   ] =
+        H[H_off + N* i   +(i-1)] = -400*x[x_off + i-1];
+      }
+      if( i < N-1 ) {
+        const xi = x[x_off + i];
+        H[H_off + N*i+i] -= 400*x[x_off + i+1] - 1200*xi*xi  -  2;
+      }
     }
-    if( i < N-1 && j === i )
-      result -= 400* x(...h,i+1) - 1200 * x(...h,i)**2  -  2;
-    return result;
-  });
+  }
+
+  return new NDArray(H_shape, H);
 }
