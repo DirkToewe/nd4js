@@ -149,7 +149,7 @@ export function matmul2(a,b)
 
 export function matmul(...matrices)
 {
-  matrices = matrices.map(asarray)
+  matrices = matrices.map(a => asarray(a))
   if( matrices.length == 1 ) return matrices[0];
   if( matrices.length == 2 ) return matmul2(...matrices);
 

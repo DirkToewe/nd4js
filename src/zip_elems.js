@@ -28,7 +28,7 @@ export function zip_elems( ndarrays, dtype, zip_fn )
   if( ! (ndarrays instanceof Array) )
     ndarrays = [...ndarrays]
 
-  ndarrays = ndarrays.map(asarray)
+  ndarrays = ndarrays.map( a => asarray(a) );
 
   if( null == dtype ) dtype = 'object'
   if( null == zip_fn ) {

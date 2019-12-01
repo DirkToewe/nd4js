@@ -29,7 +29,9 @@ export function array(dtype, content)
     let data = content.data
     if( null != dtype && ! (data instanceof ARRAY_TYPES[dtype]) )
       data = ARRAY_TYPES[dtype].from(data)
-    return new NDArray( content.shape, data.slice() )
+    else
+      data = data.slice();
+    return new NDArray(content.shape, data);
   }
 
   function* shape(content)
@@ -80,11 +82,23 @@ export function array(dtype, content)
   return new NDArray(shape,data)
 }
 
-export function asarray( arrayLike ) // <- TODO: add dtype
+export function asarray( arrayLike, dtype )
 {
-  if( arrayLike instanceof NDArray )
-    return arrayLike
-  return array(arrayLike)
+  if( arrayLike instanceof NDArray ) {
+    if(  dtype == null
+      || dtype===             arrayLike.dtype
+      || dtype==='float'  &&  arrayLike.dtype.startsWith('float') )
+      return arrayLike;
+
+    console.log(dtype, ARRAY_TYPES[dtype])
+
+    return new NDArray(       arrayLike.shape,
+      ARRAY_TYPES[dtype].from(arrayLike.data)
+    );
+  }
+  if(dtype==='float')
+     dtype = 'float64';
+  return array(dtype, arrayLike)
 }
 
 export class NDArray extends Function
