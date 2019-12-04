@@ -26,8 +26,9 @@ export * from './zip_elems'
 export * from './concat'
 export * from './stack'
 
-import * as opt from './opt'
-import * as la  from './la'
 import * as io  from './io'
+import * as la  from './la'
+import * as opt from './opt'
+import * as integrate from './integrate'
 
-export {dt,opt,la,io}
+export {dt,io,la,opt,integrate}
