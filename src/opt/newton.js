@@ -20,32 +20,32 @@ import {array, asarray, NDArray} from '../nd_array'
 import {lstsq} from '../la/lstsq'
 
 
-export function* root_newton_gen( fH, x0 )
+export function* root_newton_gen( fJ, x0 )
 {
   let x = x0 instanceof NDArray
-    ? x0.mapElems('float64') // <- make copy
+    ? x0.mapElems('float64') // <- protection copy
     : array('float64', x0);
   x0 = undefined;
 
   if( x.ndim !== 1 )
-    throw new Error('root_newton_gen(fH, x0): x0.ndim must be 1.');
+    throw new Error('root_newton_gen(fJ, x0): x0.ndim must be 1.');
 
-  const N = x.shape[0];
+  const [N] = x.shape;
 
   for(;;)
   {
-    const [f,H] = fH(x).map( a => asarray(a) );
+    const [f,J] = fJ(x).map( a => asarray(a) );
 
-    yield [x,f,H];
+    yield [x,f,J];
 
-    if( H.ndim !== 2 || H.shape[0] !== N
-                     || H.shape[1] !== N
+    if( J.ndim !== 2 || J.shape[0] !== N
+                     || J.shape[1] !== N
      || f.ndim !== 1 || f.shape[0] !== N )
-      throw new Error('root_newton_gen(fH, x0: float[N]): fH return type must be [float[N],float[N,N]].');
+      throw new Error('root_newton_gen(fJ, x0: float[N]): fJ return type must be [float[N],float[N,N]].');
 
-    const  X =  x.data,
-          dx = lstsq(H, f.reshape(N,1)).reshape(N),
-          DX = dx.data;
+    const X =  x.data,
+         dx = lstsq(J, f.reshape(N,1)).reshape(N),
+         DX = dx.data;
 
     for( let i=DX.length; i-- > 0; )
       DX[i] = X[i] - DX[i];
