@@ -16,11 +16,9 @@
  * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {array, asarray, NDArray} from '../nd_array'
+import {asarray, NDArray} from '../nd_array'
 
-import {lstsq  } from '../la/lstsq'
-import {matmul2} from '../la/matmul'
-import {solve  } from '../la/solve'
+import {lstsq} from '../la/lstsq'
 
 
 // Regularized least squares (RLS) solver. Solves the follwing equation system:
@@ -104,8 +102,8 @@ export function* lsq_lm_gen(
 {
   const FloatArray = Float64Array;
 
-  let x = asarray(x0, 'float64');
-                  x0 = undefined;
+  let x = asarray('float64', x0);
+                             x0 = undefined;
 
   if( x.ndim !== 1 ) throw new Error('lsq_lm_gen(fj, x0): x0.ndim must be 1.');
 
@@ -303,9 +301,9 @@ export function* fit_lm_gen(
   opt
 )
 {
-  x = asarray(x, 'float64');
-  y = asarray(y, 'float64');
-  p0= asarray(p0,'float64');
+  x = asarray(          x ); // <- TODO allow non-ndarray x ?
+  y = asarray('float64',y );
+  p0= asarray('float64',p0);
 
   const FloatArray = Float64Array;
 

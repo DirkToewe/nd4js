@@ -82,8 +82,17 @@ export function array(dtype, content)
   return new NDArray(shape,data)
 }
 
-export function asarray( arrayLike, dtype )
+export function asarray( dtype, arrayLike )
 {
+  if( null == arrayLike ) {
+    arrayLike = dtype;
+    dtype = undefined;
+  }
+  if( dtype != null     &&
+      dtype !== 'float' &&
+    !(dtype in ARRAY_TYPES) )
+    throw new Error(`asarray(dtype, arrayLike): Invalid dtype: '${dtype}'.`);
+
   if( arrayLike instanceof NDArray ) {
     if(  dtype == null
       || dtype===             arrayLike.dtype
