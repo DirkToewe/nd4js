@@ -22,5 +22,7 @@ export {line_search}
 export * from './gss'
 export * from './lbfgs'
 export * from './line_search'
+export * from './lm'
 export * from './num_grad'
 export * from './root1d_bisect'
+
