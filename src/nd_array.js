@@ -90,8 +90,6 @@ export function asarray( arrayLike, dtype )
       || dtype==='float'  &&  arrayLike.dtype.startsWith('float') )
       return arrayLike;
 
-    console.log(dtype, ARRAY_TYPES[dtype])
-
     return new NDArray(       arrayLike.shape,
       ARRAY_TYPES[dtype].from(arrayLike.data)
     );

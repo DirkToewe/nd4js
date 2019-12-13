@@ -22,11 +22,8 @@ import {lstsq} from '../la/lstsq'
 
 export function* root_newton_gen( fJ, x0 )
 {
-  let x = x0 instanceof NDArray
-    ? x0.mapElems('float64') // <- protection copy
-    : array('float64', x0);
-  x0 = undefined;
-
+  let x = array('float64', x0);
+                           x0 = undefined;
   if( x.ndim !== 1 )
     throw new Error('root_newton_gen(fJ, x0): x0.ndim must be 1.');
 

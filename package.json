@@ -13,16 +13,17 @@
     "type": "git",
     "url": "https://github.com/DirkToewe/ndjs"
   },
+  "runkitExampleFilename": "./runkit_example.js",
   "dependencies": {
-    "@babel/runtime": "^7.7.4"
+    "@babel/runtime": "^7.7.6"
   },
   "devDependencies": {
-    "@babel/cli": "^7.7.4",
-    "@babel/core": "^7.7.4",
-    "@babel/plugin-transform-regenerator": "^7.7.4",
-    "@babel/plugin-transform-runtime": "^7.7.4",
-    "@babel/preset-env": "^7.7.4",
-    "acorn": "^6.3.0",
+    "@babel/cli": "^7.7.5",
+    "@babel/core": "^7.7.5",
+    "@babel/plugin-transform-regenerator": "^7.7.5",
+    "@babel/plugin-transform-runtime": "^7.7.6",
+    "@babel/preset-env": "^7.7.6",
+    "acorn": "^6.4.0",
     "babel-loader": "^8.0.6",
     "glob": "^7.1.6",
     "jsdoc": "^3.6.3",

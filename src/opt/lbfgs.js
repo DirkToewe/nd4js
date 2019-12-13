@@ -32,11 +32,8 @@ function dot( u, v )
 
 export function* min_lbfgs_gen( fg, x0, {historySize=8, lineSearch=strong_wolfe(), negDir0 = g=>g} = {} )
 {
-  let x = x0 instanceof NDArray
-    ? x0.mapElems('float64') // <- make copy
-    : array('float64', x0);
-  x0 = undefined;
-
+  let x = array('float64', x0);
+                           x0 = undefined;
   let [f,g] = fg(x);
   if( ! f.dtype.startsWith('float') ) throw new Error('min_lbfgs_gen(fg, x0, opt): fg must return [float,float[]].');
   if( ! g.dtype.startsWith('float') ) throw new Error('min_lbfgs_gen(fg, x0, opt): fg must return [float,float[]].');

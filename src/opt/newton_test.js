@@ -76,7 +76,7 @@ describe('newton', () => {
       const df = norm( zip_elems([F,f], (x,y) => x-y) );
       F = f;
 
-      if( df <= 1e-8 )
+      if( df <= 1e-10 )
         break;
       expect(++nIter).toBeLessThan(32);
     }
@@ -132,7 +132,7 @@ describe('newton', () => {
       const df = norm( zip_elems([F,f], (x,y) => x-y) );
       F = f;
 
-      if( df <= 1e-8 )
+      if( df <= 1e-10 )
         break;
       expect(++nIter).toBeLessThan(32);
     }
