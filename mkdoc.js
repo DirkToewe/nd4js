@@ -2,8 +2,18 @@
 {
   console.log('Generating docs...');
 
-  const nd = require('./dist/nd.js')
-  const version = require('./package.json').version
+  const   fs = require('fs'),
+          nd = require('./dist/nd.js'),
+    {version}= require('./package.json');
+
+  fs.readFile('./runkit_example.js', 'utf8', (err, data) => {
+    if(err) throw err;
+    data = data.split('\n')
+    if( ! data[0].startsWith("const nd = require('nd4js") )
+      throw new Error('1st line of runkit_example.js must be nd4js import.');
+    data[0] = `const nd = require('nd4js@${version}') // <- 1st line is auto-generated`
+    fs.writeFile('./runkit_example.js', data.join('\n'), err => {if(err) throw err});
+  });
 
   function create_doc_jsdom()
   {
@@ -98,8 +108,7 @@
     return dom
   }
   
-  const
-    fs = require('fs'),
-    html = create_doc_jsdom();
+  const html = create_doc_jsdom();
+
   fs.writeFile('./docs/doc.html', html.serialize(), err => { if(err) return console.log(err) });
 }
