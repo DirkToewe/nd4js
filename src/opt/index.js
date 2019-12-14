@@ -19,6 +19,7 @@
 import * as line_search from './line_search'
 export {line_search}
 
+export * from './fit_param_lin'
 export * from './gss'
 export * from './lbfgs'
 export * from './line_search'
