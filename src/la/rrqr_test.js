@@ -17,18 +17,55 @@
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
+import math from '../math'
 import {NDArray} from '../nd_array'
 import {tabulate} from '../tabulate'
 import {zip_elems} from '../zip_elems'
-import {matmul2} from './matmul'
+
+import {eye} from './eye'
+import {matmul,
+        matmul2} from './matmul'
 import {qr_decomp} from './qr'
+import {rand_ortho} from './rand_ortho'
 import {rrqr_decomp,
         rrqr_decomp_full,
         rrqr_rank,
         rrqr_solve,
         rrqr_lstsq} from './rrqr'
-import {eye} from './eye'
-import math from '../math'
+
+
+const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
+
+
+function _rand_rank_deficient(...shape)
+{
+  if( shape.length < 2 )
+    throw new Error('Assertion failed.');
+
+  const [M,N]= shape.slice(-2),
+           L = Math.min(M,N);
+
+  const ndim = randInt(0,7);
+
+  let r_shape = shape.slice(0,-2);
+
+  // use random, mostly rank-deficient SVD to generate test matrix A
+  const ranks = tabulate(r_shape, 'int32', () => randInt(0,L+1) ), // <- ranks
+            U = rand_ortho('float64', ...r_shape,M,L),
+            V = rand_ortho('float64', ...r_shape,L,N),
+            S = tabulate([...r_shape,L,L], 'float64', (...idx) => {
+              const j = idx.pop(),
+                    i = idx.pop(), rank = ranks(...idx);
+
+              if( i !== j || rank <= i ) return 0; 
+
+              return Math.random()*8 + 0.1
+            }),
+            A = matmul(U,S,V);
+  Object.freeze(ranks.data.buffer);
+  Object.freeze(A.data.buffer);
+  return [ranks,A];
+}
 
 
 describe('rrqr', () => {
@@ -137,344 +174,243 @@ describe('rrqr', () => {
   })
 
 
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
+  for( const [rrqr_name,rrqr_deco] of Object.entries({
+    rrqr_decomp,
+    rrqr_decomp_full
+  }))
+    forEachItemIn(
+      function*(){
+        const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
 
-      for( let run=1024; run-- > 0; )
-      {
-        let ndim = randInt(0,5),
-          shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
-        shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
+        for( let run=1024; run-- > 0; )
+        {
+          let ndim = randInt(0,5),
+            shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
+          shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
 
-        for( let d=ndim; d > 0; d-- )
-        for( let i=randInt(0,2); i-- > 0; ) {
-          const    shape = shapes[randInt(0,2)],
-               j = shape.length - d
-          if(0<=j) shape[j] = 1
+          for( let d=ndim; d > 0; d-- )
+          for( let i=randInt(0,2); i-- > 0; ) {
+            const    shape = shapes[randInt(0,2)],
+                j = shape.length - d
+            if(0<=j) shape[j] = 1
+          }
+
+          const M = randInt(1,32); shapes[0].push(M,M)
+          const N = randInt(1,32); shapes[1].push(M,N)
+
+          yield shapes.map(
+            s => tabulate(s,'float64', () => Math.random()*2-1)
+          )
         }
-
-        const M = randInt(1,32); shapes[0].push(M,M)
-        const N = randInt(1,32); shapes[1].push(M,N)
-
-        yield shapes.map(
-          s => tabulate(s,'float64', () => Math.random()*2-1)
-        )
-      }
-    }()
-  ).it('rrqr_solve solves random square examples', ([QR,y]) => {
-    const [Q,R,P] = rrqr_decomp(QR),
-             x    = rrqr_solve(Q,R,P, y)
-  
-    expect( matmul2(QR,x) ).toBeAllCloseTo(y)
-  })
+      }()
+    ).it(`${rrqr_name}+rrqr_solve solves random square examples`, ([QR,y]) => {
+      const [Q,R,P] = rrqr_deco(QR),
+               x    = rrqr_solve(Q,R,P, y)
+    
+      expect( matmul2(QR,x) ).toBeAllCloseTo(y)
+    })
 
 
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
+  for( const [rrqr_name,rrqr_deco] of Object.entries({
+    rrqr_decomp,
+    rrqr_decomp_full
+  }))
+    forEachItemIn(
+      function*(){
+        const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
 
-      for( let run=1024; run-- > 0; )
-      {
-        let ndim = randInt(0,5),
-          shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
-        shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
+        for( let run=1024; run-- > 0; )
+        {
+          let ndim = randInt(0,5),
+            shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
+          shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
 
-        for( let d=ndim; d > 0; d-- )
-        for( let i=randInt(0,2); i-- > 0; ) {
-          const    shape = shapes[randInt(0,2)],
-               j = shape.length - d
-          if(0<=j) shape[j] = 1
+          for( let d=ndim; d > 0; d-- )
+          for( let i=randInt(0,2); i-- > 0; ) {
+            const    shape = shapes[randInt(0,2)],
+                j = shape.length - d
+            if(0<=j) shape[j] = 1
+          }
+
+          const M = randInt(1,32); shapes[0].push(M,M)
+          const N = randInt(1,32); shapes[1].push(M,N)
+
+          yield shapes.map(
+            s => tabulate(s,'float64', () => Math.random()*2-1)
+          )
         }
-
-        const M = randInt(1,32); shapes[0].push(M,M)
-        const N = randInt(1,32); shapes[1].push(M,N)
-
-        yield shapes.map(
-          s => tabulate(s,'float64', () => Math.random()*2-1)
-        )
-      }
-    }()
-  ).it('rrqr_lstsq solves random square examples', ([QR,y]) => {
-    const [Q,R,P] = rrqr_decomp(QR),
-             x    = rrqr_lstsq(Q,R,P, y)
-  
-    expect( matmul2(QR,x) ).toBeAllCloseTo(y)
-  })
+      }()
+    ).it(`${rrqr_name}+rrqr_lstsq solves random square examples`, ([QR,y]) => {
+      const [Q,R,P] = rrqr_deco(QR),
+               x    = rrqr_lstsq(Q,R,P, y)
+    
+      expect( matmul2(QR,x) ).toBeAllCloseTo(y)
+    })
 
 
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
+  for( const [rrqr_name,rrqr_deco] of Object.entries({
+    rrqr_decomp,
+    rrqr_decomp_full
+  }))
+    forEachItemIn(
+      function*(){
+        const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
 
-      for( let run=1024; run-- > 0; )
-      {
-        let ndim = randInt(0,5),
-          shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
-        shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
+        for( let run=1024; run-- > 0; )
+        {
+          let ndim = randInt(0,5),
+            shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
+          shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
 
-        for( let d=ndim; d > 0; d-- )
-        for( let i=randInt(0,2); i-- > 0; ) { // <- 50/50 chance to collapse dimension to test broadcasting
-          const    shape = shapes[randInt(0,2)],
-               j = shape.length - d
-          if(0<=j) shape[j] = 1
+          for( let d=ndim; d > 0; d-- )
+          for( let i=randInt(0,2); i-- > 0; ) { // <- 50/50 chance to collapse dimension to test broadcasting
+            const    shape = shapes[randInt(0,2)],
+                j = shape.length - d
+            if(0<=j) shape[j] = 1
+          }
+
+          let M = randInt(1,32),
+              N = randInt(1,32)
+          if( M < N )
+              [M,N] = [N,M];
+
+          if( M < N )
+            throw new Error('Assertion failed.');
+
+          const J = randInt(1,32)
+          shapes[0].push(M,N)
+          shapes[1].push(M,J)
+
+          yield shapes.map(
+            s => tabulate(s,'float64', () => Math.random()*4-2)
+          )
         }
+      }()
+    ).it(`${rrqr_name}+rrqr_lstsq solves least squares of random over-determined examples`, ([A,y]) => {
+      const [Q,R,P]= rrqr_deco(A),
+              x    = rrqr_lstsq(Q,R,P, y),
+              Ax   = matmul2(A,x)
 
-        let M = randInt(1,32),
-            N = randInt(1,32)
-        if( M < N ) {
-          const L=M; M=N; N=L
+      // every least square solution satisfies the normal equaltion Aᵀ(Ax - y) = 0
+      expect( matmul2(A.T, zip_elems([Ax,y], math.sub) ) ).toBeAllCloseTo(0)
+    })
+
+
+  for( const [rrqr_name,rrqr_deco] of Object.entries({
+    rrqr_decomp,
+    rrqr_decomp_full
+  }))
+    forEachItemIn(
+      function*(){
+        for( let run=1024; run-- > 0; )
+        {
+          let ndim = randInt(0,5),
+            shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
+          shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
+
+          for( let d=ndim; d > 0; d-- )
+          for( let i=randInt(0,2); i-- > 0; ) {
+            const   shape = shapes[randInt(0,2)],
+                  j=shape.length - d
+            if(0<=j)shape[j] = 1
+          }
+
+          let M = randInt(1,32),
+              N = randInt(1,32)
+          if( M > N )
+            [M,N] = [N,M];
+
+          if( M > N )
+            throw new Error('Assertion failed.');
+
+          const J = randInt(1,32)
+          shapes[0].push(M,N)
+          shapes[1].push(M,J)
+
+          yield shapes.map(
+            s => tabulate(s,'float64', () => Math.random()*4-2)
+          )
         }
+      }()
+    ).it(`${rrqr_name}+rrqr_lstsq computes one solution of random under-determined examples`, ([A,y]) => {
+      const [Q,R,P]= rrqr_deco(A),
+               x   = rrqr_lstsq(Q,R,P, y)
 
-        const J = randInt(1,32)
-        shapes[0].push(M,N)
-        shapes[1].push(M,J)
-
-        yield shapes.map(
-          s => tabulate(s,'float64', () => Math.random()*2-1)
-        )
-      }
-    }()
-  ).it('rrqr_lstsq+rrqr_decomp solves least squares of random over-determined examples', ([A,y]) => {
-    const [Q,R,P]= rrqr_decomp(A),
-             x   = rrqr_lstsq(Q,R,P, y),
-            Ax   = matmul2(A,x)
-
-    // every least square solution satisfies the normal equaltion Aᵀ(Ax - y) = 0
-    expect( matmul2(A.T, zip_elems([Ax,y], math.sub) ) ).toBeAllCloseTo(0)
-  })
+      expect( matmul2(A,x) ).toBeAllCloseTo(y)
+    })
 
 
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
+  for( const [rrqr_name,rrqr_deco] of Object.entries({
+    rrqr_decomp,
+    rrqr_decomp_full
+  }))
+    forEachItemIn(
+      function*(){
+        for( let run=1024; run-- > 0; )
+        {
+          const ndim = randInt(0,5),
+              shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
 
-      for( let run=1024; run-- > 0; )
-      {
-        let ndim = randInt(0,5),
-          shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
-        shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
+          // add some broadcasting test cases (A.ndim != y.ndim)
+          shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
 
-        for( let d=ndim; d > 0; d-- )
-        for( let i=randInt(0,2); i-- > 0; ) { // <- 50/50 chance to collapse dimension to test broadcasting
-          const    shape = shapes[randInt(0,2)],
-               j = shape.length - d
-          if(0<=j) shape[j] = 1
+          // add some broadcasting test cases (A.shape[i] = 1 || y.shape[i] = 1)
+          for( let d=ndim; d > 0; d-- )
+          for( let i=randInt(0,2); i-- > 0; ) {
+            const   shape = shapes[randInt(0,2)],
+                  j=shape.length - d
+            if(0<=j)shape[j] = 1
+          }
+
+          const M = randInt(1,32),
+                N = randInt(1,32);
+
+          const J = randInt(1,32);
+          shapes[0].push(M,N);
+          shapes[1].push(M,J);
+
+          yield [
+            _rand_rank_deficient(...shapes[0])[1],
+            tabulate(shapes[1], 'float64', () => Math.random()*4-2)
+          ];
         }
+      }()
+    ).it(`${rrqr_name}+rrqr_lstsq solves least squares for random rank-deficient examples`, ([A,y]) => {
+  //    console.log('SHAPES:', [...A.shape], [...y.shape])
+      const [Q,R,P]= rrqr_deco(A),
+               x   = rrqr_lstsq(Q,R,P, y),
+              Ax   = matmul2(A,x)
 
-        let M = randInt(1,32),
-            N = randInt(1,32)
-        if( M < N ) {
-          const L=M; M=N; N=L
+      // every least square solution satisfies the normal equaltion Aᵀ(Ax - y) = 0
+      expect( matmul2(A.T, zip_elems([Ax,y], (Ax,y) => Ax-y) ) ).toBeAllCloseTo(0)
+    })
+
+
+  for( const [rrqr_name,rrqr_deco] of Object.entries({
+    rrqr_decomp,
+    rrqr_decomp_full
+  }))
+    forEachItemIn(
+      function*(){
+        for( let run=1024; run-- > 0; )
+        {
+          const ndim = randInt(0,5);
+
+          yield _rand_rank_deficient(
+            ...Array.from({ length: ndim-2 }, () => randInt(1,8) ),
+            randInt(1,32),
+            randInt(1,32)
+          );
         }
+      }()
+    ).it(`${rrqr_name}+rrqr_rank works on random examples`, ([RANKS,A]) => {
+      const [Q,R,P] = rrqr_deco(A),
+             ranks  = rrqr_rank(R)
 
-        const J = randInt(1,32)
-        shapes[0].push(M,N)
-        shapes[1].push(M,J)
-
-        yield shapes.map(
-          s => tabulate(s,'float64', () => Math.random()*2-1)
-        )
-      }
-    }()
-  ).it('rrqr_lstsq+rrqr_decomp_full solves least squares of random over-determined examples', ([A,y]) => {
-    const [Q,R,P]= rrqr_decomp_full(A),
-             x   = rrqr_lstsq(Q,R,P, y),
-            Ax   = matmul2(A,x)
-
-    // every least square solution satisfies the normal equaltion Aᵀ(Ax - y) = 0
-    expect( matmul2(A.T, zip_elems([Ax,y], math.sub) ) ).toBeAllCloseTo(0)
-  })
-
-
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
-      for( let run=1024; run-- > 0; )
-      {
-        let ndim = randInt(0,5),
-          shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
-        shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
-
-        for( let d=ndim; d > 0; d-- )
-        for( let i=randInt(0,2); i-- > 0; ) {
-          const    shape = shapes[randInt(0,2)],
-               j = shape.length - d
-          if(0<=j) shape[j] = 1
-        }
-
-        let M = randInt(1,32),
-            N = randInt(1,32)
-        if( M > N ) {
-          const L=M; M=N; N=L
-        }
-      
-        const J = randInt(1,32)
-        shapes[0].push(M,N)
-        shapes[1].push(M,J)
-
-        yield shapes.map(
-          s => tabulate(s,'float64', () => Math.random()*2-1)
-        )
-      }
-    }()
-  ).it('rrqr_lstsq computes one solution of random under-determined examples', ([A,y]) => {
-    const [Q,R,P]= rrqr_decomp_full(A),
-             x   = rrqr_lstsq(Q,R,P, y)
-  
-    expect( matmul2(A,x) ).toBeAllCloseTo(y)
-  })
-
-
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
-      for( let run=1024; run-- > 0; )
-      {
-        let ndim = randInt(0,5),
-          shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
-        shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
-
-        for( let d=ndim; d > 0; d-- )
-        for( let i=randInt(0,2); i-- > 0; ) {
-          const    shape = shapes[randInt(0,2)],
-               j = shape.length - d
-          if(0<=j) shape[j] = 1
-        }
-
-        let M = randInt(1,32),
-            N = randInt(1,32),
-            J = randInt(1,32),
-            L = Math.min(M,N)
-
-        const A = tabulate(shapes[0], () => {
-          const r  = randInt(0,L),
-             [Q,_] = qr_decomp( tabulate([M,N], 'float64', () => Math.random()*2-1) ),
-                R  = tabulate([L,N], 'float64', (i,j) => {
-                       if(r <= i || j < i) return 0
-                       if(j == i) return (0.5 + Math.random()) * (randInt(0,2)*2 - 1)
-                       return Math.random()*0.5 - 0.25
-                     })
-          return matmul2(Q,R)
-        })
-
-        shapes[0].push(M,N)
-        shapes[1].push(M,J)
-
-        yield [
-          new NDArray(
-              Int32Array.from(shapes[0]),
-            Float64Array.from( function*(){ for( const a of A.data ) yield* a.data }() )
-          ),
-          tabulate(shapes[1],'float64', () => Math.random()*2-1)
-        ]
-      }
-    }()
-  ).it('rrqr_lstsq+rrqr_decomp solves least squares for random rank-deficient examples', ([A,y]) => {
-//    console.log('SHAPES:', [...A.shape], [...y.shape])
-    const [Q,R,P]= rrqr_decomp(A),
-             x   = rrqr_lstsq(Q,R,P, y),
-            Ax   = matmul2(A,x)
-  
-    expect( matmul2(A.T, zip_elems([Ax,y], math.sub) ) ).toBeAllCloseTo(0)
-  })
-
-
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
-      for( let run=1024; run-- > 0; )
-      {
-        let ndim = randInt(0,5),
-          shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
-        shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
-
-        for( let d=ndim; d > 0; d-- )
-        for( let i=randInt(0,2); i-- > 0; ) {
-          const    shape = shapes[randInt(0,2)],
-               j = shape.length - d
-          if(0<=j) shape[j] = 1
-        }
-
-        let M = randInt(1,32),
-            N = randInt(1,32),
-            J = randInt(1,32),
-            L = Math.min(M,N)
-
-        const A = tabulate(shapes[0], () => {
-          const r  = randInt(0,L),
-             [Q,_] = qr_decomp( tabulate([M,N], 'float64', () => Math.random()*2-1) ),
-                R  = tabulate([L,N], 'float64', (i,j) => {
-                       if(r <= i || j < i) return 0
-                       if(j == i) return (0.5 + Math.random()) * (randInt(0,2)*2 - 1)
-                       return Math.random()*0.5 - 0.25
-                     })
-          return matmul2(Q,R)
-        })
-
-        shapes[0].push(M,N)
-        shapes[1].push(M,J)
-
-        yield [
-          new NDArray(
-              Int32Array.from(shapes[0]),
-            Float64Array.from( function*(){ for( const a of A.data ) yield* a.data }() )
-          ),
-          tabulate(shapes[1],'float64', () => Math.random()*2-1)
-        ]
-      }
-    }()
-  ).it('rrqr_lstsq+rrqr_decomp_full solves least squares for random rank-deficient examples', ([A,y]) => {
-//    console.log('SHAPES:', [...A.shape], [...y.shape])
-    const [Q,R,P]= rrqr_decomp_full(A),
-             x   = rrqr_lstsq(Q,R,P, y),
-            Ax   = matmul2(A,x)
-  
-    expect( matmul2(A.T, zip_elems([Ax,y], math.sub) ) ).toBeAllCloseTo(0)
-  })
-
-
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
-      for( let run=1024; run-- > 0; )
-      {
-        let M = randInt(1,32),
-            N = randInt(1,32)
-        if( N > M ) [M,N] = [N,M]
-        const L = Math.min(M,N),
-          ndim = randInt(0,7)
-        let r_shape = Array.from({ length: ndim-2 }, () => randInt(1,8) ),
-            A_shape = r_shape.concat([M,N])
-        r_shape = Int32Array.from(r_shape)
-        A_shape = Int32Array.from(A_shape)
-
-        const A = tabulate(A_shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1)
-        Object.freeze(A.data.buffer)
-        const [Q,_]= qr_decomp(A),
-               r = tabulate(    r_shape, 'int32', () => Math.random()*L),
-               R = tabulate([...r_shape,L,N], 'float64', (...idx) => {
-                 const j = idx.pop(),
-                       i = idx.pop(), R = r(...idx)
-                 if(R <= i || j < i) return 0
-                 if(j == i) return (0.5 + Math.random()) * (randInt(0,2)*2 - 1)
-                 return Math.random()*0.5 - 0.25
-               })
-        yield [r,matmul2(Q,R)]
-      }
-    }()
-  ).it('rrqr_rank works on random examples', ([R,A]) => {
-    const [Q,T,P] = rrqr_decomp(A),
-             r    = rrqr_rank(T)
-
-    expect(r.shape).toEqual(A.shape.slice(0,-2))
-    expect(R.shape).toEqual(A.shape.slice(0,-2))
-    expect(r.dtype).toBe('int32')
-    expect(R.dtype).toBe('int32')
-    expect(r).toBeAllCloseTo(R, {rtol:0, atol:0})
-  })
+      expect(ranks.shape).toEqual(A.shape.slice(0,-2))
+      expect(RANKS.shape).toEqual(A.shape.slice(0,-2))
+      expect(ranks.dtype).toBe('int32')
+      expect(RANKS.dtype).toBe('int32')
+      expect(ranks).toBeAllCloseTo(RANKS, {rtol:0, atol:0})
+    })
 })

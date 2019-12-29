@@ -25,8 +25,9 @@ import {_giv_rot_rows} from './_giv_rot'
 import {_transpose_inplace} from './transpose_inplace'
 
 
-function _norm_update(norm, Q, i,j)
+export function _norm_update(norm, Q, i,j)
 {
+  // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/hypot#Polyfill
   i |= 0;
   j <<= 1;
 
@@ -43,8 +44,9 @@ function _norm_update(norm, Q, i,j)
 }
 
 
-function _norm(norm, i)
+export function _norm(norm, i)
 {
+  // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/hypot#Polyfill
   i <<= 1;
   const max = norm[i];
   return isFinite(max) ? Math.sqrt(norm[i+1])*max : max;
@@ -115,8 +117,10 @@ export function rrqr_decomp_full(A)
     // INIT Q (TO IDENTITY)
     for( let i=0; i < M; i++ ) Q[Q_off + M*i+i] = 1;
 
-    // COMPUTE COLUMN NORM
-    // (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/hypot#Polyfill)
+    // INIT COLUMN NORM
+//    for( let j=0; j < N; j++ )
+//      if( norm[2*j] !== 0 )
+//        throw new Error('Assertion failed');
     for( let j=0; j < M; j++ )
       _norm_update(norm, R, R_off + N*j, 0);
 
@@ -222,9 +226,10 @@ export function rrqr_decomp(A)
     // INIT P
     for( let i=0; i < M; i++ ) P[P_off + i] = i;
 
-    // COMPUTE COLUMN NORM
-    // (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/hypot#Polyfill)
-    norm.fill(0);
+    // INIT COLUMN NORM
+//    for( let j=0; j < M; j++ )
+//      if( norm[2*j] !== 0 )
+//        throw new Error('Assertion failed');
     for( let j=0; j < N; j++ )
       _norm_update(norm, Q, Q_off + M*j, 0);
 
@@ -253,7 +258,7 @@ export function rrqr_decomp(A)
       }
 
       // RESET COLUMN NORM (INDEX i IS SET TO ZERO FOR THE NEXT RRQR)
-      norm.fill(0.0, (i+1)<<1);
+      norm.fill(0.0, i<<1);
 
       // ELIMINATE COLUMN BELOW DIAGONAL
                                  const ii = Q_off + M*i+i;
@@ -345,8 +350,8 @@ export function rrqr_solve(Q,R,P, y)
            R_off += N*N )
   {
     const rank = _rrqr_rank(N,N, R.data,R_off, tmp)
-    if( rank < N )
-      throw new SingularMatrixSolveError(x)
+    if( rank < N ) // FIXME: what if (Qᵀy)[i >= rank] ≈ 0
+      throw new SingularMatrixSolveError(x) 
   }
 
   return x
