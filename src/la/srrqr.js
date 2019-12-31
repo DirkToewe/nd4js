@@ -151,13 +151,6 @@ export function srrqr_decomp_full( A, opt={} )
 
         if( k >= K-1 ) break outer_loop;
 
-//        const detA = function(){
-//          let detA = 0;
-//          for( let i=0; i <= k; i++ )
-//            detA += Math.log2(Math.abs(R[R_off + N*i+i]));
-//          return detA;
-//        }();
-
         // UPDATE inv(A)
         { const                                   R_kk = - R[R_off + N*k+k];
                                    AB[N*k+k]=-1 / R_kk;
@@ -170,63 +163,6 @@ export function srrqr_decomp_full( A, opt={} )
           AB[N*i+j] += AB[N*i+k] * R[R_off + N*k+j];
 
         k += 1;
-
-//        // ASSERTIONS
-//        // check triangularity of R
-//        for( let i=1; i < M;          i++ )
-//        for( let j=0; j < k && j < i; j++ )
-//          if( !(Math.abs(R[R_off + N*i+j]) <= 1e-8) )
-//            throw new Error('Assertion failed.');
-//        // check triangularity of inv(A)
-//        for( let i=1; i < M;          i++ )
-//        for( let j=0; j < k && j < i; j++ )
-//          if( !(Math.abs(AB[N*i+j]) <= 1e-6) )
-//            throw new Error('Assertion failed.');
-//        // check orthogonality of Q
-//        for( let i=0; i < M; i++ )
-//        for( let j=0; j < M; j++ ) {
-//          let sum = 0;
-//          for( let h=0; h < M; h++ )
-//            sum += Q[Q_off + M*i+h] * Q[Q_off + M*j+h];
-//          if( !(Math.abs(sum - (i===j)) <= 1e-8) )
-//            throw new Error(`Assertion failed: ${sum} != ${(i===j)*1}.`);
-//        }
-//        // check Q @ R = Input (keep in mind that Q ist still column major)
-//        for( let i=0; i < M; i++ )
-//        for( let j=0; j < N; j++ )
-//        {
-//          const J = P[P_off + j];
-//
-//          let sum = 0;
-//          for( let h=0; h < M; h++ )
-//            sum += Q[Q_off + M*h+i] * R[R_off + N*h+j];
-//
-//          if( !(Math.abs(sum - A.data[R_off + N*i+J]) <= 1e-8) )
-//            throw new Error(`Assertion failed: ${sum} =/= ${A.data[R_off + N*i+J]}.`);
-//        }
-//        // check inv(A)
-//        for( let i=0; i < k; i++ )
-//        for( let j=0; j < k; j++ ) {
-//          let sum = 0;
-//          for( let h=0; h < k; h++ )
-//            sum += R[R_off + N*i+h] * AB[N*h+j];
-//          if( !(Math.abs(sum - (i===j)) <= 1e-8) ) throw new Error(`Assertion failed: ${sum} != ${(i===j)*1}.`);
-//        }
-//        // check A\B
-//        for( let i=0; i < k; i++ )
-//        for( let j=k; j < N; j++ ) {
-//          let sum = 0;
-//          for( let h=0; h < k; h++ )
-//            sum += AB[N*i+h] * R[R_off + N*h+j];
-//
-//          if( !(Math.abs(sum - AB[N*i+j]) <= 1e-8) )
-//            throw new Error(`Assertion failed: ${sum} =/= ${AB[N*i+j]}.`);
-//        }
-
-//        // check determinant prediction
-//        if( undefined !== predict_detA )
-//          if( !(Math.abs(detA - predict_detA) <= 1e-8) )
-//            throw new Error(`Assertion failed detA=${detA} != predict_detA=${predict_detA}.`);
 
         // SEARCH BEST COLUMN SWAPS
         let p = -1,
@@ -246,16 +182,12 @@ export function srrqr_decomp_full( A, opt={} )
           }
         }
 
-        // IF NO GOOD COLUMN SWAP FOUND, START NEXT COLUMN
-        if( !(F > dtol) ) { // <- handles NaN... I hope...
-//          predict_detA = undefined;
+        // IF NO GOOD COLUMN SWAP, START NEXT COLUMN
+        if( !(F > dtol) )
           break inner_loop;
-        }
 
         swapped = true;
         k -= 1; // <- go back one step since the swappend column needs retriangulation
-
-        predict_detA = detA + Math.log2(F);
 
         // MOVE COLUMN p TO k (VIA CYCLIC PERMUTATION) TODO use triangulary property to reduces Ops
         // CYCLE COLUMNS of R

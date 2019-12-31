@@ -53,6 +53,8 @@ export function rand_ortho( dtype, ...shape )
 
   const NORM = new FrobeniusNorm();
 
+  // TODO: this should be computable more efficiently
+
   for( let off=0; off < U.length; off += M*N )
   {
     // INIT Q TO IDENTITY

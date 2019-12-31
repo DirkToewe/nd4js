@@ -17,16 +17,19 @@
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
+import {eps} from '../dt'
 import {array, NDArray} from '../nd_array'
-import {diag_mat} from './diag'
 import {tabulate} from '../tabulate'
 import {zip_elems} from '../zip_elems'
-import {matmul, matmul2} from './matmul'
 import math from '../math'
+
+import {diag_mat} from './diag'
+import {matmul, matmul2} from './matmul'
 import {eye} from './eye'
+import {solve} from './solve'
 import {qr_decomp} from './qr'
-import {eps} from '../dt'
 import {norm} from './norm'
+import {rand_ortho} from './rand_ortho'
 
 import {svd_rank,
         svd_decomp,
@@ -197,10 +200,7 @@ describe('svd', () => {
         }
 
         let M = randInt(1,24),
-            N = randInt(1,24)
-        if( M > N ) {
-          const L=M; M=N; N=L
-        }
+            N = randInt(M,24)+1;
       
         const J = randInt(1,32)
         shapes[0].push(M,N)
@@ -213,9 +213,15 @@ describe('svd', () => {
     }()
   ).it('svd_lstsq computes one solution of random under-determined examples', ([A,y]) => {
     const [U,sv,V]= svd_decomp(A),
-                x = svd_lstsq(U,sv,V, y)
-  
-    expect( matmul2(A,x) ).toBeAllCloseTo(y)
+                x = svd_lstsq(U,sv,V, y);
+
+    // check that it's a solution
+    expect( matmul2(A,x) ).toBeAllCloseTo(y);
+
+    // check that it's the minimum norm solution
+    // https://www.math.usm.edu/lambers/mat419/lecture15.pdf
+    const AAT = matmul2(A,A.T);
+    expect(x).toBeAllCloseTo( matmul2(A.T, solve(AAT,y)) );
   })
 
 

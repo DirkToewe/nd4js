@@ -25,6 +25,9 @@ import {SingularMatrixSolveError} from './singular_matrix_solve_error'
 export {svd_dc as svd_decomp} from './svd_dc'
 
 
+// TODO: svd_decomp_full
+
+
 export function svd_rank( sv )
 {
   sv = asarray(sv)
@@ -81,7 +84,7 @@ export function svd_solve(U,sv,V, y)
       const sv_r = math.abs(sv[sv_off + r])
       if( ! isFinite(sv_r) )
         throw new Error('svd_solve(): NaN or Infinity encountered.')
-      if( sv_r <= T )
+      if( sv_r <= T )  // FIXME: what if (Uᵀy)[i >= rank] ≈ 0
         throw new SingularMatrixSolveError(x)
     }
   }

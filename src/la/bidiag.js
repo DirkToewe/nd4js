@@ -311,3 +311,7 @@ export function bidiag_decomp(A)
     new NDArray(V_shape, V)
   ];
 }
+
+// TODO: bidiag_decomp_full
+// TODO: bidiag_solve
+// TODO: bidiag_lstsq?
