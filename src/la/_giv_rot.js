@@ -36,7 +36,7 @@ export function _giv_rot_rows( W, N, i, j, c, s )
 }
 
 
-/** Applies a Givens rotation to columns i and j.
+/** Applies a Givens rotation to columns i and j (to a square matrix).
  */
 export function _giv_rot_cols( W, N, i, j, c, s )
 {

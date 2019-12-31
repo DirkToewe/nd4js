@@ -93,7 +93,8 @@ export function rrqr_decomp_full(A)
     R_shape =                 A.shape,
     Q_shape = Int32Array.from(R_shape),
     P_shape =                 Q_shape.slice(0,-1),
-    [M,N]   =                 R_shape.slice(  -2);
+    [M,N]   =                 R_shape.slice(  -2),
+       K    = Math.min(M,N); // <- M not M-1, because the last row still needs pivotization
   Q_shape[Q_shape.length-1] = M;
   P_shape[P_shape.length-1] = N;
 
@@ -118,14 +119,13 @@ export function rrqr_decomp_full(A)
     for( let i=0; i < M; i++ ) Q[Q_off + M*i+i] = 1;
 
     // INIT COLUMN NORM
-//    for( let j=0; j < N; j++ )
-//      if( norm[2*j] !== 0 )
-//        throw new Error('Assertion failed');
+//    if( norm.some(x => x!==0) )
+//      throw new Error('Assertion failed.');
     for( let j=0; j < M; j++ )
       _norm_update(norm, R, R_off + N*j, 0);
 
-    // ELIMINATE COLUMN BY COLUMN OF R (WHICH IS CURRENTLY STORED IN Q)
-    for( let i=0; i < N; i++ )
+    // ELIMINATE COLUMN BY COLUMN OF R
+    for( let i=0; i < K; i++ )
     { // FIND PIVOT COLUMN THAT (HOPEFULLY) ENSURES RANK REVEAL (RRQR is inherently not guaranteed to do that)
       let    p = -1,
         norm_p = -Infinity;
@@ -149,7 +149,9 @@ export function rrqr_decomp_full(A)
       }
 
       // RESET COLUMN NORM (INDEX i IS SET TO ZERO FOR THE NEXT RRQR)
-      norm.fill(0.0, i<<1)
+      norm.fill(0.0, i<<1);
+
+      if( 0 === norm_p ) break; // <- clearly rank-deficient case
 
       // ELIMINATE COLUMN BELOW DIAGONAL
                                  const ii = R_off + N*i+i;
@@ -169,14 +171,7 @@ export function rrqr_decomp_full(A)
         }
         _norm_update(norm, R, R_off + N*j, i+1);
       }
-      if( i < M ) {
-        const   R_ii = R[R_off + N*i+i];
-        if( 0 > R_ii || Object.is(-0,R_ii) ) {
-          for( let j=i; j <  N; j++ ) R[R_off + N*i+j] *= -1;
-          for( let j=0; j <= i; j++ ) Q[Q_off + M*i+j] *= -1;
-        }
-        R[R_off + N*i+i] = norm_p;
-      }
+      R[ii] = (R[ii] < 0 || Object.is(-0,R[ii]) ? -1 : +1) * norm_p;
     }
     _transpose_inplace(M, Q,Q_off);
   }
@@ -191,11 +186,6 @@ export function rrqr_decomp_full(A)
 
 export function rrqr_decomp(A)
 {
-  // TODO: implement Strong RRQR as well, e.g. as la.rrqr_decomp_strong 
-  // SEE: Ming Gu, Stanley C. Eisenstat,
-  //     "EFFICIENT ALGORITHMS FOR COMPUTING A STRONG RANK-REVEALING QR FACTORIZATION"
-  //      https://math.berkeley.edu/~mgu/MA273/Strong_RRQR.pdf
-
   A = asarray(A)
   if( A.ndim < 2 ) throw new Error('A must be at least 2D.')
   const
@@ -227,9 +217,8 @@ export function rrqr_decomp(A)
     for( let i=0; i < M; i++ ) P[P_off + i] = i;
 
     // INIT COLUMN NORM
-//    for( let j=0; j < M; j++ )
-//      if( norm[2*j] !== 0 )
-//        throw new Error('Assertion failed');
+//    if( norm.some(x => x!==0) )
+//      throw new Error('Assertion failed.');
     for( let j=0; j < N; j++ )
       _norm_update(norm, Q, Q_off + M*j, 0);
 
@@ -259,6 +248,8 @@ export function rrqr_decomp(A)
 
       // RESET COLUMN NORM (INDEX i IS SET TO ZERO FOR THE NEXT RRQR)
       norm.fill(0.0, i<<1);
+
+      if( 0 === norm_p ) break; // <- clearly rank-deficient case
 
       // ELIMINATE COLUMN BELOW DIAGONAL
                                  const ii = Q_off + M*i+i;

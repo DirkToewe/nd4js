@@ -25,13 +25,15 @@ import {zip_elems} from '../zip_elems'
 import {eye} from './eye'
 import {matmul,
         matmul2} from './matmul'
+import {permute_cols} from './permute'
 import {qr_decomp} from './qr'
 import {rand_ortho} from './rand_ortho'
-import {rrqr_decomp,
-        rrqr_decomp_full,
-        rrqr_rank,
-        rrqr_solve,
-        rrqr_lstsq} from './rrqr'
+import { rrqr_decomp,
+         rrqr_decomp_full,
+         rrqr_rank,
+         rrqr_solve,
+         rrqr_lstsq}       from  './rrqr'
+import {srrqr_decomp_full} from './srrqr'
 
 
 const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
@@ -74,114 +76,67 @@ describe('rrqr', () => {
   })
 
 
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
-      for( let run=1024; run-- > 0; )
-      {
-        const ndim = randInt(2,5),
-             shape = Int32Array.from({ length: ndim }, () => randInt(1,24) )
-        const A = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1)
-        Object.freeze(A.data.buffer)
-        yield A
-      }
-    }()
-  ).it('rrqr_decomp_full works on random examples', A => {
-    const [M,N] = A.shape.slice(-2),
-        [Q,R,P] = rrqr_decomp_full(A),
-             a  = matmul2(Q,R)
-
-    Object.freeze(Q.data.buffer); expect(Q.dtype).toBe('float64')
-    Object.freeze(R.data.buffer); expect(R.dtype).toBe('float64')
-    Object.freeze(P.data.buffer); expect(P.dtype).toBe(  'int32')
-    Object.freeze(a.data.buffer)
-
-    expect( Q.shape ).toEqual( Int32Array.of(...A.shape.slice(0,-2), M, M) )
-    expect( R.shape ).toEqual( Int32Array.of(...A.shape.slice(0,-2), M, N) )
-    expect( P.shape ).toEqual( Int32Array.of(...A.shape.slice(0,-2),    N) )
-
-    const I = eye(M)
-    Object.freeze(I.data.buffer)
-    expect( matmul2(Q.T,Q) ).toBeAllCloseTo(I)
-    expect( matmul2(Q,Q.T) ).toBeAllCloseTo(I)
-
-    A = tabulate(A.shape, (...idx) => {
-      idx[A.ndim-1] = P(...idx.slice(0,-2), idx[A.ndim-1])
-      return A(...idx)
-    })
-
-    expect(R).toBeUpperTriangular()
-    expect(a).toBeAllCloseTo(A)
-
-    for( let off=0; off < R.data.length; off += M*N )
-      for( let i=Math.min(M,N); --i > 0; )
-      {
-        const R_II = math.abs(R.data[off + N* i   + i   ]),
-              R_ii = math.abs(R.data[off + N*(i-1)+(i-1)])
-        expect(R_ii).not.toBeLessThan(R_II)
-      }
-  })
+  const RRQR_METHODS = Object.entries({
+    srrqr_decomp_full,
+     rrqr_decomp,
+     rrqr_decomp_full,
+  });
+  Object.freeze(RRQR_METHODS);
 
 
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
-      for( let run=1024; run-- > 0; )
-      {
-        const ndim = randInt(2,5),
-             shape = Int32Array.from({ length: ndim }, () => randInt(1,24) )
-        const A = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1)
-        Object.freeze(A.data.buffer)
-        yield A
-      }
-    }()
-  ).it('rrqr_decomp works on random examples', A => {
-    const [M,N] = A.shape.slice(-2),
-        [Q,R,P] = rrqr_decomp(A),
-             L  = Math.min(M,N),
-             a  = matmul2(Q,R)
-    Object.freeze(Q.data.buffer); expect(Q.dtype).toBe('float64')
-    Object.freeze(R.data.buffer); expect(R.dtype).toBe('float64')
-    Object.freeze(P.data.buffer); expect(P.dtype).toBe(  'int32')
-    Object.freeze(a.data.buffer)
-
-    expect( Q.shape ).toEqual( Int32Array.of(...A.shape.slice(0,-2), M, L) )
-    expect( R.shape ).toEqual( Int32Array.of(...A.shape.slice(0,-2), L, N) )
-    expect( P.shape ).toEqual( Int32Array.of(...A.shape.slice(0,-2),    N) )
-
-    A = tabulate(A.shape, (...idx) => {
-      idx[A.ndim-1] = P(...idx.slice(0,-2), idx[A.ndim-1])
-      return A(...idx)
-    })
-
-    expect(R).toBeUpperTriangular()
-    expect(a).toBeAllCloseTo(A)
-
-    const I = eye(L)
-    Object.freeze(I.data.buffer)
-                 expect( matmul2(Q.T,Q) ).toBeAllCloseTo(I)
-    if( M <= N ) expect( matmul2(Q,Q.T) ).toBeAllCloseTo(I)
-
-    for( let off=0; off < R.data.length; off += L*N )
-      for( let i=L; --i > 0; )
-      {
-        const R_II = math.abs(R.data[off + N* i   + i   ]),
-              R_ii = math.abs(R.data[off + N*(i-1)+(i-1)])
-        expect(R_ii).not.toBeLessThan(R_II)
-      }
-  })
-
-
-  for( const [rrqr_name,rrqr_deco] of Object.entries({
-    rrqr_decomp,
-    rrqr_decomp_full
-  }))
+  for( const [rrqr_name,rrqr_deco] of RRQR_METHODS )
     forEachItemIn(
       function*(){
-        const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
+        for( let run=1024; run-- > 0; )
+        {
+          const ndim = randInt(2,5),
+              shape = Int32Array.from({ length: ndim }, () => randInt(1,24) )
+          const A = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1)
+          Object.freeze(A.data.buffer)
+          yield A
+        }
+      }()
+    ).it(`${rrqr_name} works on random examples`, A => {
+      const [M,N] = A.shape.slice(-2),
+          [Q,R,P] = rrqr_deco(A),
+               L  = rrqr_name.endsWith('_full') ? M : Math.min(M,N),
+               a  = matmul2(Q,R)
+      Object.freeze(Q.data.buffer); expect(Q.dtype).toBe('float64')
+      Object.freeze(R.data.buffer); expect(R.dtype).toBe('float64')
+      Object.freeze(P.data.buffer); expect(P.dtype).toBe(  'int32')
+      Object.freeze(a.data.buffer)
 
+      expect( Q.shape ).toEqual( Int32Array.of(...A.shape.slice(0,-2), M, L) )
+      expect( R.shape ).toEqual( Int32Array.of(...A.shape.slice(0,-2), L, N) )
+      expect( P.shape ).toEqual( Int32Array.of(...A.shape.slice(0,-2),    N) )
+
+      A = permute_cols(A,P);
+
+      expect(R).toBeUpperTriangular()
+      expect(a).toBeAllCloseTo(A)
+
+      const I = eye(L)
+      Object.freeze(I.data.buffer)
+                  expect( matmul2(Q.T,Q) ).toBeAllCloseTo(I)
+      if( L===M ) expect( matmul2(Q,Q.T) ).toBeAllCloseTo(I)
+
+      if( rrqr_name.startsWith('rrqr_') )
+      {
+        const RR = R.data;
+        for( let off=RR.length; (off -= L*N) >= 0; )
+          for( let i=Math.min(M,N); --i > 0; )
+          {
+            const  R_II = math.abs(RR[off + N* i   + i   ]),
+                   R_ii = math.abs(RR[off + N*(i-1)+(i-1)])
+            expect(R_ii).not.toBeLessThan(R_II)
+          }
+      }
+    })
+
+
+  for( const [rrqr_name,rrqr_deco] of RRQR_METHODS )
+    forEachItemIn(
+      function*(){
         for( let run=1024; run-- > 0; )
         {
           let ndim = randInt(0,5),
@@ -211,14 +166,9 @@ describe('rrqr', () => {
     })
 
 
-  for( const [rrqr_name,rrqr_deco] of Object.entries({
-    rrqr_decomp,
-    rrqr_decomp_full
-  }))
+  for( const [rrqr_name,rrqr_deco] of RRQR_METHODS )
     forEachItemIn(
       function*(){
-        const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
         for( let run=1024; run-- > 0; )
         {
           let ndim = randInt(0,5),
@@ -248,14 +198,9 @@ describe('rrqr', () => {
     })
 
 
-  for( const [rrqr_name,rrqr_deco] of Object.entries({
-    rrqr_decomp,
-    rrqr_decomp_full
-  }))
+  for( const [rrqr_name,rrqr_deco] of RRQR_METHODS )
     forEachItemIn(
       function*(){
-        const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
         for( let run=1024; run-- > 0; )
         {
           let ndim = randInt(0,5),
@@ -296,10 +241,7 @@ describe('rrqr', () => {
     })
 
 
-  for( const [rrqr_name,rrqr_deco] of Object.entries({
-    rrqr_decomp,
-    rrqr_decomp_full
-  }))
+  for( const [rrqr_name,rrqr_deco] of RRQR_METHODS )
     forEachItemIn(
       function*(){
         for( let run=1024; run-- > 0; )
@@ -340,10 +282,7 @@ describe('rrqr', () => {
     })
 
 
-  for( const [rrqr_name,rrqr_deco] of Object.entries({
-    rrqr_decomp,
-    rrqr_decomp_full
-  }))
+  for( const [rrqr_name,rrqr_deco] of RRQR_METHODS )
     forEachItemIn(
       function*(){
         for( let run=1024; run-- > 0; )
@@ -386,10 +325,7 @@ describe('rrqr', () => {
     })
 
 
-  for( const [rrqr_name,rrqr_deco] of Object.entries({
-    rrqr_decomp,
-    rrqr_decomp_full
-  }))
+  for( const [rrqr_name,rrqr_deco] of RRQR_METHODS )
     forEachItemIn(
       function*(){
         for( let run=1024; run-- > 0; )

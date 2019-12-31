@@ -30,11 +30,12 @@ export {norm} from './norm'
 export * from './permute'
 export * from './qr'
 export * from './rank'
-export {rrqr_decomp,
-        rrqr_decomp_full,
-        rrqr_rank,
-        rrqr_lstsq,
-        rrqr_solve} from './rrqr'
+export { rrqr_decomp,
+         rrqr_decomp_full,
+         rrqr_rank,
+         rrqr_lstsq,
+         rrqr_solve}       from  './rrqr'
+export {srrqr_decomp_full} from './srrqr'
 export        * from './schur'
 export        * from './singular_matrix_solve_error'
 export        * from './solve'
