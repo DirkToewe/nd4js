@@ -75,7 +75,7 @@ export function _rrqr_rank(M,N, R,R_off, tmp)
   }
 
   const dtype = tmp instanceof Float32Array ? 'float32' : 'float64',
-            T = Math.sqrt(eps(dtype)) * tmp[0] // <- threshold
+            T = eps(dtype)*2 * Math.max(M,N) * tmp[0] // <- threshold
 
   let    r = L
   while( r > 0 && tmp[r-1] <= T ) // <- TODO use binary search here for slightly improved performance

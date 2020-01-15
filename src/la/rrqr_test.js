@@ -64,13 +64,62 @@ function _rand_rank_deficient(...shape)
               return Math.random()*8 + 0.1
             }),
             A = matmul(U,S,V);
+
+  // add random scaling
+  for( let S_off=S.data.length; (S_off -= L*L) >= 0; )
+  {
+    const scale = Math.random()*1e300 + 1;
+
+    for( let i=L; i-- > 0; )
+      S.data[S_off + L*i+i] *= scale;
+  }
+
   Object.freeze(ranks.data.buffer);
   Object.freeze(A.data.buffer);
   return [ranks,A];
 }
 
 
-describe('rrqr', () => {
+describe('srrqr', () => {
+  beforeEach( () => {
+    jasmine.addMatchers(CUSTOM_MATCHERS)
+  })
+
+  const SRRQR_METHODS = Object.entries({
+    srrqr_decomp_full
+  });
+  Object.freeze(SRRQR_METHODS);
+
+  for( const [srrqr_name,srrqr_deco] of SRRQR_METHODS )
+
+  forEachItemIn(
+    function*(){
+      for( let run=1024; run-- > 0; )
+      {
+        const ndim = randInt(0,5);
+
+        yield _rand_rank_deficient(
+          ...Array.from({ length: ndim-2 }, () => randInt(1,8) ),
+          randInt(1,64),
+          randInt(1,64)
+        );
+      }
+    }()
+  ).it(`${srrqr_name} computes rank correctly for random examples`, ([RANKS,A]) => {
+//    console.log(`A.shape: [${A.shape}].`);
+
+    const [Q,R,P, ranks] = srrqr_deco(A);
+
+    expect(ranks.shape).toEqual(A.shape.slice(0,-2));
+    expect(RANKS.shape).toEqual(A.shape.slice(0,-2));
+    expect(ranks.dtype).toBe('int32');
+    expect(RANKS.dtype).toBe('int32');
+    expect(ranks).toBeAllCloseTo(RANKS, {rtol:0, atol:0});
+  })
+})
+
+
+describe('(s)rrqr', () => {
   beforeEach( () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })

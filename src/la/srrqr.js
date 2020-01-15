@@ -58,7 +58,12 @@ export function srrqr_decomp_full( A, opt={} )
   //   with potentially less "strong" column swaps
 
   A = asarray(A)
-  if( A.ndim < 2 ) throw new Error('srrqr_decomp_full(A,opt): A must be at least 2D.')
+
+  if( A.ndim < 2                   ) throw new Error('srrqr_decomp_full(A,opt): A must be at least 2D.');
+  if( A.dtype.startsWith('complex')) throw new Error('srrqr_decomp_full(A,opt): Complex A not (yet) supported.');
+
+   //
+  //
   const
     dtype = A.dtype==='float32' ? 'float32' : 'float64',
     DTypeArray = ARRAY_TYPES[dtype],
@@ -66,8 +71,8 @@ export function srrqr_decomp_full( A, opt={} )
     Q_shape = Int32Array.from(R_shape),
     P_shape =                 Q_shape.slice(0,-1),
     r_shape =                 R_shape.slice(0,-2),
-    [M,N]   =                 R_shape.slice(  -2),
-       K    = Math.min(M,N); // <- M not M-1, because the last row still needs pivotization
+                      [M,N] = R_shape.slice(  -2),
+       L    = Math.min(M,N); // <- M not M-1, because the last row still needs pivotization
   Q_shape[Q_shape.length-1] = M;
   P_shape[P_shape.length-1] = N;
 
@@ -75,15 +80,31 @@ export function srrqr_decomp_full( A, opt={} )
   const r = new Int32Array(R.length/N/M),
         P = new Int32Array(R.length/M), // <- tracks column permutations
         Q = new DTypeArray(R.length/N*M),
-       AB = new DTypeArray(M*N), // <- stores inv(A) and A\B in COLUMN MAJOR order
+      AB  = new DTypeArray(M*N), // <- stores inv(A) and A\B in COLUMN MAJOR order
+      AB0 = new DTypeArray(M*N),
      norm = new DTypeArray(N<<1),
      NORM = new FrobeniusNorm(); // <─ underflow-safe representation of the column norm
 
-  r.fill(K);
+  for( let i=r.length; i-- > 0; )
+    r[i] = Math.random()*1024 - 1024;
 
+  let ztol = NaN,
+      dtol = NaN;
+
+  let Q_dirty = false;
+
+  let Q_off=0,
+      R_off=0,
+      P_off=0;
+
+  let k0= 0,
+      k = 0,
+      K = 0;
+
+  // PROCESS THE (TOLERANCE) OPTIONS
   const [DTOL,ZTOL] = function(){
     let {
-      dtol = 1.1 * K**0.1,
+      dtol = 1.01,
       ztol = undefined
     } = opt;
 
@@ -123,11 +144,274 @@ export function srrqr_decomp_full( A, opt={} )
   }();
   opt = undefined;
 
+
+  const update = (AB,k) =>
+  {
+//*DEBUG*/    // CHECK TRIANGULARITY OF R AND AB
+//*DEBUG*/    for( let j=0;   j < k; j++)
+//*DEBUG*/    for( let i=j; ++i < M;    )
+//*DEBUG*/    {
+//*DEBUG*/      if( !(R [R_off + N*i+j  ] === 0) ) throw new Error(`Assertion failed.`);
+//*DEBUG*/      if( !(AB[          i+j*M] === 0) ) throw new Error(`Assertion failed.`);
+//*DEBUG*/    }
+
+    // UPDATE inv(A)
+    { const                                   R_kk = - R[R_off + N*k+k];
+                               AB[k+k*M]=-1 / R_kk;
+      for( let i=k; i-- > 0; ) AB[i+k*M]    /=R_kk;
+    }
+    // UPDATE A\B
+    for( let j=k; ++j <  N;     )
+    for( let i=0;   i <= k; i++ )
+      AB[i+j*M] += AB[i+k*M] * R[R_off + N*k+j];
+  }
+
+
+  const downdate = (AB,k) =>
+  {
+//*DEBUG*/    // CHECK TRIANGULARITY OF R AND AB
+//*DEBUG*/    for( let j=0;   j < k; j++)
+//*DEBUG*/    for( let i=j; ++i < M;    )
+//*DEBUG*/    {
+//*DEBUG*/      if( !(R [R_off + N*i+j  ] === 0) ) throw new Error(`Assertion failed.`);
+//*DEBUG*/      if( !(AB[          i+j*M] === 0) ) throw new Error(`Assertion failed.`);
+//*DEBUG*/    }
+
+    // DOWNDATE A\B
+    for( let j=N; --j   > k; ) { AB[k+j*M]  = 0;
+    for( let i=k;   i-- > 0; )   AB[i+j*M] -= AB[i+k*M] * R[R_off + N*k+j]; }
+    // DOWNDATE inv(A)
+    AB[k+k*M] = 0;
+    { const                                 R_kk = - R[R_off + N*k+k];
+      for( let i=k; i-- > 0; ) AB[i+k*M] *= R_kk;
+    }
+  }
+
+
+  const swap_elim = p =>
+  {
+    // swap columns in R
+    for( let j=0; j < M; j++ ) {
+      const R_jk = R[R_off + N*j+k];
+                   R[R_off + N*j+k] = R[R_off + N*j+p];
+                                      R[R_off + N*j+p] = R_jk;
+    }
+    // swap columns in A\B (which is column major)
+    for( let j=0; j < k; j++ ) {
+      const AB_jk = AB0[j+k*M];
+                    AB0[j+k*M] = AB0[j+p*M];
+                                 AB0[j+p*M] = AB_jk;
+    }
+    for( let j=0; j < k; j++ ) {
+      const AB_jk = AB[j+k*M];
+                    AB[j+k*M] = AB[j+p*M];
+                                AB[j+p*M] = AB_jk;
+    }
+    // swap P
+    const P_i = P[P_off+k];
+                P[P_off+k] = P[P_off+p];
+                             P[P_off+p] = P_i;
+
+    // RESET COLUMN NORM (INDEX k IS SET TO ZERO FOR THE NEXT RRQR)
+    norm.fill(0.0);
+
+    // ELIMINATE COLUMN k BELOW DIAGONAL (USING GIVEN ROTATIONS)
+    let count = 0;
+    for( let j=k; ++j < M; )
+    { const       kk = R_off + N*k+k,
+                  jk = R_off + N*j+k,
+                R_jk = R[jk];
+      if( 0 !== R_jk )
+      {   const R_kk = R[kk],
+                       norm = Math.hypot(R_kk,R_jk),
+            c = R_kk / norm,
+            s = R_jk / norm; R[jk] = 0;
+        if( s !== 0 ) {      R[kk] = norm;
+          _giv_rot_rows(R, N-1-k, kk+1,
+                                  jk+1, c,s);
+          _giv_rot_rows(
+            Q,
+            Q_dirty ? M : j+1, // <- "strong" column swaps "contaminate" Q -> be fully rotate
+            Q_off + M*k,
+            Q_off + M*j, c,s
+          );
+        }
+      }
+      _norm_update(norm, R, R_off + N*j, k+1);
+    }
+  }
+
+
+  const piv_elim = () =>
+  {
+//*DEBUG*/    check_col_norms();
+
+    let    p = -1,
+      norm_p = -Infinity;
+    for( let j=k; j < N; j++ ) {
+      const  norm_j =_norm(norm,j);
+      if(    norm_p < norm_j ) {
+        p=j; norm_p = norm_j
+      }
+    }
+
+//*DEBUG*/    if(!(norm_p >= 0))
+//*DEBUG*/      throw new Error('Assertion failed.');
+
+    swap_elim(p);
+  }
+
+
+//*DEBUG*/  const check = (AB, k) =>
+//*DEBUG*/  {
+//*DEBUG*/    // check inv(A)
+//*DEBUG*/    for( let i=0; i < k; i++ )
+//*DEBUG*/    for( let j=0; j < k; j++ )
+//*DEBUG*/    {
+//*DEBUG*/      let sum = 0;
+//*DEBUG*/      for( let h=0; h < k; h++ )
+//*DEBUG*/        sum += AB[i+h*M] * R[R_off + N*h+j];
+//*DEBUG*/      if( ! (Math.abs(sum - (i===j)) <= 1e-4) )
+//*DEBUG*/        throw new Error(`${sum} != ${(i===j)*1}.`);
+//*DEBUG*/    }
+//*DEBUG*/    // check A\B
+//*DEBUG*/    for( let i=0; i < k; i++ )
+//*DEBUG*/    for( let j=k; j < N; j++ )
+//*DEBUG*/    {
+//*DEBUG*/      let sum = 0;
+//*DEBUG*/      for( let h=0; h < k; h++ )
+//*DEBUG*/        sum += AB[i+h*M] * R[R_off + N*h+j];
+//*DEBUG*/      if( ! (Math.abs(sum - AB[i+j*M]) <= 1e-4) )
+//*DEBUG*/        throw new Error(`${sum} != ${AB[i+j*M]}.`);
+//*DEBUG*/    }
+//*DEBUG*/  }
+//*DEBUG*/
+//*DEBUG*/
+//*DEBUG*/  const check_col_norms = () =>
+//*DEBUG*/  {
+//*DEBUG*/    for( let j=k; j < N; j++ )
+//*DEBUG*/    {
+//*DEBUG*/      const nj = _norm(norm, j),
+//*DEBUG*/            uj = Math.hypot(...function*(){
+//*DEBUG*/              for( let i=k; i < M; i++ )
+//*DEBUG*/                yield R[R_off + N*i+j];
+//*DEBUG*/            }());
+//*DEBUG*/      if( !(Math.abs(nj-uj) <= 1e-8) )
+//*DEBUG*/        throw new Error('Assertion failed.');
+//*DEBUG*/    }
+//*DEBUG*/  }
+
+
+  const copy = (AB_src, AB_dst) =>
+  {
+    for( let j=0; j < N; j++ )
+    for( let i=0; i < k; i++ )
+      AB_dst[i+j*M] = AB_src[i+j*M];
+  }
+
+
+  const cycle = (AB,p,k) =>
+  { for( let j=p; j < N; j++ ) { const                        AB_pj = AB[p+j*M];
+      if(j < k){for( let i=p; i < j; i++ ) AB[i+j*M] = AB[(i+1)+j*M]; AB[j+j*M] = 0; }
+      else      for( let i=p; i < k; i++ ) AB[i+j*M] = AB[(i+1)+j*M]; AB[k+j*M] = AB_pj;
+    }
+  }
+
+
+  const update_col_norms = () =>
+  {
+    norm.fill(0.0);
+    for( let i=k; i < M; i++ )
+      _norm_update(norm, R, R_off + N*i, k);
+  }
+
+
+  const rest_norm = () =>
+  {
+//*DEBUG*/    check_col_norms();
+
+    NORM.reset();
+    for( let j=k; j < N; j++ )
+      NORM.include(_norm(norm,j) );
+    return NORM.result;
+  }
+
+  const adjust_k = increase =>
+  {
+//*DEBUG*/    if( 'boolean' !== typeof increase )
+//*DEBUG*/      throw new Error('Assertion failed.');
+//*DEBUG*/    if(!(k0 <= k     )) throw new Error('Assertion failed.');
+//*DEBUG*/    if(!(      k <= K)) throw new Error('Assertion failed.');
+
+//*DEBUG*/    check_col_norms();
+
+    if(increase)
+    {
+//*DEBUG*/      if(!(k < K)) throw new Error('Assertion failed.');
+      piv_elim();
+      update(AB, k++);
+      copy(AB,AB0);
+      k0 = k;
+    }
+    else
+    {
+//*DEBUG*/      if(!(k0 < k)) throw new Error('Assertion failed.');
+//*DEBUG*/      if(!(K == k)) throw new Error('Assertion failed.');
+      copy(AB0,AB);
+      k = k0;
+      update_col_norms();
+    }
+
+    let mid = k0+K >>> 1;
+
+    while( k < mid )
+    {
+//*DEBUG*/      check_col_norms();
+
+      if( rest_norm() <= ztol )
+      { K = k;
+        if( k0 < k )
+        { copy(AB0,AB);
+          k = k0;
+          update_col_norms();
+
+          mid = k0+K >>> 1;
+          increase = false;
+          continue;
+        }
+        break;
+      }
+
+      if(increase)
+        piv_elim();
+
+      update(AB, k++);
+
+      if(!increase)
+        update_col_norms();
+
+//*DEBUG*/      check_col_norms();
+    }
+  }
+
+
+//*DEBUG*/  const logdet_A = () =>
+//*DEBUG*/  {
+//*DEBUG*/    // CHECK TRIANGULARITY OF R AND AB
+//*DEBUG*/    for( let j=0;   j < k; j++)
+//*DEBUG*/    for( let i=j; ++i < M;    )
+//*DEBUG*/      if( !(R [R_off + N*i+j  ] === 0) ) throw new Error(`Assertion failed.`);
+//*DEBUG*/
+//*DEBUG*/    let logdet_A = 0;
+//*DEBUG*/    for( let i=0; i < k; i++ )
+//*DEBUG*/      logdet_A += Math.log2(Math.abs(R[R_off + N*i+i]));
+//*DEBUG*/    return logdet_A;
+//*DEBUG*/  };
+
+
+  // FOR EACH MATRIX IN THE BATCH
   for(
-    let Q_off=0,
-        R_off=0,
-        P_off=0,
-        r_off=0; Q_off < Q.length; Q_off += M*M,
+    let r_off=0; Q_off < Q.length; Q_off += M*M,
                                    R_off += M*N,
                                    P_off +=   N,
                                    r_off += 1
@@ -139,190 +423,106 @@ export function srrqr_decomp_full( A, opt={} )
     // INIT Q (TO IDENTITY)
     for( let i=0; i < M; i++ ) Q[Q_off + M*i+i] = 1;
 
-    // INIT COLUMN NORM
-    norm.fill(0.0);
-    for( let i=0; i < M; i++ )
-      _norm_update(norm, R, R_off + N*i, 0);
-
     // INIT AB
-    AB.fill(0);
+    AB0.fill(0.0);
+    AB .fill(0.0);
 
     // RETRIEVE TOLERANCES
-    const dtol = DTOL(r_off),
-          ztol = ZTOL(r_off);
+    dtol = DTOL(r_off),
+    ztol = ZTOL(r_off);
     if( !(dtol >=1) ) throw new Error('Assertion failed.');
     if( !(ztol >=0) ) throw new Error('Assertion failed.');
 
-    let Q_dirty = false;
+    // INIT BINARY SEARCH BOUNDS
+    k0 = k = 0;
+    K  = L;
 
-//    let predict_logdet_A = NaN;
+    Q_dirty = false;
+    update_col_norms();
 
-    // ELIMINATE COLUMN BY COLUMN OF R
-    outer_loop:for( let k=0; k < K; )
-    { 
-      const pivot = p => {
-        // swap columns in R
-        for( let j=0; j < M; j++ ) {
-          const R_jk = R[R_off + N*j+k];
-                       R[R_off + N*j+k] = R[R_off + N*j+p];
-                                          R[R_off + N*j+p] = R_jk;
-        }
-        // swap columns in A\B (which is column major)
-        for( let j=0; j < k; j++ ) {
-          const AB_jk = AB[j+k*M];
-                        AB[j+k*M] = AB[j+p*M];
-                                    AB[j+p*M] = AB_jk;
-        }
-        // swap P
-        const P_i = P[P_off+k];
-                    P[P_off+k] = P[P_off+p];
-                                 P[P_off+p] = P_i;
-      };
+    loop:for(;;)
+    {
+//*DEBUG*/      check(AB, k );
+//*DEBUG*/      check(AB0,k0);
+//*DEBUG*/      if(!(k0 <= k)) throw new Error('Assertion failed.');
+//*DEBUG*/      if(!(   k<=N)) throw new Error('Assertion failed.');
 
-      // FIND PIVOT COLUMN THAT (HOPEFULLY) ENSURES RANK REVEAL (RRQR is inherently not guaranteed to do that)
-      let    p = -1,
-        norm_p = -Infinity;           NORM.reset();
-      for( let j=k; j < N; j++ ) {
-        const  norm_j =_norm(norm,j); NORM.include(norm_j);
-        if(    norm_p < norm_j ) {
-          p=j; norm_p = norm_j
-        }
-      }
-
-      if( NORM.result <= ztol ) { // <- rank-deficient case TODO: consider finishing triangulation w/o "strong" column swaps
-        r[r_off] = k;
-        break outer_loop;
-      }
-
-      // swap pivot to column k
-      if( p !== k ) pivot(p);
-
-      inner_loop:while(true)
+      if( rest_norm() <= ztol )
       {
-        // RESET COLUMN NORM (INDEX k IS SET TO ZERO FOR THE NEXT RRQR)
-        norm.fill(0.0);
-
-        // ELIMINATE COLUMN k BELOW DIAGONAL (USING GIVEN ROTATIONS)
-        let count = 0;
-        for( let j=k; ++j < M; )
-        { const       kk = R_off + N*k+k,
-                      jk = R_off + N*j+k,
-                    R_jk = R[jk];
-          if( 0 !== R_jk )
-          {   const R_kk = R[kk],
-                           norm = Math.hypot(R_kk,R_jk),
-                c = R_kk / norm,
-                s = R_jk / norm; R[jk] = 0;
-            if( s !== 0 ) {      R[kk] = norm;
-              _giv_rot_rows(R, N-1-k, kk+1,
-                                      jk+1, c,s);
-              _giv_rot_rows(
-                Q,
-                Q_dirty ? M : j+1, // <- "strong" column swaps "contaminate" Q -> be fully rotate
-                Q_off + M*k,
-                Q_off + M*j, c,s
-              );
-            }
-          }
-          _norm_update(norm, R, R_off + N*j, k+1);
+        K = k;
+        if( k0 < k )
+        {
+          adjust_k(/*increase=*/false);
+//*DEBUG*/          check(AB, k );
+//*DEBUG*/          check(AB0,k0);
         }
+        else if( k === N ) break loop;
+//*DEBUG*/        else if( k !== k0) throw new Error('Assertion failed.');
+      }
 
-//        // CHECK DET PREDICTION
-//        const logdet_A = function(){
-//          let logdet_A = 0;
-//          for( let i=0; i <=k; i++ )
-//            logdet_A += Math.log2(Math.abs(R[R_off + N*i+i]));
-//          return logdet_A;
-//        }();
-//        if( ! isNaN(predict_logdet_A) )
-//          if( !(Math.abs(logdet_A - predict_logdet_A) <= 1e-4) )
-//            throw new Error(`${logdet_A} != ${predict_logdet_A}`); 
+      // SEARCH BEST COLUMN SWAPS
+      let p = -1,
+          q = -1,
+          F = -Infinity;
 
-        if( k > N-2 )
-          break outer_loop; // <- last column (no more swaps available)
+      // COMPUTE ROW NORMS OF inv(A)
+      for( let j=0; j < k; j++ )
+        _row_norm_update(norm, AB, j*M, j+1);
 
-        // UPDATE inv(A)
-        { const                                   R_kk = - R[R_off + N*k+k];
-                                   AB[k+k*M]=-1 / R_kk;
-          for( let i=k; i-- > 0; ) AB[i+k*M]    /=R_kk;
+      // FIND BEST "STRONG" COLUMN SWAP
+      for( let i=0; i < k; i++ ) { const r = _norm(norm,i);
+      for( let j=k; j < N; j++ ) { const c = _norm(norm,j);
+        const   f = Math.hypot( AB[i+j*M], r*c );
+        if( F < f )
+          [F,p,q] = [f,i,j];
+      }}
+
+      // IF NO GOOD COLUMN SWAP IS FOUND ANYMORE
+      if( !(F > dtol) )
+      {
+        if( k0 >= K )
+        {
+//*DEBUG*/          if( k0 !== K ) throw new Error('Assertion failed.');
+//*DEBUG*/          if( k0 !== k ) throw new Error('Assertion failed.');
+          break loop;
         }
+        else {
+//*DEBUG*/          if(!(k < K))
+//*DEBUG*/            throw new Error('Assertion failed.');
+          adjust_k(/*increase=*/true);
+          continue loop;
+        }
+      }
 
-        // UPDATE A\B
-        for( let j=k; ++j <  N;     )
-        for( let i=0;   i <= k; i++ )
-          AB[i+j*M] += AB[i+k*M] * R[R_off + N*k+j];
+//*DEBUG*/      if( !(0 < k) )
+//*DEBUG*/        throw new Error('Assertion failed.');
 
-        k += 1;
+      Q_dirty = true;
 
-//        // check inv(A)
-//        for( let i=0; i < k; i++ )
-//        for( let j=0; j < k; j++ )
-//        {
-//          let sum = 0;
-//          for( let h=0; h < k; h++ )
-//            sum += AB[i+h*M] * R[R_off + N*h+j];
-//          if( ! (Math.abs(sum - (i===j)) <= 1e-4) )
-//            throw new Error(`${sum} != ${(i===j)*1}.`);
-//        }
-//        // check A\B
-//        for( let i=0; i < k; i++ )
-//        for( let j=k; j < N; j++ )
-//        {
-//          let sum = 0;
-//          for( let h=0; h < k; h++ )
-//            sum += AB[i+h*M] * R[R_off + N*h+j];
-//          if( ! (Math.abs(sum - AB[i+j*M]) <= 1e-4) )
-//            throw new Error(`${sum} != ${AB[i+j*M]}.`);
-//        }
+//*DEBUG*/      const predict_logdet_A = logdet_A() + Math.log2(F);
 
-        // SEARCH BEST COLUMN SWAPS
-        let p = -1,
-            q = -1,
-            F = -Infinity;
+      // IF inv(A0) IS AFFECTED BY COLUMN SWAP
+      if( p < k0 )
+      { --k0;
 
-        // COMPUTE ROW NORMS OF inv(A)
-        for( let j=0; j < k; j++ )
-          _row_norm_update(norm, AB, j*M, j+1);
-
-        // FIND BEST "STRONG" COLUMN SWAP
-        for( let i=0; i < k; i++ ) { const r = _norm(norm,i);
-        for( let j=k; j < N; j++ ) { const c = _norm(norm,j);
-          const   f = Math.hypot( AB[i+j*M], r*c );
-          if( F < f )
-            [F,p,q] = [f,i,j];
-        }}
-
-//        predict_logdet_A = NaN
-
-        // IF NO GOOD COLUMN SWAP, START NEXT COLUMN
-        if( !(F > dtol) )
-          break inner_loop;
-
-//        predict_logdet_A = logdet_A + Math.log2(F);
-
-        Q_dirty = true;
-        k -= 1; // <- go back one step since the swappend column needs retriangulation
-
-        // MOVE COLUMN p TO k (VIA CYCLIC PERMUTATION) TODO use triangulary property to reduces Ops
+        // MOVE COLUMN p TO k0 (VIA CYCLIC PERMUTATION) TODO use triangulary property to reduces Ops
         // CYCLE COLUMNS of R
-        for( let i=0; i <= k; i++ ) { const R_ip = R[R_off + N*i+p];
-          for( let j=Math.max(p,i-1); j < k; j++ ) R[R_off + N*i+j] = R[R_off + N*i+(j+1)];
-                                                   R[R_off + N*i+k] = R_ip;
+        for( let i=0; i <= k0; i++ ) { const                     R_ip = R[R_off + N*i+p ];
+          for( let j=Math.max(p,i-1); j < k0; j++ ) R[R_off + N*i+j ] = R[R_off + N*i+(j+1)];
+                                                    R[R_off + N*i+k0] = R_ip;
         }
         // CYCLE ROWS OF inv(A)
-        for( let j=p; j < N; j++ ) { const AB_pj = AB[ p   +j*M];
-          for( let i=p; i < k; i++ )   AB[i+j*M] = AB[(i+1)+j*M];
-                                       AB[k+j*M] = AB_pj;
-        }
+        cycle(AB, p,k0);
+        cycle(AB0,p,k0);
         // CYCLE P P
-        { const                P_p = P[P_off + p];
-          for( let j=p; j < k; j++ ) P[P_off + j] = P[P_off + j+1];
-                                     P[P_off + k] = P_p;
+        { const                                 P_p = P[P_off + p];
+          for( let j=p; j < k0; j++ ) P[P_off + j ] = P[P_off + j+1];
+                                      P[P_off + k0] = P_p;
         }
 
         // RETRIANGULATE USING GIVENS ROTATIONS
         // (since cyclic permutation turned R from triangular to Hessenberg)
-        for( let i=p; i < k; i++ )
+        for( let i=p; i < k0; i++ )
         { const       ii = R_off + N* i   +i,
                       ji = R_off + N*(i+1)+i,
                     R_ji = R[ji];
@@ -336,28 +536,82 @@ export function srrqr_decomp_full( A, opt={} )
                                       ji+1,        c,s);
               _giv_rot_rows(Q, M, Q_off + M* i,
                                   Q_off + M*(i+1), c,s);
-              _giv_rot_rows(AB,i+1,       M* i,
-                                          M*(i+1), c,s);
-              // rotate last row of inv(A)
-              AB[k+(i+1)*M] = -s*AB[k+i*M] + c*AB[k+(i+1)*M];
+              _giv_rot_rows(AB, i+1,      M* i,
+                                          M*(i+1), c,s); AB [k0+(i+1)*M] = -s*AB [k0+i*M] + c*AB [k0+(i+1)*M];
+              _giv_rot_rows(AB0,i+1,      M* i,
+                                          M*(i+1), c,s); AB0[k0+(i+1)*M] = -s*AB0[k0+i*M] + c*AB0[k0+(i+1)*M];
             }
-          }   AB[k+ i   *M] = 0; // <- aside from rounding errors, inv(A) is going to be triangular again
+          } AB [k0+i*M] = 0;
+            AB0[k0+i*M] = 0;
         }
 
-        // DOWNDATE A\B
-        for( let j=N; --j   > k; ) { AB[k+j*M]  = 0;
-        for( let i=k;   i-- > 0; )   AB[i+j*M] -= AB[i+k*M] * R[R_off + N*k+j]; }
-
-        // DOWNDATE inv(A)
-        AB[k+k*M] = 0;
-        { const                                 R_kk = - R[R_off + N*k+k];
-          for( let i=k; i-- > 0; ) AB[i+k*M] *= R_kk;
-        }
-
-        // SWAP COLUMN k AND q
-        pivot(q);
+        downdate(AB0,k0);
+        p = k0++;
       }
+
+      --k; // <- go back one step since the swappend column needs retriangulation
+
+      // MOVE COLUMN p TO k (VIA CYCLIC PERMUTATION) TODO use triangulary property to reduces Ops
+      // CYCLE COLUMNS of R
+      for( let i=0; i <= k; i++ ) { const R_ip = R[R_off + N*i+p];
+        for( let j=Math.max(p,i-1); j < k; j++ ) R[R_off + N*i+j] = R[R_off + N*i+(j+1)];
+                                                 R[R_off + N*i+k] = R_ip;
+      }
+      // CYCLE ROWS OF inv(A)
+      cycle(AB, p,k);
+      // CYCLE COLS OF inv(A0)
+      for( let i=0; i < k0; i++ ) norm[i] = AB0[i+p*M];
+      for( let j=p; j < k ; j++ )
+      for( let i=0; i < k0; i++ )           AB0[i+j*M] = AB0[i+(j+1)*M];
+      for( let i=0; i < k0; i++ )           AB0[i+k*M] = norm[i];
+      // CYCLE P P
+      { const                P_p = P[P_off + p];
+        for( let j=p; j < k; j++ ) P[P_off + j] = P[P_off + j+1];
+                                   P[P_off + k] = P_p;
+      }
+
+      // RETRIANGULATE USING GIVENS ROTATIONS
+      // (since cyclic permutation turned R from triangular to Hessenberg)
+      for( let i=p; i < k; i++ )
+      { const       ii = R_off + N* i   +i,
+                    ji = R_off + N*(i+1)+i,
+                  R_ji = R[ji];
+        if( 0 !== R_ji )
+        {   const R_ii = R[ii],
+                         norm = Math.hypot(R_ii,R_ji),
+              c = R_ii / norm,
+              s = R_ji / norm; R[ji] = 0;
+          if( s !== 0 ) {      R[ii] = norm;
+            _giv_rot_rows(R, N-1-i, ii+1,
+                                    ji+1,        c,s);
+            _giv_rot_rows(Q, M, Q_off + M* i,
+                                Q_off + M*(i+1), c,s);
+            _giv_rot_rows(AB,i+1,       M* i,
+                                        M*(i+1), c,s);
+            // rotate last row of inv(A)
+            AB[k+(i+1)*M] = -s*AB[k+i*M] + c*AB[k+(i+1)*M];
+          }
+        }   AB[k+ i   *M] = 0; // <- aside from rounding errors, inv(A) is going to be triangular again
+      }
+
+      downdate(AB,k);
+      swap_elim(q);
+
+      if( p < k0 )
+      {
+//*DEBUG*/        if(!(p === k0-1)) throw new Error('Assertion failed.');
+        update(AB0,p);
+      }
+
+      update(AB, k++);
+
+//*DEBUG*/      check(AB, k );
+//*DEBUG*/      check(AB0,k0);
+//*DEBUG*/      // CHECK DET PREDICTION
+//*DEBUG*/      if( !(Math.abs(logdet_A() - predict_logdet_A) <= 1e-6) )
+//*DEBUG*/        throw new Error(`${logdet_A()} != ${predict_logdet_A}`); 
     }
+    r[r_off] = k;
     _transpose_inplace(M, Q,Q_off);
   }
 
