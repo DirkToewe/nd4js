@@ -44,5 +44,8 @@ export {svd_dc} from './svd_dc'
 export        * from './svd_jac_2sided'
 export        * from './svd_jac_2sided_blocked'
 export        * from './svd_jac_classic'
-export        * from './tri'
-export        * from './rand_ortho'
+export {tril,
+        triu,
+        tril_solve,
+        triu_solve} from './tri'
+export            * from './rand_ortho'

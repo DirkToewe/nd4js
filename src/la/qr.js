@@ -20,6 +20,7 @@ import {asarray, NDArray} from '../nd_array'
 import {ARRAY_TYPES} from '../dt'
 import {_giv_rot_rows} from './_giv_rot'
 import {_transpose_inplace} from './transpose_inplace'
+import {_triu_solve} from './tri'
 
 
 export function qr_decomp_full(A)
@@ -211,13 +212,7 @@ export function qr_lstsq(Q,R, y)
       for( let k=0; k < N; k++ )
         x_dat[x_off+i*J+j] += Q_dat[Q_off+k*M+i] * y_dat[y_off+k*J+j]
 
-      // BACKWARD SUBSTITUTION
-      for( let i=L; i-- > 0; )
-      for( let j=J; j-- > 0; ) {
-        for( let k=L; --k > i; )
-          x_dat[x_off+i*J+j] -= R_dat[R_off+I*i+k] * x_dat[x_off+k*J+j]
-        x_dat[x_off+i*J+j] /= R_dat[R_off+I*i+i]
-      }
+      _triu_solve(L,I,J, R_dat,R_off, x_dat,x_off);
 
       Q_off += Q_stride;
       R_off += R_stride;

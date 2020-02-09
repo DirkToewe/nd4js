@@ -138,8 +138,8 @@ describe('tri', () => {
           if(0<=j) shape[j] = 1
         }
 
-        const M = randInt(1,24); shapes[0].push(M,M)
-        const N = randInt(1,24); shapes[1].push(M,N)
+        const M = randInt(1,24); shapes[0].push(M,M);
+        const N = randInt(1,24); shapes[1].push(M,N);
 
         const y = tabulate(shapes[1],'float64', () => Math.random()*2-1),
               U = tabulate(shapes[0],'float64', (...indices) => {
@@ -152,7 +152,7 @@ describe('tri', () => {
         yield [U,y]
       }
     }()
-  ).it('tril_solve works on random examples', ([U,Y]) => {
+  ).it('triu_solve works on random examples', ([U,Y]) => {
     expect(U).toBeUpperTriangular()
 
     const x = triu_solve(U,Y),

@@ -18,6 +18,7 @@
 
 import {asarray, NDArray} from '../nd_array'
 import {ARRAY_TYPES} from '../dt'
+import {_tril_solve} from './tri'
 
 
 export function cholesky_decomp(S)
@@ -110,13 +111,7 @@ export function cholesky_solve(L,y)
         x_dat[x_off+i] = y_dat[y_off+i]
 
       // FORWARD SUBSTITUTION
-      for( let i=0; i < I; i++ )
-      for( let j=0; j < J; j++ )
-      {
-        for( let k=0; k < i; k++ )
-          x_dat[x_off+i*J+j] -= L_dat[L_off+N*i+k] * x_dat[x_off+k*J+j]
-        x_dat[x_off+i*J+j] /= L_dat[L_off+N*i+i]
-      }
+      _tril_solve(I,I,J, L_dat,L_off, x_dat,x_off);
 
       // BACKWARD SUBSTITUTION
       for( let i=I; i-- > 0; )

@@ -42,151 +42,184 @@ export function triu(m, k=0)
 }
 
 
-export function tril_solve(L,y)
+export function _tril_solve(M,N,O, L,L_off, X,X_off)
 {
-  L = asarray(L); if( L.ndim < 2 ) throw new Error('tril_solve(L,y): L.ndim must be at least 2.');
-  y = asarray(y); if( y.ndim < 2 ) throw new Error('tril_solve(L,y): y.ndim must be at least 2.');
+  if( !(M <= N) ) throw new Error('Assertion failed.');
+  M |= 0
+  N |= 0
+  O |= 0
+  L_off |= 0
+  X_off |= 0
 
-  const
-    [N,M] = L.shape.slice(-2),
-    [I,J] = y.shape.slice(-2);
-  if( N != M ) throw new Error('Last two dimensions of L must be quadratic.')
-  if( I != M ) throw new Error("L and y don't match.");
+  // FORWARD SUBSTITUTION
+  for( let i=0; i < M; i++ )
+  {
+    for( let k=0; k < i; k++ )
+    for( let j=0; j < O; j++ )
+      X[X_off+O*i+j] -= L[L_off+N*i+k] * X[X_off+O*k+j];
 
-  const
-    ndim = Math.max(L.ndim, y.ndim),
-    shape = Int32Array.from({ length: ndim }, () => 1 );
-  shape[ndim-2] = I;
-  shape[ndim-1] = J;
-
-  // FIND COMMON (BROADCASTED) SHAPE
-  for( let arr of [L,y] )
-    for( let i=ndim-2, j=arr.ndim-2; i-- > 0 && j-- > 0; )
-      if( 1 === shape[i] )
-        shape[i] = arr.shape[j];
-      else if( shape[i] != arr.shape[j] && arr.shape[j] != 1 )
-        throw new Error('Shapes are not broadcast-compatible.');
-
-  // GENERATE RESULT DATA
-  const
-    dtype = [L,y].every(a => a.dtype==='float32') ? 'float32' : 'float64',
-    x_dat = new ARRAY_TYPES[dtype]( shape.reduce((a,b) => a*b) ),
-    L_dat = L.data,
-    y_dat = y.data;
-  let
-    L_off = 0, L_stride = 1,
-    y_off = 0, y_stride = 1,
-    x_off = 0;
-
-  function solv(d) {
-    if( d === ndim-2 ) {
-      L_stride = N*N;
-      y_stride = N*J;
-
-      // COPYING y
-      for( let i=0; i < y_stride; i++ )
-        x_dat[x_off+i] = y_dat[y_off+i]
-
-      // FORWARD SUBSTITUTION
-      for( let i=0; i < I; i++ )
-      for( let j=0; j < J; j++ )
-      {
-        for( let k=0; k < i; k++ )
-          x_dat[x_off+i*J+j] -= L_dat[L_off+N*i+k] * x_dat[x_off+k*J+j]
-        x_dat[x_off+i*J+j] /= L_dat[L_off+N*i+i]
-      }
-
-      L_off += L_stride;
-      y_off += y_stride;
-      x_off += y_stride;
-
-      return;
-    }
-    for( let l=shape[d]; ; l-- ) {
-      solv(d+1);
-      if( l == 1 ) break;
-      if( ! (L.shape[ d - ndim + L.ndim ] > 1) ) L_off -= L_stride;
-      if( ! (y.shape[ d - ndim + y.ndim ] > 1) ) y_off -= y_stride;
-    }
-    L_stride *= L.shape[ d - ndim + L.ndim ] || 1;
-    y_stride *= y.shape[ d - ndim + y.ndim ] || 1;
+    for( let j=0; j < O; j++ )
+      X[X_off+O*i+j] /= L[L_off+N*i+i];
   }
-  solv(0);
-
-  return new NDArray(shape,x_dat);
 }
 
 
-export function triu_solve (U,y)
+export function tril_solve(L,Y)
 {
-  U = asarray(U); if( U.ndim < 2 ) throw new Error('triu_solve(U,y): U.ndim must be at least 2.');
-  y = asarray(y); if( y.ndim < 2 ) throw new Error('triu_solve(U,y): y.ndim must be at least 2.');
+  L = asarray(L); if( L.ndim < 2 ) throw new Error('tril_solve(L,Y): L.ndim must be at least 2.');
+  Y = asarray(Y); if( Y.ndim < 2 ) throw new Error('tril_solve(L,Y): Y.ndim must be at least 2.');
+
+  const [M,N] = Y.shape.slice(-2);
+  
+  if( L.shape[L.ndim-2] !== M ) throw new Error("tril_solve(L,Y): L and Y don't match.");
+  if( L.shape[L.ndim-1] !== M ) throw new Error('tril_solve(L,Y): Last two dimensions of L must be quadratic.');
 
   const
-    [K,N] = U.shape.slice(-2),
-    [I,J] = y.shape.slice(-2);
-  if( K != N ) throw new Error('Last two dimensions of U must be quadratic.')
-  if( I != N ) throw new Error("U and y don't match.");
-
-  const
-    ndim = Math.max(U.ndim, y.ndim),
-    shape = Int32Array.from({length: ndim}, ()=>1);
-  shape[ndim-2] = I;
-  shape[ndim-1] = J;
+    ndim = Math.max(L.ndim, Y.ndim),
+    L_shape = L.shape,
+    Y_shape = Y.shape,
+    X_shape = new Int32Array(ndim);
+  X_shape.fill(1, 0,-2);
+  X_shape[ndim-2] = M;
+  X_shape[ndim-1] = N;
 
   // FIND COMMON (BROADCASTED) SHAPE
-  for( let arr of [U,y] )
-    for( let i=ndim-2, j=arr.ndim-2; i-- > 0 && j-- > 0; )
-      if( 1 === shape[i] )
-        shape[i] = arr.shape[j];
-      else if( shape[i] != arr.shape[j] && arr.shape[j] != 1 )
-        throw new Error('Shapes are not broadcast-compatible.');
+  for( let shape of [L_shape,Y_shape] )
+    for( let i=ndim-2, j=shape.length-2; i-- > 0 && j-- > 0; )
+      if( 1 === X_shape[i] )
+        X_shape[i] = shape[j];
+      else if( X_shape[i] != shape[j] && shape[j] != 1 )
+        throw new Error('tril_solve(L,Y): L and Y not broadcast-compatible.');
 
   // GENERATE RESULT DATA
-  const
-    dtype = [U,y].every(a => a.dtype==='float32') ? 'float32' : 'float64',
-    x_dat = new ARRAY_TYPES[dtype]( shape.reduce((a,b) => a*b) ),
-    U_dat = U.data,
-    y_dat = y.data;
+  const dtype = [L,Y].every(A => A.dtype==='float32') ? 'float32' : 'float64';
+        L = L.data;
+        Y = Y.data;
+  const X = new ARRAY_TYPES[dtype]( X_shape.reduce((a,b) => a*b) );
+    
   let
-    U_off = 0, U_stride = 1,
-    y_off = 0, y_stride = 1,
-    x_off = 0;
+    L_off = 0, L_stride = 1,
+    Y_off = 0, Y_stride = 1,
+    X_off = 0;
 
   function solv(d) {
     if( d === ndim-2 ) {
-      U_stride = N*N;
-      y_stride = N*J;
+      L_stride = M*M;
+      Y_stride = M*N;
 
       // COPYING y
-      for( let i=0; i < y_stride; i++ )
-        x_dat[x_off+i] = y_dat[y_off+i]
+      for( let i=Y_stride; i-- > 0; )
+        X[X_off+i] = Y[Y_off+i];
 
-      // BACKWARD SUBSTITUTION
-      for( let i=I; i-- > 0; )
-      for( let j=J; j-- > 0; )
-      {
-        for( let k=K; --k > i; )
-          x_dat[x_off+i*J+j] -= U_dat[U_off+N*i+k] * x_dat[x_off+k*J+j]
-        x_dat[x_off+i*J+j] /= U_dat[U_off+N*i+i]
+      _tril_solve(M,M,N, L,L_off, X,X_off);
+
+      L_off += L_stride;
+      Y_off += Y_stride;
+      X_off += Y_stride;
+    }
+    else {
+      for( let l=X_shape[d]; ; l-- ) {
+        solv(d+1);
+        if( l == 1 ) break;
+        if( ! (L_shape[ d - ndim + L_shape.length ] > 1) ) L_off -= L_stride;
+        if( ! (Y_shape[ d - ndim + Y_shape.length ] > 1) ) Y_off -= Y_stride;
       }
-
-      U_off += U_stride;
-      y_off += y_stride;
-      x_off += y_stride;
-
-      return;
+      L_stride *= L_shape[ d - ndim + L_shape.length ] || 1;
+      Y_stride *= Y_shape[ d - ndim + Y_shape.length ] || 1;
     }
-    for( let l=shape[d]; ; l-- ) {
-      solv(d+1);
-      if( l == 1 ) break;
-      if( ! (U.shape[ d - ndim + U.ndim ] > 1) ) U_off -= U_stride;
-      if( ! (y.shape[ d - ndim + y.ndim ] > 1) ) y_off -= y_stride;
-    }
-    U_stride *= U.shape[ d - ndim + U.ndim ] || 1;
-    y_stride *= y.shape[ d - ndim + y.ndim ] || 1;
   }
   solv(0);
 
-  return new NDArray(shape,x_dat);
+  return new NDArray(X_shape, X);
+}
+
+
+export function _triu_solve(M,N,O, U,U_off, X,X_off)
+{
+  if( !(M <= N) ) throw new Error('Assertion failed.');
+  M |= 0
+  N |= 0
+  O |= 0
+  U_off |= 0
+  X_off |= 0
+
+  // BACKWARD SUBSTITUTION
+  for( let i=M; i-- > 0; )
+  for( let j=O; j-- > 0; )
+  {
+    for( let k=M; --k > i; )
+      X[X_off + O*i+j] -= U[U_off + N*i+k] * X[X_off + O*k+j]
+
+    X[X_off + O*i+j] /= U[U_off + N*i+i];
+  }
+}
+
+
+export function triu_solve (U,Y)
+{
+  U = asarray(U); if( U.ndim < 2 ) throw new Error('triu_solve(U,Y): U.ndim must be at least 2.');
+  Y = asarray(Y); if( Y.ndim < 2 ) throw new Error('triu_solve(U,Y): Y.ndim must be at least 2.');
+
+  const [M,N] = Y.shape.slice(-2);
+  
+  if( U.shape[U.ndim-2] !== M ) throw new Error("triu_solve(U,Y): U and Y don't match.");
+  if( U.shape[U.ndim-1] !== M ) throw new Error('triu_solve(U,Y): Last two dimensions of U must be quadratic.');
+
+  const
+    ndim = Math.max(U.ndim, Y.ndim),
+    U_shape = U.shape,
+    Y_shape = Y.shape,
+    X_shape = new Int32Array(ndim);
+  X_shape.fill(1, 0,-2);
+  X_shape[ndim-2] = M;
+  X_shape[ndim-1] = N;
+
+  // FIND COMMON (BROADCASTED) SHAPE
+  for( let shape of [U_shape,Y_shape] )
+    for( let i=ndim-2, j=shape.length-2; i-- > 0 && j-- > 0; )
+      if( 1 === X_shape[i] )
+        X_shape[i] = shape[j];
+      else if( X_shape[i] != shape[j] && shape[j] != 1 )
+        throw new Error('triu_solve(U,Y): U and Y not broadcast-compatible.');
+
+  // GENERATE RESULT DATA
+  const dtype = [U,Y].every(A => A.dtype==='float32') ? 'float32' : 'float64';
+        U = U.data;
+        Y = Y.data;
+  const X = new ARRAY_TYPES[dtype]( X_shape.reduce((a,b) => a*b) );
+    
+  let
+    U_off = U.length, U_stride = 1,
+    Y_off = Y.length, Y_stride = 1,
+    X_off = X.length;
+
+  function solv(d) {
+    if( d === ndim-2 ) {
+      U_stride = M*M;
+      Y_stride = M*N;
+
+      U_off -= U_stride;
+      Y_off -= Y_stride;
+      X_off -= Y_stride;
+
+      // COPYING y
+      for( let i=Y_stride; i-- > 0; )
+        X[X_off+i] = Y[Y_off+i];
+
+      _triu_solve(M,M,N, U,U_off, X,X_off);
+    }
+    else {
+      for( let l=X_shape[d]; ; l-- ) {
+        solv(d+1);
+        if( l == 1 ) break;
+        if( ! (U_shape[ d - ndim + U_shape.length ] > 1) ) U_off += U_stride;
+        if( ! (Y_shape[ d - ndim + Y_shape.length ] > 1) ) Y_off += Y_stride;
+      }
+      U_stride *= U_shape[ d - ndim + U_shape.length ] || 1;
+      Y_stride *= Y_shape[ d - ndim + Y_shape.length ] || 1;
+    }
+  }
+  solv(0);
+
+  return new NDArray(X_shape, X);
 }

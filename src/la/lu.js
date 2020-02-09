@@ -18,6 +18,7 @@
 
 import {asarray, NDArray} from '../nd_array'
 import {ARRAY_TYPES} from '../dt'
+import {_triu_solve} from './tri'
 
 
 export function lu_decomp(A)
@@ -149,12 +150,7 @@ export function lu_solve(LU,P,y)
         x_dat[x_off+i*J+j] -= LU_dat[LU_off+N*i+k] * x_dat[x_off+k*J+j]
 
       // BACKWARD SUBSTITUTION
-      for( let i=I; i-- > 0; )
-      for( let j=J; j-- > 0; ) {
-        for( let k=N; --k > i; )
-          x_dat[x_off+i*J+j] -= LU_dat[LU_off+N*i+k] * x_dat[x_off+k*J+j]
-        x_dat[x_off+i*J+j] /= LU_dat[LU_off+N*i+i]
-      }
+      _triu_solve(I,I,J, LU_dat,LU_off, x_dat,x_off);
 
       LU_off += LU_stride;
        P_off +=  P_stride;

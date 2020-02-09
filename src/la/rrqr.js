@@ -23,6 +23,7 @@ import {unpermute_rows} from './permute'
 import {FrobeniusNorm} from './norm'
 import {_giv_rot_rows} from './_giv_rot'
 import {_transpose_inplace} from './transpose_inplace'
+import {_triu_solve} from './tri'
 
 
 export function _norm_update(norm, Q, i,j)
@@ -119,8 +120,8 @@ export function rrqr_decomp_full(A)
     for( let i=0; i < M; i++ ) Q[Q_off + M*i+i] = 1;
 
     // INIT COLUMN NORM
-//    if( norm.some(x => x!==0) )
-//      throw new Error('Assertion failed.');
+//*DEBUG*/    if( norm.some(x => x!==0) )
+//*DEBUG*/      throw new Error('Assertion failed.');
     for( let j=0; j < M; j++ )
       _norm_update(norm, R, R_off + N*j, 0);
 
@@ -184,6 +185,98 @@ export function rrqr_decomp_full(A)
 }
 
 
+export function _rrqr_decomp_inplace( M,N,L, A,A_off, Y,Y_off, P,P_off, norm )
+{
+  // using this this method could be used to implement rrqr_decomp_full
+  // BUT it would be inefficient because, due to the special structure of Q,
+  // Givens rotations of Q can be made more efficient in rrqr_decomp_full
+
+  if( 0 !== M%1 ) throw new Error('Assertion failed.');
+  if( 0 !== N%1 ) throw new Error('Assertion failed.');
+  if( 0 !== L%1 ) throw new Error('Assertion failed.');
+  if( 0 !== A_off%1 ) throw new Error('Assertion failed.');
+  if( 0 !== Y_off%1 ) throw new Error('Assertion failed.');
+  if( 0 !== P_off%1 ) throw new Error('Assertion failed.');
+
+  if( ! (0 < M) ) throw new Error('Assertion failed.');
+  if( ! (0 < N) ) throw new Error('Assertion failed.');
+  if( ! (0 < L) ) throw new Error('Assertion failed.');
+  if( ! (0 <= A_off) ) throw new Error('Assertion failed.');
+  if( ! (0 <= Y_off) ) throw new Error('Assertion failed.');
+  if( ! (0 <= P_off) ) throw new Error('Assertion failed.');
+
+  if( ! (M*N <= A.length-A_off) ) throw new Error('Assertion failed.');
+  if( ! (M*L <= Y.length-Y_off) ) throw new Error('Assertion failed.');
+  if( ! (  N <= P.length-P_off) ) throw new Error('Assertion failed.');
+
+  M |= 0;
+  N |= 0;
+  L |= 0;
+  A_off |= 0;
+  Y_off |= 0;
+  P_off |= 0;
+
+  if( norm.length !== N<<1 ) throw new Error('Assertion failed.');
+
+  // INIT COLUMN NORM
+  norm.fill(0.0, 0,N<<1)
+  for( let j=0; j < M; j++ )
+    _norm_update(norm, A, A_off + N*j, 0);
+
+  const K = Math.min(M,N); // <- M not M-1, because the last row still needs pivotization
+
+  // ELIMINATE COLUMN BY COLUMN OF R
+  for( let i=0; i < K; i++ )
+  { // FIND PIVOT COLUMN THAT (HOPEFULLY) ENSURES RANK REVEAL (RRQR is inherently not guaranteed to do that)
+    let    p = -1,
+      norm_p = -Infinity;
+    for( let j=i; j < N; j++ ) {
+      const  norm_j =_norm(norm,j);
+      if(    norm_p < norm_j ) {
+        p=j; norm_p = norm_j;
+      }
+    }
+    // swap pivot to column i
+    if( p !== i ) {
+      for( let j=0; j < M; j++ ) {
+        const ji = A_off + N*j+i,
+              jp = A_off + N*j+p, A_ji = A[ji];
+                                         A[ji] = A[jp];
+                                                 A[jp] = A_ji;
+      }
+      const P_i = P[P_off+i];
+                  P[P_off+i] = P[P_off+p];
+                               P[P_off+p] = P_i;
+    }
+
+    // RESET COLUMN NORM (INDEX i IS SET TO ZERO FOR THE NEXT RRQR)
+    norm.fill(0.0, i<<1);
+
+    if( 0 === norm_p ) break; // <- clearly rank-deficient case
+
+    // ELIMINATE COLUMN BELOW DIAGONAL
+                               const ii = A_off + N*i+i;
+    for( let j=i; ++j < M; ) { const ji = A_off + N*j+i;
+      const     A_ji = A[ji];
+      if( 0 !== A_ji )
+      {   const A_ii = A[ii],
+                       norm = Math.hypot(A_ii,A_ji),
+            c = A_ii / norm,
+            s = A_ji / norm; A[ji] = 0;
+        if( s !== 0 ) {      A[ii] = norm;
+          _giv_rot_rows(A, N-1-i, ii+1,
+                                  ji+1,    c,s);
+          _giv_rot_rows(Y, L, Y_off + L*i,
+                              Y_off + L*j, c,s);
+        }
+      }
+      _norm_update(norm, A, A_off + N*j, i+1);
+    }
+    A[ii] = (A[ii] < 0 || Object.is(-0,A[ii]) ? -1 : +1) * norm_p;
+  }
+}
+
+
 export function rrqr_decomp(A)
 {
   A = asarray(A)
@@ -217,8 +310,8 @@ export function rrqr_decomp(A)
     for( let i=0; i < M; i++ ) P[P_off + i] = i;
 
     // INIT COLUMN NORM
-//    if( norm.some(x => x!==0) )
-//      throw new Error('Assertion failed.');
+//*DEBUG*/    if( norm.some(x => x!==0) )
+//*DEBUG*/      throw new Error('Assertion failed.');
     for( let j=0; j < N; j++ )
       _norm_update(norm, Q, Q_off + M*j, 0);
 
@@ -341,7 +434,7 @@ export function rrqr_solve(Q,R,P, y)
            R_off += N*N )
   {
     const rank = _rrqr_rank(N,N, R.data,R_off, tmp)
-    if( rank < N ) // FIXME: what if (Qᵀy)[i >= rank] ≈ 0
+    if( rank < N ) // FIXME: what if (Qᵀy)[i >= rank] ≈ 0 then the system would still be solvable
       throw new SingularMatrixSolveError(x) 
   }
 
@@ -433,15 +526,7 @@ export function rrqr_lstsq(Q,R,P, y)
       for( let j=0; j < J; j++ )
         x_dat[x_off+i*J+j] += Q_dat[Q_off+k*M+i] * y_dat[y_off+k*J+j]
 
-
-      // BACKWARD SUBSTITUTION
-      for( let i=R; i-- > 0; )
-      for( let j=J; j-- > 0; ) {
-        for( let k=R; --k > i; )
-          x_dat[x_off+i*J+j] -= R_dat[R_off+I*i+k] * x_dat[x_off+k*J+j]
-        x_dat[x_off+i*J+j] /= R_dat[R_off+I*i+i]
-      }
-
+      _triu_solve(R,I,J, R_dat,R_off, x_dat,x_off);
 
       // APPLY P TO X (PERMUTE ROWS)
       // https://www.geeksforgeeks.org/reorder-a-array-according-to-given-indexes/

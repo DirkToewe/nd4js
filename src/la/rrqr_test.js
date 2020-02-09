@@ -30,6 +30,7 @@ import {qr_decomp} from './qr'
 import {rand_ortho} from './rand_ortho'
 import { rrqr_decomp,
          rrqr_decomp_full,
+        _rrqr_decomp_inplace,
          rrqr_rank,
          rrqr_solve,
          rrqr_lstsq}       from  './rrqr'
@@ -85,37 +86,36 @@ describe('srrqr', () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
 
+
   const SRRQR_METHODS = Object.entries({
     srrqr_decomp_full
   });
   Object.freeze(SRRQR_METHODS);
 
+
   for( const [srrqr_name,srrqr_deco] of SRRQR_METHODS )
+    forEachItemIn(
+      function*(){
+        for( let run=1024; run-- > 0; )
+        {
+          const ndim = randInt(0,5);
 
-  forEachItemIn(
-    function*(){
-      for( let run=1024; run-- > 0; )
-      {
-        const ndim = randInt(0,5);
+          yield _rand_rank_deficient(
+            ...Array.from({ length: ndim-2 }, () => randInt(1,8) ),
+            randInt(1,64),
+            randInt(1,64)
+          );
+        }
+      }()
+    ).it(`${srrqr_name} computes rank correctly for random examples`, ([RANKS,A]) => {
+      const [Q,R,P, ranks] = srrqr_deco(A);
 
-        yield _rand_rank_deficient(
-          ...Array.from({ length: ndim-2 }, () => randInt(1,8) ),
-          randInt(1,64),
-          randInt(1,64)
-        );
-      }
-    }()
-  ).it(`${srrqr_name} computes rank correctly for random examples`, ([RANKS,A]) => {
-//    console.log(`A.shape: [${A.shape}].`);
-
-    const [Q,R,P, ranks] = srrqr_deco(A);
-
-    expect(ranks.shape).toEqual(A.shape.slice(0,-2));
-    expect(RANKS.shape).toEqual(A.shape.slice(0,-2));
-    expect(ranks.dtype).toBe('int32');
-    expect(RANKS.dtype).toBe('int32');
-    expect(ranks).toBeAllCloseTo(RANKS, {rtol:0, atol:0});
-  })
+      expect(ranks.shape).toEqual(A.shape.slice(0,-2));
+      expect(RANKS.shape).toEqual(A.shape.slice(0,-2));
+      expect(ranks.dtype).toBe('int32');
+      expect(RANKS.dtype).toBe('int32');
+      expect(ranks).toBeAllCloseTo(RANKS, {rtol:0, atol:0});
+    })
 })
 
 
@@ -128,7 +128,7 @@ describe('(s)rrqr', () => {
   const RRQR_METHODS = Object.entries({
     srrqr_decomp_full,
      rrqr_decomp,
-     rrqr_decomp_full,
+     rrqr_decomp_full
   });
   Object.freeze(RRQR_METHODS);
 
@@ -398,4 +398,37 @@ describe('(s)rrqr', () => {
       expect(RANKS.dtype).toBe('int32')
       expect(ranks).toBeAllCloseTo(RANKS, {rtol:0, atol:0})
     })
+
+
+  forEachItemIn(
+    function*(){
+      for( let run=4096; run-- > 0; )
+      {
+        const M = randInt(1,64),
+              N = randInt(1,64),
+              L = randInt(1,64);
+        const [_,A] = _rand_rank_deficient(M,N),
+                 Y  = tabulate([M,L], 'float64', () => (Math.random() < 0.01)*(Math.random()*8-4) );
+        Object.freeze(Y.data.buffer);
+        Object.freeze(Y);
+        yield [A,Y];
+      }
+    }()
+  ).it(`_rrqr_decomp_inplace works on random examples`, ([A,Y]) => {
+    const [M,N] = A.shape,
+             L  = Y.shape[1];
+
+    const [Q,R,P] = rrqr_decomp_full(A);
+
+    const a = A.mapElems(),
+          y = Y.mapElems(),
+          p =   Int32Array.from({length: N  }, (_,i) => i),
+       norm = Float64Array.from({length: N*2}, (_,i) => NaN);
+
+    _rrqr_decomp_inplace(M,N,L, a.data,0, y.data,0, p,0, norm);
+
+    expect(p).toBeAllCloseTo(P, {rtol: 0, atol: 0});
+    expect(a).toBeAllCloseTo(R);
+    expect(y).toBeAllCloseTo( matmul2(Q.T,Y) );
+  })
 })
