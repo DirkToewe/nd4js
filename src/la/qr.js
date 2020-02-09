@@ -116,8 +116,8 @@ export function qr_decomp(A)
             s *= -1;
          norm *= -1;
         }
-        _giv_rot_rows(Q, M-1-j, Q_off + M*j+(j+1),
-                                Q_off + M*i+(j+1), c,s);
+        _giv_rot_rows(Q, M-1-j, jj+1,
+                                ij+1, c,s);
         Q[jj] = norm;
       } Q[ij] = s;
     }}
