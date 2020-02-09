@@ -46,28 +46,37 @@ export function _row_norm_update(norm, AB,AB_off, M)
 }
 
 
-export function srrqr_decomp_full( A, opt={} )
+export function srrqr_decomp_full( X, opt={} )
 {
-  // SEE: Ming Gu, Stanley C. Eisenstat,
-  //     "EFFICIENT ALGORITHMS FOR COMPUTING A STRONG RANK-REVEALING QR FACTORIZATION"
+  // Overview
+  // --------
+  //
+  // [1] "EFFICIENT ALGORITHMS FOR COMPUTING A STRONG RANK-REVEALING QR FACTORIZATION"
+  //      Ming Gu, Stanley C. Eisenstat,
   //      https://math.berkeley.edu/~mgu/MA273/Strong_RRQR.pdf
+  //
+  // "Weak" vs. "Strong" RRQR
+  // ------------------------
+  // While the RRQR works well in practice, there are constructed examples of matrices
+  // for which the 
+  //
+  // L2R vs. BIN RRQR
+  // ----------------
+  // Instead of test every potential rank `k` from left to right, as suggested [1],
+  // we use binary search to find the proper rank. This requires significantly less
+  // "strong" swaps in most cases and few more swaps in very low-rank cases.
 
-  // TODO:
-  //   Instead of going through every potential rank `k`,
-  //   we could use binary search to find the right rank
-  //   with potentially less "strong" column swaps
+  X = asarray(X)
 
-  A = asarray(A)
-
-  if( A.ndim < 2                   ) throw new Error('srrqr_decomp_full(A,opt): A must be at least 2D.');
-  if( A.dtype.startsWith('complex')) throw new Error('srrqr_decomp_full(A,opt): Complex A not (yet) supported.');
+  if( X.ndim < 2                   ) throw new Error('srrqr_decomp_full(A,opt): A must be at least 2D.');
+  if( X.dtype.startsWith('complex')) throw new Error('srrqr_decomp_full(A,opt): Complex A not (yet) supported.');
 
    //
   //
   const
-    dtype = A.dtype==='float32' ? 'float32' : 'float64',
+    dtype = X.dtype==='float32' ? 'float32' : 'float64',
     DTypeArray = ARRAY_TYPES[dtype],
-    R_shape =                 A.shape,
+    R_shape =                 X.shape,
     Q_shape = Int32Array.from(R_shape),
     P_shape =                 Q_shape.slice(0,-1),
     r_shape =                 R_shape.slice(0,-2),
@@ -76,7 +85,65 @@ export function srrqr_decomp_full( A, opt={} )
   Q_shape[Q_shape.length-1] = M;
   P_shape[P_shape.length-1] = N;
 
-  const R = DTypeArray.from(A.data); A = undefined;
+  // At each step of the decomposition we have:
+  //
+  //   X[:,P] = Q @ R
+  //
+  // Where R is partially triangularized, P keeps track of the column swaps and
+  // Q is an orthogonals matrix.
+  //
+  // As part of the SRRQR we test different ranks `k` that X might actually have.
+  // For every `k`, R[k] consists of the following quadrants:
+  //          ┏         ┓
+  //          ┃A[k]┊B[k]┃
+  //   R[k] = ┃┈┈┈┈┼┈┈┈┈┃
+  //          ┃    ┊C[k]┃
+  //          ┗         ┛
+  //
+  // Where A[k] is already triangularized. We try to find a column permutation P that
+  // norm(C[k],'fro') becomes as small as possible. We achieve that by swapping the
+  // columns that maximize det(A[k]). Since:
+  //
+  //   det(X) = det(R[k]) = det(A[k])*det(C[k])
+  //
+  // norm(C[k],'fro') becomes smaller and smaller using the so-called "strong" column
+  // swaps. Such swaps are only performed until the factor of determinant increase is
+  // above a certain threshold:
+  //                          !
+  //   det(A'[k]) / det(A[k]) > dtol
+  //
+  // Where `dtol` is some small-ish constant value above 1. Without this threshold, an
+  // exponential amount of column swaps might be performed. With the threshold however,
+  // at most log[f](sqrt(n)) column swaps are required.
+  //
+  // Gu and Eisenstat [1] have shown how to compute a matrix `W` of size (k,n-k) which,
+  // for each possible column swap, contains the factors by which det(A[k]) would increase
+  // or decrease, i.e.:
+  //
+  // W[i,j] = det(A[k] with columns i,j swapped) / det(A[k])
+  //
+  // In order to compute `W`, we need inv(A[k]) and A[k]\B[k]. To compute these efficiently,
+  // we need to keep track of them in memory during iteration in a matrix `AB`.
+  // Gu and Eisenstat [1] proposed "update" and "downdate" methods that can be used to
+  // adjust AB during column swaps or changes of `k`.
+  //
+  // Once we have found a series of column permutations that minimized norm(C[k],'fro'),
+  // we can check if C[k] can be considered zero:
+  //             ?
+  //  norm(C[k]) <= ztol
+  //
+  // If this is the case, we know that the rank is `k` or less. Using this test inside
+  // of a binary search algorithm, we can find the correct rank by testing log2(n)
+  // different values for `k`.
+  //
+  // At each step of the binary search we have a lower and upper inclusive limit `k0` and
+  // `K` of the actual rank, while we are currently testing `k`. Depending on the result
+  // of the aforementioned test the new binary search range is going to be either [k0+1,k]
+  // or [k,K]. In the former case we need avoid downdating from a (nearly) rank-deficient A[k].
+  // To achieve this we need to keep track of inv(A[k0]) and A[k0]\B[k0] in a matrix `AB0`.
+  // This allows us to update from `AB0` instead of ever downdating `AB`.
+
+  const R = DTypeArray.from(X.data); X = undefined;
   const r = new Int32Array(R.length/N/M),
         P = new Int32Array(R.length/M), // <- tracks column permutations
         Q = new DTypeArray(R.length/N*M),
@@ -91,12 +158,17 @@ export function srrqr_decomp_full( A, opt={} )
   let ztol = NaN,
       dtol = NaN;
 
+  // If no "strong" column swaps have been performed yet, Q has a special
+  // structure that allows faster givens rotations while eliminating columns
+  // of R. As soon as a "strong" swap occours, Q is "dirty" from now on.
   let Q_dirty = false;
 
   let Q_off=0,
       R_off=0,
       P_off=0;
 
+  // `k0` and `K` are the lower and upper inclusive bounds of the binary
+  // search range while `k` is the currently considered potential rank
   let k0= 0,
       k = 0,
       K = 0;
@@ -145,6 +217,8 @@ export function srrqr_decomp_full( A, opt={} )
   opt = undefined;
 
 
+  /* Updates inv(A[k]) and A[k]\B[k]. Used to update both `AB` and `AB0`.
+   */
   const update = (AB,k) =>
   {
 //*DEBUG*/    // CHECK TRIANGULARITY OF R AND AB
@@ -167,6 +241,10 @@ export function srrqr_decomp_full( A, opt={} )
   }
 
 
+  /* Downdates inv(A) and A\B. Used to downdate AB and AB0 once
+   * during each "strong" column swaps. AB0 is not downdate if
+   * the column swap does not affect it.
+   */
   const downdate = (AB,k) =>
   {
 //*DEBUG*/    // CHECK TRIANGULARITY OF R AND AB
@@ -188,8 +266,13 @@ export function srrqr_decomp_full( A, opt={} )
   }
 
 
+  /* Swaps column `p` and `k` and eliminates the (new) column `k` in R.
+   * A\B and A0\B0 are updated accordingly. `p` must not be less than `k`.
+   */
   const swap_elim = p =>
   {
+//*DEBUG*/    if(!(k <= p)) throw new Error('Assertion failed.');
+
     // swap columns in R
     for( let j=0; j < M; j++ ) {
       const R_jk = R[R_off + N*j+k];
@@ -242,6 +325,10 @@ export function srrqr_decomp_full( A, opt={} )
   }
 
 
+  /* Swaps column `k` and the column with the largest remaining norm.
+   * Afterwards, this method eliminates the (new) column `k` in R.
+   * A\B and A0\B0 are updated accordingly.
+   */
   const piv_elim = () =>
   {
 //*DEBUG*/    check_col_norms();
@@ -302,6 +389,8 @@ export function srrqr_decomp_full( A, opt={} )
 //*DEBUG*/  }
 
 
+  /* Used to copy either AB to AB0 or AB0 to AB.
+   */
   const copy = (AB_src, AB_dst) =>
   {
     for( let j=0; j < N; j++ )
@@ -310,6 +399,51 @@ export function srrqr_decomp_full( A, opt={} )
   }
 
 
+  /* Used to move column `p` of R to column `k` >= `p` using cyclic permutation.
+   * This method is used to prepare a "strong" column swap. After the cycle
+   * followed by a retriangulation, we can downdate AB (and sometimes AB0) such
+   * the the column swap does no longer affect AB (and AB0).
+   * 
+   * The column swap in R looks roughly as follows:
+   * 
+   *      ┏                ┓       ┏                ┓
+   *      ┃.   p x   x k   ┃       ┃.   x   x k p   ┃
+   *      ┃ .  . .   . k   ┃       ┃ .  .   . k .   ┃
+   *      ┃  . . .   . k   ┃       ┃  . .   . k .   ┃
+   *      ┃   .. .   . k   ┃(cycle)┃   ..   . k .   ┃
+   *   R: ┃    p x   x k   ┃  ==>  ┃    x   x k p   ┃
+   *      ┃      x   x k   ┃       ┃    x   x k 0   ┃
+   *      ┃        ⋱ x k   ┃       ┃      ⋱ x k .   ┃
+   *      ┃          x k   ┃       ┃        x k .   ┃
+   *      ┃            k   ┃       ┃          k .   ┃
+   *      ┃              ⋱ ┃       ┃              ⋱ ┃
+   *      ┗                ┛       ┗                ┛
+   * 
+   * The advantage of this cyclic permutation is that only (k-p) Givens rotations
+   * are required to retriangulate R.
+   *
+   *           ┏              ┓       ┏              ┓
+   *           ┃.             ┃       ┃.             ┃
+   *           ┃ .  .       . ┃       ┃ .  .       . ┃
+   *           ┃  . .       . ┃       ┃  . .       . ┃
+   *           ┃   ..       . ┃(cycle)┃   ..       . ┃
+   *   inv(A): ┃    p p … p p ┃  ==>  ┃    0 x   x x ┃
+   *           ┃      x   x x ┃       ┃        ⋱ x x ┃
+   *           ┃        ⋱ x x ┃       ┃          x x ┃
+   *           ┃          x x ┃       ┃            k ┃
+   *           ┃            k ┃       ┃    p p … p p ┃
+   *           ┃              ┃       ┃              ┃
+   *           ┗              ┛       ┗              ┛
+   * 
+   * Since the cycle is a column swap inside of triangulate region A of R, we
+   * have to perform the same cycle as ROW permutation in inv(A).
+   * 
+   * 
+   * 
+   * Keep in mind that while retriangulating R, the same givens rotations in
+   * the same order must be applied to the columns of inv(A) after which
+   * inv(A) is triangular again as well.
+   */
   const cycle = (AB,p,k) =>
   { for( let j=p; j < N; j++ ) { const                        AB_pj = AB[p+j*M];
       if(j < k){for( let i=p; i < j; i++ ) AB[i+j*M] = AB[(i+1)+j*M]; AB[j+j*M] = 0; }
@@ -318,6 +452,8 @@ export function srrqr_decomp_full( A, opt={} )
   }
 
 
+  /* Computes the column norms of C
+   */
   const update_col_norms = () =>
   {
     norm.fill(0.0);
@@ -326,7 +462,9 @@ export function srrqr_decomp_full( A, opt={} )
   }
 
 
-  const rest_norm = () =>
+  /* Computes Frobenius norm of C.
+   */
+  const norm_C = () =>
   {
 //*DEBUG*/    check_col_norms();
 
@@ -336,6 +474,12 @@ export function srrqr_decomp_full( A, opt={} )
     return NORM.result;
   }
 
+
+  /* Adjusts the binary search range and moves `k` to the
+   * middle of that new range. If `increase` is true the
+   * binary search range is moved to the right of the
+   * current `k`. 
+   */
   const adjust_k = increase =>
   {
 //*DEBUG*/    if( 'boolean' !== typeof increase )
@@ -368,10 +512,12 @@ export function srrqr_decomp_full( A, opt={} )
     {
 //*DEBUG*/      check_col_norms();
 
-      if( rest_norm() <= ztol )
-      { K = k;
+      if( norm_C() <= ztol )
+      { // we have found a new upper bound for the rank
+        K = k;
         if( k0 < k )
-        { copy(AB0,AB);
+        { // if we can go back let's always go back binary search style
+          copy(AB0,AB);
           k = k0;
           update_col_norms();
 
@@ -379,6 +525,7 @@ export function srrqr_decomp_full( A, opt={} )
           increase = false;
           continue;
         }
+        // if we can't go back we have found the correct rank, let's return
         break;
       }
 
@@ -447,17 +594,19 @@ export function srrqr_decomp_full( A, opt={} )
 //*DEBUG*/      if(!(k0 <= k)) throw new Error('Assertion failed.');
 //*DEBUG*/      if(!(   k<=N)) throw new Error('Assertion failed.');
 
-      if( rest_norm() <= ztol )
-      {
+      if( norm_C() <= ztol )
+      { // WE HAVE FOUND A NEW UPPER BOUND FOR THE RANK
         K = k;
         if( k0 < k )
-        {
+        { // IF WE CAN GO BACK, LET'S GO BACK BINARY SEARCH STYLE
           adjust_k(/*increase=*/false);
 //*DEBUG*/          check(AB, k );
 //*DEBUG*/          check(AB0,k0);
         }
-        else if( k === N ) break loop;
+        else if( k === N ) break loop; // <- no more column swaps possible -> stop
 //*DEBUG*/        else if( k !== k0) throw new Error('Assertion failed.');
+        // AT THIS POINT WE KNOW THE RANK BUT
+        // LET'S STRONG SWAP AS MUCH AS POSSIBLE
       }
 
       // SEARCH BEST COLUMN SWAPS
@@ -481,12 +630,13 @@ export function srrqr_decomp_full( A, opt={} )
       if( !(F > dtol) )
       {
         if( k0 >= K )
-        {
+        { // WE HAVE FOUND THE EXACT RANK
 //*DEBUG*/          if( k0 !== K ) throw new Error('Assertion failed.');
 //*DEBUG*/          if( k0 !== k ) throw new Error('Assertion failed.');
           break loop;
         }
         else {
+          // WE HAVE TO GO FURTHER (the current k is less than the rank)
 //*DEBUG*/          if(!(k < K))
 //*DEBUG*/            throw new Error('Assertion failed.');
           adjust_k(/*increase=*/true);
