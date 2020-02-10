@@ -20,6 +20,7 @@ import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {eps} from '../dt'
 import {array, NDArray} from '../nd_array'
 import {tabulate} from '../tabulate'
+import {_rand_rankdef} from '../_test_data_generators'
 import {zip_elems} from '../zip_elems'
 import math from '../math'
 
@@ -27,7 +28,6 @@ import {diag_mat} from './diag'
 import {matmul, matmul2} from './matmul'
 import {eye} from './eye'
 import {solve} from './solve'
-import {qr_decomp} from './qr'
 import {norm} from './norm'
 import {rand_ortho} from './rand_ortho'
 
@@ -40,6 +40,62 @@ import {svd_jac_2sided        } from './svd_jac_2sided'
 import {svd_jac_2sided_blocked} from './svd_jac_2sided_blocked'
 import {svd_jac_classic       } from './svd_jac_classic'
 
+import {_svd_jac_post} from './_svd_jac_utils'
+import {_transpose_inplace} from './transpose_inplace'
+
+
+const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
+
+
+describe('_svd_jac_utils', () => {
+  beforeEach( () => {
+    jasmine.addMatchers(CUSTOM_MATCHERS)
+  })
+
+  forEachItemIn(
+    function*(){
+      for( let run=256; run-- > 0; )
+      {
+        const N = randInt(1,256);
+        const U = rand_ortho('float64',N),
+              V = rand_ortho('float64',N),
+              S = tabulate([N,N], 'float64', (i,j) => (i===j)*(Math.random()*8-4));
+        Object.freeze(U.data.buffer);
+        Object.freeze(V.data.buffer);
+        Object.freeze(S.data.buffer);
+        yield [U,S,V];
+      }
+    }()
+  ).it('_svd_jac_post(...) positivizes and sorts singular values.', ([U,S,V]) => {
+    const N = U.shape[0];
+
+    const A = matmul(U,S,V);
+
+    const ord =       Int32Array.from({length: N}, (_,i) => i),
+           sv = new Float64Array(N);
+
+    // shuffle ord
+    for( let i=ord.length; i > 1; )
+    {
+      const j = randInt(0,i--);
+      [ord[i],ord[j]] =
+      [ord[j],ord[i]];
+    }
+
+    _transpose_inplace(N, U.data,0);
+    _svd_jac_post( N, U.data,S.data,V.data,0, sv,0, ord);
+
+    S = diag_mat(sv);
+
+    for( let i=0; i < N; i++ ) expect(sv[i  ]).not.toBeLessThan(0);
+    for( let i=1; i < N; i++ ) expect(sv[i-1]).not.toBeLessThan(sv[i]);
+
+    const a = matmul(U,S,V);
+
+    expect(a).toBeAllCloseTo(A);
+  });
+})
+
 
 describe('svd', () => {
   beforeEach( () => {
@@ -49,8 +105,6 @@ describe('svd', () => {
 
   forEachItemIn(
     function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
       for( let run=1024; run-- > 0; )
       {
         let ndim = randInt(0,4),
@@ -109,8 +163,6 @@ describe('svd', () => {
 
   forEachItemIn(
     function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
       for( let run=1024; run-- > 0; )
       {
         let ndim = randInt(0,4),
@@ -142,8 +194,6 @@ describe('svd', () => {
 
   forEachItemIn(
     function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
       for( let run=1024; run-- > 0; )
       {
         let ndim = randInt(0,4),
@@ -184,8 +234,6 @@ describe('svd', () => {
 
   forEachItemIn(
     function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
       for( let run=1024; run-- > 0; )
       {
         let ndim = randInt(0,4),
@@ -237,41 +285,27 @@ describe('svd', () => {
 
         for( let d=ndim; d > 0; d-- )
         for( let i=randInt(0,2); i-- > 0; ) {
-          const     shape = shapes[randInt(0,2)],
-                j = shape.length - d
-          if(0<=j)  shape[j] = 1
+          const    shape = shapes[randInt(0,2)],
+               j = shape.length - d
+          if(0<=j) shape[j] = 1
         }
 
         let M = randInt(1,32),
             N = randInt(1,32),
-            J = randInt(1,32),
-            L = Math.min(M,N)
-
-        const A = tabulate(shapes[0], () => {
-          const r  = randInt(0,L),
-             [Q,_] = qr_decomp( tabulate([M,N], 'float64', () => Math.random()*2-1) ),
-                R  = tabulate([L,N], 'float64', (i,j) => {
-                       if(r <= i || j < i) return 0
-                       if(j == i) return (0.5 + Math.random()) * (randInt(0,2)*2 - 1)
-                       return Math.random()*0.5 - 0.25
-                     })
-          return matmul2(Q,R)
-        })
+            L = randInt(1,32);
 
         shapes[0].push(M,N)
-        shapes[1].push(M,J)
+        shapes[1].push(M,L)
 
-        yield [
-          new NDArray(
-              Int32Array.from(shapes[0]),
-            Float64Array.from( function*(){ for( const a of A.data ) yield* a.data }() )
-          ),
-          tabulate(shapes[1],'float64', () => Math.random()*2-1)
-        ]
+        const [A]= _rand_rankdef(...shapes[0]),
+               y = tabulate(shapes[1], 'float64', () => Math.random()*8-4);
+        Object.freeze(y.data.buffer);
+        Object.freeze(y);
+
+        yield [A,y];
       }
     }()
   ).it('svd_lstsq solves least squares for random rank-deficient examples', ([A,y]) => {
-//    console.log('SHAPES:', [...A.shape], [...y.shape])
     const [U,sv,V]= svd_decomp(A),
                 x = svd_lstsq(U,sv,V, y),
                Ax = matmul2(A,x)
@@ -326,8 +360,6 @@ describe('svd', () => {
   for( const [svd_name,svd_deco] of Object.entries(svd_decomps) )
     forEachItemIn(
       function*(){
-        const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
         for( let run=1024; run-- > 0; )
         {
           const ndim = randInt(0,4),
@@ -390,8 +422,6 @@ describe('svd', () => {
   for( const [svd_name,svd_deco] of Object.entries(svd_decomps) )
     forEachItemIn(
       function*(){
-        const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
         function* sizes() {
           for( let N=1; N < 16; N++ )
             yield N;
@@ -432,7 +462,7 @@ describe('svd', () => {
 
       const a = matmul(U,D,V);
 
-      const A_TOL = eps(A.dtype) * Math.max(M,N)*4 * norm(A),
+      const A_TOL = eps(A.dtype) * Math.max(M,N)*8 * norm(A),
             U_TOL = eps(A.dtype) * M*4,
             V_TOL = eps(A.dtype) * N*4;
 
@@ -456,8 +486,6 @@ describe('svd', () => {
   for( const [svd_name,svd_deco] of Object.entries(svd_decomps) )
     forEachItemIn(
       function*(){
-        const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
         for( let run=1024; run-- > 0; )
         {
           const N = randInt(1,24),
@@ -498,37 +526,18 @@ describe('svd', () => {
   for( const [svd_name,svd_deco] of Object.entries(svd_decomps) )
     forEachItemIn(
       function*(){
-        const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
         for( let run=1024; run-- > 0; )
         {
-          let M = randInt(1,32),
-              N = randInt(1,32)
-          if( N > M ) [M,N] = [N,M]
-          const L = Math.min(M,N),
-            ndim = randInt(0,7)
-          let r_shape = Array.from({ length: ndim-2 }, () => randInt(1,8) ),
-              A_shape = r_shape.concat([M,N])
-          r_shape = Int32Array.from(r_shape)
-          A_shape = Int32Array.from(A_shape)
+          const M = randInt(1,32),
+                N = randInt(1,32),
+            shape = Array.from({length: randInt(0,5) }, () => randInt(1,8));
 
-          const A = tabulate(A_shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1)
-          Object.freeze(A.data.buffer)
-          const [Q,_]= qr_decomp(A),
-                r = tabulate(    r_shape, 'int32', () => Math.random()*L),
-                R = tabulate([...r_shape,L,N], 'float64', (...idx) => {
-                  const j = idx.pop(),
-                        i = idx.pop(), R = r(...idx)
-                  if(R <= i || j < i) return 0
-                  if(j == i) return (0.5 + Math.random()) * (randInt(0,2)*2 - 1)
-                  return Math.random()*0.5 - 0.25
-                })
-          yield [r,matmul2(Q,R)]
+          yield _rand_rankdef(...shape, M,N);
         }
       }()
-    ).it(`${svd_name} + svd_rank works on random examples`, ([R,A]) => {
+    ).it(`${svd_name} + svd_rank works on random rank-deficient examples`, ([A,R]) => {
       const [U,sv,V] = svd_deco(A),
-               r     = svd_rank(sv)
+                  r  = svd_rank(sv);
 
       expect(r.shape).toEqual(A.shape.slice(0,-2))
       expect(R.shape).toEqual(A.shape.slice(0,-2))

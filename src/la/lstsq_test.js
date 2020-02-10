@@ -20,10 +20,12 @@ import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {array, NDArray} from '../nd_array'
 import {tabulate} from '../tabulate'
 import {zip_elems} from '../zip_elems'
-import {matmul, matmul2} from './matmul'
-import math from '../math'
-import {qr_decomp} from './qr'
+
 import {lstsq} from './lstsq'
+import {matmul,
+        matmul2} from './matmul'
+import {solve} from './solve'
+import {_rand_rankdef} from '../_test_data_generators'
 
 
 describe('lstsq', () => {
@@ -127,7 +129,7 @@ describe('lstsq', () => {
          Ax = matmul2(A,x)
 
     // every least square solution satisfies the normal equaltion Aᵀ(Ax - y) = 0
-    expect( matmul2(A.T, zip_elems([Ax,y], math.sub) ) ).toBeAllCloseTo(0)
+    expect( matmul2(A.T, zip_elems([Ax,y], (x,y) => x-y) ) ).toBeAllCloseTo(0)
   })
 
 
@@ -167,6 +169,11 @@ describe('lstsq', () => {
     const x = lstsq(A,y)
   
     expect( matmul2(A,x) ).toBeAllCloseTo(y)
+
+    // check that it's the minimum norm solution
+    // https://www.math.usm.edu/lambers/mat419/lecture15.pdf
+    const AAT = matmul2(A,A.T);
+    expect(x).toBeAllCloseTo( matmul2(A.T, solve(AAT,y)) );
   })
 
 
@@ -189,37 +196,23 @@ describe('lstsq', () => {
 
         let M = randInt(1,32),
             N = randInt(1,32),
-            J = randInt(1,32),
-            L = Math.min(M,N)
-
-        const A = tabulate(shapes[0], () => {
-          const r  = randInt(0,L),
-             [Q,_] = qr_decomp( tabulate([M,N], 'float64', () => Math.random()*2-1) ),
-                R  = tabulate([L,N], 'float64', (i,j) => {
-                       if(r <= i || j < i) return 0
-                       if(j == i) return (0.5 + Math.random()) * (randInt(0,2)*2 - 1)
-                       return Math.random()*0.5 - 0.25
-                     })
-          return matmul2(Q,R)
-        })
+            L = randInt(1,32);
 
         shapes[0].push(M,N)
-        shapes[1].push(M,J)
+        shapes[1].push(M,L)
 
-        yield [
-          new NDArray(
-              Int32Array.from(shapes[0]),
-            Float64Array.from( function*(){ for( const a of A.data ) yield* a.data }() )
-          ),
-          tabulate(shapes[1],'float64', () => Math.random()*2-1)
-        ]
+        const [A]= _rand_rankdef(...shapes[0]),
+               y = tabulate(shapes[1], 'float64', () => Math.random()*8-4);
+        Object.freeze(y.data.buffer);
+        Object.freeze(y);
+
+        yield [A,y];
       }
     }()
   ).it('solves least squares for random rank-deficient examples', ([A,y]) => {
-//    console.log('SHAPES:', [...A.shape], [...y.shape])
     const x   = lstsq(A,y),
          Ax   = matmul2(A,x)
   
-    expect( matmul2(A.T, zip_elems([Ax,y], math.sub) ) ).toBeAllCloseTo(0)
+    expect( matmul2(A.T, zip_elems([Ax,y], (x,y) => x-y) ) ).toBeAllCloseTo(0)
   })
 })

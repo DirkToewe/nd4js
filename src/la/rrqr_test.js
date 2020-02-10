@@ -26,7 +26,6 @@ import {eye} from './eye'
 import {matmul,
         matmul2} from './matmul'
 import {permute_cols} from './permute'
-import {qr_decomp} from './qr'
 import {rand_ortho} from './rand_ortho'
 import { rrqr_decomp,
          rrqr_decomp_full,
@@ -35,50 +34,10 @@ import { rrqr_decomp,
          rrqr_solve,
          rrqr_lstsq}       from  './rrqr'
 import {srrqr_decomp_full} from './srrqr'
+import {_rand_rankdef} from '../_test_data_generators'
 
 
-const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
-
-function _rand_rank_deficient(...shape)
-{
-  if( shape.length < 2 )
-    throw new Error('Assertion failed.');
-
-  const [M,N]= shape.slice(-2),
-           L = Math.min(M,N);
-
-  const ndim = randInt(0,7);
-
-  let r_shape = shape.slice(0,-2);
-
-  // use random, mostly rank-deficient SVD to generate test matrix A
-  const ranks = tabulate(r_shape, 'int32', () => randInt(0,L+1) ), // <- ranks
-            U = rand_ortho('float64', ...r_shape,M,L),
-            V = rand_ortho('float64', ...r_shape,L,N),
-            S = tabulate([...r_shape,L,L], 'float64', (...idx) => {
-              const j = idx.pop(),
-                    i = idx.pop(), rank = ranks(...idx);
-
-              if( i !== j || rank <= i ) return 0; 
-
-              return Math.random()*8 + 0.1
-            }),
-            A = matmul(U,S,V);
-
-  // add random scaling
-  for( let S_off=S.data.length; (S_off -= L*L) >= 0; )
-  {
-    const scale = Math.random()*1e300 + 1;
-
-    for( let i=L; i-- > 0; )
-      S.data[S_off + L*i+i] *= scale;
-  }
-
-  Object.freeze(ranks.data.buffer);
-  Object.freeze(A.data.buffer);
-  return [ranks,A];
-}
+const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
 
 
 describe('srrqr', () => {
@@ -100,14 +59,14 @@ describe('srrqr', () => {
         {
           const ndim = randInt(0,5);
 
-          yield _rand_rank_deficient(
+          yield _rand_rankdef(
             ...Array.from({ length: ndim-2 }, () => randInt(1,8) ),
             randInt(1,64),
             randInt(1,64)
           );
         }
       }()
-    ).it(`${srrqr_name} computes rank correctly for random examples`, ([RANKS,A]) => {
+    ).it(`${srrqr_name} computes rank correctly for random examples`, ([A,RANKS]) => {
       const [Q,R,P, ranks] = srrqr_deco(A);
 
       expect(ranks.shape).toEqual(A.shape.slice(0,-2));
@@ -358,7 +317,7 @@ describe('(s)rrqr', () => {
           shapes[1].push(M,J);
 
           yield [
-            _rand_rank_deficient(...shapes[0])[1],
+            _rand_rankdef(...shapes[0])[0],
             tabulate(shapes[1], 'float64', () => Math.random()*4-2)
           ];
         }
@@ -370,7 +329,9 @@ describe('(s)rrqr', () => {
               Ax   = matmul2(A,x)
 
       // every least square solution satisfies the normal equaltion Aᵀ(Ax - y) = 0
-      expect( matmul2(A.T, zip_elems([Ax,y], (Ax,y) => Ax-y) ) ).toBeAllCloseTo(0)
+      expect( matmul2(A.T, zip_elems([Ax,y], (Ax,y) => Ax-y) ) ).toBeAllCloseTo(0);
+
+      expect(R).toBeUpperTriangular({tol: rrqr_name.startsWith('srrqr_') * 1e-8});
     })
 
 
@@ -381,14 +342,14 @@ describe('(s)rrqr', () => {
         {
           const ndim = randInt(0,5);
 
-          yield _rand_rank_deficient(
+          yield _rand_rankdef(
             ...Array.from({ length: ndim-2 }, () => randInt(1,8) ),
             randInt(1,32),
             randInt(1,32)
           );
         }
       }()
-    ).it(`${rrqr_name}+rrqr_rank works on random examples`, ([RANKS,A]) => {
+    ).it(`${rrqr_name}+rrqr_rank works on random rank-deficient examples`, ([A,RANKS]) => {
       const [Q,R,P] = rrqr_deco(A),
              ranks  = rrqr_rank(R)
 
@@ -397,6 +358,8 @@ describe('(s)rrqr', () => {
       expect(ranks.dtype).toBe('int32')
       expect(RANKS.dtype).toBe('int32')
       expect(ranks).toBeAllCloseTo(RANKS, {rtol:0, atol:0})
+
+      expect(R).toBeUpperTriangular({tol: rrqr_name.startsWith('srrqr_') * 1e-8});
     })
 
 
@@ -407,14 +370,14 @@ describe('(s)rrqr', () => {
         const M = randInt(1,64),
               N = randInt(1,64),
               L = randInt(1,64);
-        const [_,A] = _rand_rank_deficient(M,N),
-                 Y  = tabulate([M,L], 'float64', () => (Math.random() < 0.01)*(Math.random()*8-4) );
+        const [A] = _rand_rankdef(M,N),
+               Y  = tabulate([M,L], 'float64', () => (Math.random() < 0.01)*(Math.random()*8-4) );
         Object.freeze(Y.data.buffer);
         Object.freeze(Y);
         yield [A,Y];
       }
     }()
-  ).it(`_rrqr_decomp_inplace works on random examples`, ([A,Y]) => {
+  ).it(`_rrqr_decomp_inplace works on random rank-deficient examples`, ([A,Y]) => {
     const [M,N] = A.shape,
              L  = Y.shape[1];
 
@@ -425,7 +388,7 @@ describe('(s)rrqr', () => {
           p =   Int32Array.from({length: N  }, (_,i) => i),
        norm = Float64Array.from({length: N*2}, (_,i) => NaN);
 
-    _rrqr_decomp_inplace(M,N,L, a.data,0, y.data,0, p,0, norm);
+    _rrqr_decomp_inplace(M,N,L, a.data,0, y.data,0, p,0, norm); // <- TODO test with offset
 
     expect(p).toBeAllCloseTo(P, {rtol: 0, atol: 0});
     expect(a).toBeAllCloseTo(R);
