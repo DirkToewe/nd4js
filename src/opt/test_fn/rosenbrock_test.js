@@ -21,7 +21,12 @@ import {array, asarray, NDArray} from '../../nd_array'
 import {stack} from '../../stack'
 import {tabulate} from '../../tabulate'
 import {zip_elems} from '../../zip_elems'
-import {rosenbrock, rosenbrock_grad, rosenbrock_hess} from './rosenbrock'
+import {rosenbrock,
+        rosenbrock_grad,
+        rosenbrock_hess,
+        rosenbrock_lsq,
+        rosenbrock_lsq_jac} from './rosenbrock'
+import {matmul} from '../../la/matmul'
 import {num_grad} from '../num_grad'
 
 
@@ -138,8 +143,8 @@ describe('rosenbrock', () => {
         }
 
       for( const dtype of ['float32','float64'] ) {
-        yield tabulate([2*N+1, 2*N+1, 2], (i,j,k) => [(i-N)/N*S, (j-N)/N*S][k])
-        yield tabulate([2*N+1, 2*N+1, 2], (i,j,k) => [(j-N)/N*S, (i-N)/N*S][k])
+        yield tabulate([2*N+1, 2*N+1, 2], dtype, (i,j,k) => [(i-N)/N*S, (j-N)/N*S][k])
+        yield tabulate([2*N+1, 2*N+1, 2], dtype, (i,j,k) => [(j-N)/N*S, (i-N)/N*S][k])
       }
     }()
   ).it('rosenbrock (2d) has a global minimum at x=[1,1]', x => {
@@ -176,21 +181,21 @@ describe('rosenbrock', () => {
 
       for( let x = -S; x <= +S; x+=Δ )
         for( const dtype of ['float32','float64'] ) {
-          yield tabulate([2*N+1, 2*N+1, 3], (i,j,k) => [x,(i-N)/N*S,  (j-N)/N*S  ][k])
-          yield tabulate([2*N+1, 2*N+1, 3], (i,j,k) => [  (i-N)/N*S,x,(j-N)/N*S  ][k])
-          yield tabulate([2*N+1, 2*N+1, 3], (i,j,k) => [  (i-N)/N*S,  (j-N)/N*S,x][k])
-          yield tabulate([2*N+1, 2*N+1, 3], (i,j,k) => [x,(j-N)/N*S,  (i-N)/N*S  ][k])
-          yield tabulate([2*N+1, 2*N+1, 3], (i,j,k) => [  (j-N)/N*S,x,(i-N)/N*S  ][k])
-          yield tabulate([2*N+1, 2*N+1, 3], (i,j,k) => [  (j-N)/N*S,  (i-N)/N*S,x][k])
+          yield tabulate([2*N+1, 2*N+1, 3], dtype, (i,j,k) => [x,(i-N)/N*S,  (j-N)/N*S  ][k])
+          yield tabulate([2*N+1, 2*N+1, 3], dtype, (i,j,k) => [  (i-N)/N*S,x,(j-N)/N*S  ][k])
+          yield tabulate([2*N+1, 2*N+1, 3], dtype, (i,j,k) => [  (i-N)/N*S,  (j-N)/N*S,x][k])
+          yield tabulate([2*N+1, 2*N+1, 3], dtype, (i,j,k) => [x,(j-N)/N*S,  (i-N)/N*S  ][k])
+          yield tabulate([2*N+1, 2*N+1, 3], dtype, (i,j,k) => [  (j-N)/N*S,x,(i-N)/N*S  ][k])
+          yield tabulate([2*N+1, 2*N+1, 3], dtype, (i,j,k) => [  (j-N)/N*S,  (i-N)/N*S,x][k])
         }
 
       for( const dtype of ['float32','float64'] ) {
-        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], (i,j,k,l) => [(i-N)/N*S, (j-N)/N*S, (k-N)/N*S][l])
-        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], (i,j,k,l) => [(i-N)/N*S, (k-N)/N*S, (j-N)/N*S][l])
-        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], (i,j,k,l) => [(j-N)/N*S, (i-N)/N*S, (k-N)/N*S][l])
-        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], (i,j,k,l) => [(j-N)/N*S, (k-N)/N*S, (i-N)/N*S][l])
-        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], (i,j,k,l) => [(k-N)/N*S, (i-N)/N*S, (j-N)/N*S][l])
-        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], (i,j,k,l) => [(k-N)/N*S, (j-N)/N*S, (i-N)/N*S][l])
+        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], dtype, (i,j,k,l) => [(i-N)/N*S, (j-N)/N*S, (k-N)/N*S][l])
+        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], dtype, (i,j,k,l) => [(i-N)/N*S, (k-N)/N*S, (j-N)/N*S][l])
+        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], dtype, (i,j,k,l) => [(j-N)/N*S, (i-N)/N*S, (k-N)/N*S][l])
+        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], dtype, (i,j,k,l) => [(j-N)/N*S, (k-N)/N*S, (i-N)/N*S][l])
+        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], dtype, (i,j,k,l) => [(k-N)/N*S, (i-N)/N*S, (j-N)/N*S][l])
+        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], dtype, (i,j,k,l) => [(k-N)/N*S, (j-N)/N*S, (i-N)/N*S][l])
       }
     }()
   ).it('rosenbrock (3d) has a global minimum at x=[1,1,1]', x => {
@@ -219,6 +224,7 @@ describe('rosenbrock', () => {
 
     expect(h).toBeAllCloseTo(H, {rtol:1e-4, atol:1e-6})
   })
+
 
   forEachItemIn(
     function*(){
@@ -251,5 +257,179 @@ describe('rosenbrock', () => {
           H = rosenbrock_num_hess(wxyz)
 
     expect(h).toBeAllCloseTo(H, {rtol:1e-4, atol:1e-6})
+  })
+
+
+  forEachItemIn(
+    function*(){
+      const  S = 3.14, Δ = 0.042, N = 42,
+        shape2 = Int32Array.of(2)
+
+      for( let x = -S; x <= +S; x+=Δ )
+      for( let y = -S; y <= +S; y+=Δ ) {
+        yield new NDArray(shape2, Float32Array.of(x,y))
+        yield new NDArray(shape2, Float64Array.of(x,y))
+      }
+
+      for( let z = -S; z <= +S; z+=Δ )
+        for( const dtype of ['float32','float64'] ) {
+          yield tabulate([2*N+1, 2], dtype, (i,j) => [  (i-N)/N*S,z][j])
+          yield tabulate([2*N+1, 2], dtype, (i,j) => [z,(i-N)/N*S  ][j])
+        }
+
+      for( const dtype of ['float32','float64'] ) {
+        yield tabulate([2*N+1, 2*N+1, 2], dtype, (i,j,k) => [(i-N)/N*S, (j-N)/N*S][k])
+        yield tabulate([2*N+1, 2*N+1, 2], dtype, (i,j,k) => [(j-N)/N*S, (i-N)/N*S][k])
+      }
+    }()
+  ).it('rosenbrock_lsq is consistent with rosenbrock (2d)', x => {
+    const y_min = rosenbrock_lsq([1,1])
+
+    expect(y_min.shape).toEqual( Int32Array.of(2) );
+    expect(y_min).toBeAllCloseTo(0);
+
+    const Y = rosenbrock(x),
+          y = rosenbrock_lsq(x)
+                .mapElems(x.dtype, x => x*x)
+                .reduceElems(-1, x.dtype, (x,y) => x+y);
+
+    expect(y).toBeAllCloseTo(Y);
+  })
+
+
+  forEachItemIn(
+    function*(){
+      const  S = 3.14, Δ = 0.271, N = 13,
+        shape3 = Int32Array.of(3)
+
+      for( let x = -S; x <= +S; x+=Δ )
+      for( let y = -S; y <= +S; y+=Δ )
+      for( let z = -S; z <= +S; z+=Δ ) {
+        yield new NDArray(shape3, Float32Array.of(x,y,z))
+        yield new NDArray(shape3, Float64Array.of(x,y,z))
+      }
+
+      for( let x = -S; x <= +S; x+=Δ )
+      for( let y = -S; y <= +S; y+=Δ )
+        for( const dtype of ['float32','float64'] ) {
+          yield tabulate([2*N+1, 3], dtype, (i,j) => [x,y,(i-N)/N*S    ][j])
+          yield tabulate([2*N+1, 3], dtype, (i,j) => [x,  (i-N)/N*S,  y][j])
+          yield tabulate([2*N+1, 3], dtype, (i,j) => [    (i-N)/N*S,x,y][j])
+        }
+
+      for( let x = -S; x <= +S; x+=Δ )
+        for( const dtype of ['float32','float64'] ) {
+          yield tabulate([2*N+1, 2*N+1, 3], dtype, (i,j,k) => [x,(i-N)/N*S,  (j-N)/N*S  ][k])
+          yield tabulate([2*N+1, 2*N+1, 3], dtype, (i,j,k) => [  (i-N)/N*S,x,(j-N)/N*S  ][k])
+          yield tabulate([2*N+1, 2*N+1, 3], dtype, (i,j,k) => [  (i-N)/N*S,  (j-N)/N*S,x][k])
+          yield tabulate([2*N+1, 2*N+1, 3], dtype, (i,j,k) => [x,(j-N)/N*S,  (i-N)/N*S  ][k])
+          yield tabulate([2*N+1, 2*N+1, 3], dtype, (i,j,k) => [  (j-N)/N*S,x,(i-N)/N*S  ][k])
+          yield tabulate([2*N+1, 2*N+1, 3], dtype, (i,j,k) => [  (j-N)/N*S,  (i-N)/N*S,x][k])
+        }
+
+      for( const dtype of ['float32','float64'] ) {
+        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], dtype, (i,j,k,l) => [(i-N)/N*S, (j-N)/N*S, (k-N)/N*S][l])
+        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], dtype, (i,j,k,l) => [(i-N)/N*S, (k-N)/N*S, (j-N)/N*S][l])
+        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], dtype, (i,j,k,l) => [(j-N)/N*S, (i-N)/N*S, (k-N)/N*S][l])
+        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], dtype, (i,j,k,l) => [(j-N)/N*S, (k-N)/N*S, (i-N)/N*S][l])
+        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], dtype, (i,j,k,l) => [(k-N)/N*S, (i-N)/N*S, (j-N)/N*S][l])
+        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], dtype, (i,j,k,l) => [(k-N)/N*S, (j-N)/N*S, (i-N)/N*S][l])
+      }
+    }()
+  ).it('rosenbrock_lsq is consistent with rosenbrock (3d)', x => {
+    const y_min = rosenbrock_lsq([1,1,1])
+
+    expect(y_min.shape).toEqual( Int32Array.of(4) );
+    expect(y_min).toBeAllCloseTo(0);
+
+    const Y = rosenbrock(x),
+          y = rosenbrock_lsq(x)
+                .mapElems(x.dtype, x => x*x)
+                .reduceElems(-1, x.dtype, (x,y) => x+y);
+
+    expect(y).toBeAllCloseTo(Y);
+  })
+
+
+  forEachItemIn(
+    function*(){
+      const  S = 3.14, Δ = 0.042, N = 42,
+        shape2 = Int32Array.of(2)
+
+      for( let x = -S; x <= +S; x+=Δ )
+      for( let y = -S; y <= +S; y+=Δ ) {
+        yield new NDArray(shape2, Float32Array.of(x,y))
+        yield new NDArray(shape2, Float64Array.of(x,y))
+      }
+
+      for( let z = -S; z <= +S; z+=Δ )
+        for( const dtype of ['float32','float64'] ) {
+          yield tabulate([2*N+1, 2], dtype, (i,j) => [  (i-N)/N*S,z][j])
+          yield tabulate([2*N+1, 2], dtype, (i,j) => [z,(i-N)/N*S  ][j])
+        }
+
+      for( const dtype of ['float32','float64'] ) {
+        yield tabulate([2*N+1, 2*N+1, 2], dtype, (i,j,k) => [(i-N)/N*S, (j-N)/N*S][k])
+        yield tabulate([2*N+1, 2*N+1, 2], dtype, (i,j,k) => [(j-N)/N*S, (i-N)/N*S][k])
+      }
+    }()
+  ).it('rosenbrock_lsq_jac is consistent with rosenbrock_grad (2d)', x => {
+    let G = rosenbrock_grad(x),
+        J = rosenbrock_lsq_jac(x),
+        f = rosenbrock_lsq (x);
+    G = G.reshape(...G.shape,1);
+    f = f.reshape(...f.shape,1);
+    const  g = matmul(J.T, f, [[2]]);
+    expect(g).toBeAllCloseTo(G);
+  })
+
+
+  forEachItemIn(
+    function*(){
+      const  S = 3.14, Δ = 0.271, N = 13,
+        shape3 = Int32Array.of(3)
+
+      for( let x = -S; x <= +S; x+=Δ )
+      for( let y = -S; y <= +S; y+=Δ )
+      for( let z = -S; z <= +S; z+=Δ ) {
+        yield new NDArray(shape3, Float32Array.of(x,y,z))
+        yield new NDArray(shape3, Float64Array.of(x,y,z))
+      }
+
+      for( let x = -S; x <= +S; x+=Δ )
+      for( let y = -S; y <= +S; y+=Δ )
+        for( const dtype of ['float32','float64'] ) {
+          yield tabulate([2*N+1, 3], dtype, (i,j) => [x,y,(i-N)/N*S    ][j])
+          yield tabulate([2*N+1, 3], dtype, (i,j) => [x,  (i-N)/N*S,  y][j])
+          yield tabulate([2*N+1, 3], dtype, (i,j) => [    (i-N)/N*S,x,y][j])
+        }
+
+      for( let x = -S; x <= +S; x+=Δ )
+        for( const dtype of ['float32','float64'] ) {
+          yield tabulate([2*N+1, 2*N+1, 3], dtype, (i,j,k) => [x,(i-N)/N*S,  (j-N)/N*S  ][k])
+          yield tabulate([2*N+1, 2*N+1, 3], dtype, (i,j,k) => [  (i-N)/N*S,x,(j-N)/N*S  ][k])
+          yield tabulate([2*N+1, 2*N+1, 3], dtype, (i,j,k) => [  (i-N)/N*S,  (j-N)/N*S,x][k])
+          yield tabulate([2*N+1, 2*N+1, 3], dtype, (i,j,k) => [x,(j-N)/N*S,  (i-N)/N*S  ][k])
+          yield tabulate([2*N+1, 2*N+1, 3], dtype, (i,j,k) => [  (j-N)/N*S,x,(i-N)/N*S  ][k])
+          yield tabulate([2*N+1, 2*N+1, 3], dtype, (i,j,k) => [  (j-N)/N*S,  (i-N)/N*S,x][k])
+        }
+
+      for( const dtype of ['float32','float64'] ) {
+        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], dtype, (i,j,k,l) => [(i-N)/N*S, (j-N)/N*S, (k-N)/N*S][l])
+        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], dtype, (i,j,k,l) => [(i-N)/N*S, (k-N)/N*S, (j-N)/N*S][l])
+        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], dtype, (i,j,k,l) => [(j-N)/N*S, (i-N)/N*S, (k-N)/N*S][l])
+        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], dtype, (i,j,k,l) => [(j-N)/N*S, (k-N)/N*S, (i-N)/N*S][l])
+        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], dtype, (i,j,k,l) => [(k-N)/N*S, (i-N)/N*S, (j-N)/N*S][l])
+        yield tabulate([2*N+1, 2*N+1, 2*N+1, 3], dtype, (i,j,k,l) => [(k-N)/N*S, (j-N)/N*S, (i-N)/N*S][l])
+      }
+    }()
+  ).it('rosenbrock_lsq_jac is consistent with rosenbrock_grad (3d)', x => {
+    let G = rosenbrock_grad(x),
+        J = rosenbrock_lsq_jac(x),
+        f = rosenbrock_lsq (x);
+    G = G.reshape(...G.shape,1);
+    f = f.reshape(...f.shape,1);
+    const  g = matmul(J.T, f, [[2]]);
+    expect(g).toBeAllCloseTo(G, {atol:1e-4});
   })
 })

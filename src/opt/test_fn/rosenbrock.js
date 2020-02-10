@@ -22,6 +22,7 @@ import {tabulate} from '../../tabulate'
 
 export function rosenbrock( x )
 {
+  // https://en.wikipedia.org/wiki/Rosenbrock_function
   x = asarray(x)
 
   if(         x.ndim    < 1 ) throw new Error('rosenbrock(x): x.ndim must be at least 1.');
@@ -116,4 +117,71 @@ export function rosenbrock_hess( x )
   }
 
   return new NDArray(H_shape, H);
+}
+
+
+export function rosenbrock_lsq( x )
+{
+  x = asarray(x)
+
+  if(         x.ndim    < 1 ) throw new Error('rosenbrock_lsq(x): x.ndim must be at least 1.');
+  if( x.shape[x.ndim-1] < 2 ) throw new Error('rosenbrock_lsq(x): x.shape[-1] must be at least 2.');
+
+  const N = x.shape[x.ndim-1],
+        M = (N-1)*2;
+
+  const F_shape = x.shape.slice(),
+        F       = new (x.dtype==='float32' ? Float32Array
+                                           : Float64Array)(x.data.length/N*M);
+  F_shape[F_shape.length-1] = M;
+  x = x.data;
+
+  for( let x_off=x.length,
+           F_off=F.length;
+          (F_off -= M) >= 0; )
+  {        x_off -= N;
+    for( let i=N-1; i-- > 0; ) {
+      const xj = x[x_off + i+1],
+            xi = x[x_off + i],
+             u = xj - xi*xi,
+             v = 1-xi;
+      F[F_off + 2*i+0] = u*10;
+      F[F_off + 2*i+1] = v;
+    }
+  }
+
+  return new NDArray(F_shape, F);
+}
+
+
+export function rosenbrock_lsq_jac( x )
+{
+  x = asarray(x)
+
+  if(         x.ndim    < 1 ) throw new Error('rosenbrock(x): x.ndim must be at least 1.');
+  if( x.shape[x.ndim-1] < 2 ) throw new Error('rosenbrock(x): x.shape[-1] must be at least 2.');
+
+  const N = x.shape[x.ndim-1],
+        M = (N-1)*2;
+
+  const J_shape = Int32Array.of(...x.shape.slice(0,-1),M,N),
+        J       = new (x.dtype==='float32' ? Float32Array
+                                           : Float64Array)(x.data.length*M);
+  x = x.data;
+
+  for( let x_off=x.length,
+           J_off=J.length;
+          (J_off -= M*N) >= 0; )
+  {        x_off -= N;
+    for( let i=N-1; i-- > 0; ) {
+      const  j = i+1,
+            xj = x[x_off + j],
+            xi = x[x_off + i];
+      J[J_off + N*(2*i+0)+i] += -20*xi;
+      J[J_off + N*(2*i+0)+j] +=  10;
+      J[J_off + N*(2*i+1)+i] -=  1;
+    }
+  }
+
+  return new NDArray(J_shape, J);
 }
