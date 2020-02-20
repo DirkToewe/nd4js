@@ -23,7 +23,10 @@ import {_giv_rot_rows} from './_giv_rot'
 import {_triu_solve} from './tri'
 
 
-export function _urv_compute_v( M,N, R,R_off, V,V_off, P,P_off )
+// TODO: add economic URV decomposition
+
+
+export function _urv_decomp_full( M,N, R,R_off, V,V_off, P,P_off )
 {
   if( 0 !== M%1 ) throw new Error('Assertion failed.');
   if( 0 !== N%1 ) throw new Error('Assertion failed.');
@@ -122,7 +125,7 @@ export function urv_decomp_full( A ) // <- TODO add tolerance parameters to pass
       for( let j=rnk; j < N; j++ )
         R[R_off + N*i+j] = 0; // <- TODO consider doing this in SRRQR already
     }
-    _urv_compute_v( rnk,N, R,R_off, V,V_off, P,P_off ); // <- TODO if we init V to identity then we can do faster rotations of V. P would then be applied after computing V.
+    _urv_decomp_full( rnk,N, R,R_off, V,V_off, P,P_off ); // <- TODO if we init V to identity then we can do faster rotations of V. P would then be applied after computing V.
   }
 
   return [U, RR, new NDArray(V_shape, V), rnks];

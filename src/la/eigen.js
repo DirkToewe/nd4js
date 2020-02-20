@@ -25,6 +25,11 @@ import {zip_elems} from '../zip_elems'
 import math from '../math'
 
 
+// TODO: Add symmetric eigen decomposition methods
+//   export function eigen_sym(S)
+//   export function eigenvals_sym(S)
+
+
 export function eigen(A)
 {
   const [D,B]= eigen_balance_pre(A,2),
@@ -41,7 +46,6 @@ export function eigen(A)
         D_dat = D.data
 
   // UNDO BALANCING
-  
   for( let D_off=0,  V_off=0;
                      V_off < V_dat.length;
            D_off+=N, V_off += 2*N*N )

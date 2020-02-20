@@ -27,6 +27,9 @@ import {_norm,
 import {_transpose_inplace} from './transpose_inplace'
 
 
+// TODO: add economic srrqr
+
+
 export function _row_norm_update(norm, AB,AB_off, M)
 {
   // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/hypot#Polyfill
