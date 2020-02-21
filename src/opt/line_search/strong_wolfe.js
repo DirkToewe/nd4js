@@ -101,7 +101,7 @@ export const strong_wolfe = ({c1=0.4, c2=0.8, c3=1.6}={}) => {
     //   strong Wolfe α values, this method finds such a value.
     while(true)
     {
-      α = (αMin + αMax) / 2;
+      α = (αMin + αMax) / 2; // <- TODO: use quadratic polynomial to find new point
 
       const X = zip_elems([X0,negDir], dtype, (x,nDir) => x - α*nDir),
            [f,G] = fg(X),
