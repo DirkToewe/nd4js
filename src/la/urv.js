@@ -33,6 +33,10 @@ export function _urv_decomp_full( M,N, R,R_off, V,V_off, P,P_off )
   if( 0 !== R_off%1 ) throw new Error('Assertion failed.');
   if( 0 !== V_off%1 ) throw new Error('Assertion failed.');
 
+/*DEBUG*/  for( let i=N; i-- > 0; )
+/*DEBUG*/  for( let j=N; j-- > 0; )
+/*DEBUG*/    if( 0 !== V[V_off + N*i+j] ) throw new Error('Assertion failed.');
+
   M |= 0;
   N |= 0;
   R_off |= 0;

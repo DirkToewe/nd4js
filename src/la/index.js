@@ -29,6 +29,7 @@ export * from './matmul'
 export {norm} from './norm'
 export * from './permute'
 export * from './qr'
+export * from './rand_ortho'
 export * from './rank'
 export { rrqr_decomp,
          rrqr_decomp_full,
@@ -48,4 +49,5 @@ export {tril,
         triu,
         tril_solve,
         triu_solve} from './tri'
-export            * from './rand_ortho'
+export {urv_decomp_full,
+        urv_lstsq} from './urv'

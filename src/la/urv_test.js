@@ -123,7 +123,7 @@ describe('urv', () => {
         )
       }
     }()
-  ).it('svd_lstsq computes one solution of random under-determined examples', ([A,y]) => {
+  ).it('urv_decomp_full+urv_lstsq computes one solution of random under-determined examples', ([A,y]) => {
     const [U,R,V,ranks]= urv_decomp_full(A),
                      x = urv_lstsq(U,R,V,ranks, y);
 
@@ -169,11 +169,11 @@ describe('urv', () => {
         yield [A,y];
       }
     }()
-  ).it('svd_lstsq solves least squares for random rank-deficient examples', ([A,y]) => {
+  ).it('urv_decomp_full+urv_lstsq solves least squares for random rank-deficient examples', ([A,y]) => {
     const [U,R,V,ranks]= urv_decomp_full(A),
                      x = urv_lstsq(U,R,V,ranks, y),
                     Ax = matmul2(A,x);
   
-    expect( matmul2(A.T, zip_elems([Ax,y], (x,y) => x-y) ) ).toBeAllCloseTo(0)
+    expect( matmul2(A.T, zip_elems([Ax,y], 'float64', (x,y) => x-y) ) ).toBeAllCloseTo(0)
   })
 })

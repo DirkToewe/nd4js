@@ -143,6 +143,12 @@ export function _triu_solve(M,N,O, U,U_off, X,X_off)
   U_off |= 0
   X_off |= 0
 
+  if( !(0 <= U_off) ) throw new Error('Assertion failed.');
+  if( !(0 <= X_off) ) throw new Error('Assertion failed.');
+
+  if( !(M*N <= U.length - U_off) ) throw new Error('Assertion failed.');
+  if( !(M*O <= X.length - X_off) ) throw new Error('Assertion failed.');
+
   // BACKWARD SUBSTITUTION
   for( let i=M; i-- > 0; )
   for( let j=O; j-- > 0; )

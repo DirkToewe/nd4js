@@ -22,7 +22,6 @@ import {array, NDArray} from '../nd_array'
 import {tabulate} from '../tabulate'
 import {_rand_rankdef} from '../_test_data_generators'
 import {zip_elems} from '../zip_elems'
-import math from '../math'
 
 import {diag_mat} from './diag'
 import {matmul, matmul2} from './matmul'
@@ -228,7 +227,7 @@ describe('svd', () => {
                Ax = matmul2(A,x)
 
     // every least square solution satisfies the normal equaltion Aᵀ(Ax - y) = 0
-    expect( matmul2(A.T, zip_elems([Ax,y], math.sub) ) ).toBeAllCloseTo(0)
+    expect( matmul2(A.T, zip_elems([Ax,y], (x,y) => x-y) ) ).toBeAllCloseTo(0)
   })
 
 
@@ -310,7 +309,7 @@ describe('svd', () => {
                 x = svd_lstsq(U,sv,V, y),
                Ax = matmul2(A,x)
   
-    expect( matmul2(A.T, zip_elems([Ax,y], math.sub) ) ).toBeAllCloseTo(0)
+    expect( matmul2(A.T, zip_elems([Ax,y], (x,y) => x-y) ) ).toBeAllCloseTo(0)
   })
 
   const svd_decomps = {

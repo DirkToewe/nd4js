@@ -90,11 +90,11 @@ export function svd_jac_classic(A)
   }() );
   const treeData = new DTypeArray( treeSizes.reduce( (len,N) => len + (N*N+N >>> 1), 0 ) );
 
-//  const piv = (i,j) => {
-//    const S_ij = S[N*i+j],
-//          S_ji = S[N*j+i];
-//    return S_ij*S_ij + S_ji*S_ji;
-//  };
+//*DEBUG*/  const piv = (i,j) => {
+//*DEBUG*/    const S_ij = S[N*i+j],
+//*DEBUG*/          S_ji = S[N*j+i];
+//*DEBUG*/    return S_ij*S_ij + S_ji*S_ji;
+//*DEBUG*/  };
 
   const find_pivot = () => {
     let k=0,
@@ -221,10 +221,10 @@ export function svd_jac_classic(A)
       s=k;
       t=l;
 
-//      // CHECK THAT THIS IS TRULY THE MAXIMUM (TODO: COMMENT OUT)
-//      for( let i=1; i < N; i++ )
-//      for( let j=0; j < i; j++ )
-//        if( ! (piv(i,j) <= piv(k,l)) ) throw new Error(`Assertion failed: ${i}, ${j}.`);
+//*DEBUG*/      // CHECK THAT THIS IS TRULY THE MAXIMUM (TODO: COMMENT OUT)
+//*DEBUG*/      for( let i=1; i < N; i++ )
+//*DEBUG*/      for( let j=0; j < i; j++ )
+//*DEBUG*/        if( ! (piv(i,j) <= piv(k,l)) ) throw new Error(`Assertion failed: ${i}, ${j}.`);
 
       const
         S_kk = S[N*k+k],
