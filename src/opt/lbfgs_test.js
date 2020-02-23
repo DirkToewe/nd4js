@@ -20,7 +20,6 @@ import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {rosenbrock, rosenbrock_grad} from './test_fn/rosenbrock'
 import {LineSearchNoProgressError} from './line_search/line_search_error'
 import {min_lbfgs_gen} from './lbfgs'
-import math from '../math'
 import {NDArray} from '../nd_array'
 
 
