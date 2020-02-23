@@ -24,7 +24,8 @@ export function array(dtype, content)
 {
   if( null == content ){ content = dtype; dtype = undefined }
 
-  if( content instanceof NDArray || ('object' == typeof content) && 'shape' in content && 'data' in content )
+  if( ('object' == typeof content ||
+     'function' == typeof content) && 'shape' in content && 'data' in content )
   {
     let data = content.data
     if( null != dtype && ! (data instanceof ARRAY_TYPES[dtype]) )
