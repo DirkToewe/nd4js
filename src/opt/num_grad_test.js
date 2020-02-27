@@ -17,8 +17,95 @@
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
-import {num_grad} from './num_grad'
+import {num_grad,
+        num_grad_forward} from './num_grad'
 import {array} from '../nd_array'
+
+
+describe('num_grad_forward', () => {
+  beforeEach( () => {
+    jasmine.addMatchers(CUSTOM_MATCHERS)
+  })
+
+
+  forEachItemIn(
+    function*(){
+      for( let run=1024; run-- > 0; )
+      {
+        const [a,b,c] = function*(){ while(true) yield Math.random()*2-1 }(),
+              F = (x,y) => a + (b + c*x)*x,
+              G = (x,y) =>      b + c*x*2
+        yield [F,G]
+      }
+    }()
+  ).it('works on random 1d polynomials of degree 2', ([F,G]) => {
+    const g = num_grad_forward( xy => F(...xy.data) )
+
+    for( let x=-3.14; x <=3.14; x+=0.42 )
+      expect(g([x])).toBeAllCloseTo(G(x), {atol:1e-7})
+  })
+
+
+  forEachItemIn(
+    function*(){
+      for( let run=1024; run-- > 0; )
+      {
+        const [a,b,c,d,e,f] = function*(){ while(true) yield Math.random()*2-1 }(),
+              F = (x,y) => a + (b + d*y + e*x)*x + (c + f*y)*y,
+              G = (x,y) => array([
+                b + d*y + 2*e*x,
+                c + d*x + 2*f*y
+              ])
+        yield [F,G]
+      }
+    }()
+  ).it('works on random 2d polynomials of degree 2', ([F,G]) => {
+    const g = num_grad_forward( xy => F(...xy.data) )
+
+    for( let x=-3.14; x <=3.14; x+=0.42 )
+    for( let y=-3.14; y <=3.14; y+=0.42 )
+      expect(g([x,y])).toBeAllCloseTo(G(x,y), {atol:1e-7})
+  })
+
+
+  forEachItemIn(
+    function*(){
+      for( let run=128; run-- > 0; )
+      {
+        const a = Array.from({length: 10}, () => Math.random()*2-1),
+              F = (x,y,z) => {
+                let result = 0
+                for( let i=0; i<=2; i++ )
+                for( let j=0; j<=2; j++ )
+                for( let k=0; k<=2; k++ )
+                  if( i+j+k <= 2 )
+                    result += a[4*i+2*j+k] * x**i * y**j * z**k
+                return result
+              },
+              G = (x,y,z) => {
+                let result = [0,0,0]
+                for( let i=0; i<=2; i++ )
+                for( let j=0; j<=2; j++ )
+                for( let k=0; k<=2; k++ )
+                  if( i+j+k <= 2 ) {
+                    if(i > 0) result[0] += a[4*i+2*j+k] * i * x**(i-1) * y** j    * z** k
+                    if(j > 0) result[1] += a[4*i+2*j+k] * j * x** i    * y**(j-1) * z** k
+                    if(k > 0) result[2] += a[4*i+2*j+k] * k * x** i    * y** j    * z**(k-1)
+                  }
+                return array(result)
+              }
+        yield [F,G]
+      }
+    }()
+  ).it('works on random 3d polynomials of degree 2', ([F,G]) => {
+    const g = num_grad_forward( xy => F(...xy.data) )
+
+    for( let x=-3.14; x <=3.14; x+=0.42 )
+    for( let y=-3.14; y <=3.14; y+=0.42 )
+    for( let z=-3.14; z <=3.14; z+=0.42 )
+      expect(g([x,y,z])).toBeAllCloseTo(G(x,y,z), {atol:1e-7})
+  })
+})
 
 
 describe('num_grad', () => {
