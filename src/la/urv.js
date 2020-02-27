@@ -183,7 +183,7 @@ export function urv_lstsq( U,R,V, ranks, Y )
     if(  null != ranks
       || null != V )
       throw new Error('urv_lstsq( U,R,V,ranks, Y ): Either 2 ([U,R,V,ranks], Y) or 5 arguments (U,R,V,ranks, Y) expected.');
-    Y = R
+    Y = R;
     ([U,R,V,ranks] = U);
   }
 

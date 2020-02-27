@@ -28,6 +28,12 @@ import {_transpose_inplace} from './transpose_inplace'
 
 
 // TODO: add economic srrqr
+// FIXME: there seems to be an infinite-loop bug with close to zero matrices like:
+//   [[0,0,0],
+//    [0,0,0],
+//    [Number.MIN_VALUE,0,0],
+//    [0,Number.MIN_VALUE,0],
+//    [0,0,Number.MIN_VALUE]]
 
 
 export function _row_norm_update(norm, AB,AB_off, M)

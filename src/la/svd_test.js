@@ -312,6 +312,7 @@ describe('svd', () => {
     expect( matmul2(A.T, zip_elems([Ax,y], (x,y) => x-y) ) ).toBeAllCloseTo(0)
   })
 
+
   const svd_decomps = {
     svd_decomp,
     svd_dc,
@@ -319,6 +320,7 @@ describe('svd', () => {
     svd_jac_2sided_blocked,
     svd_jac_classic
   }
+
 
   for( const [svd_name,svd_deco] of Object.entries(svd_decomps) )
     it(`${svd_name} decomposes and int32 input correctly`, () => {
@@ -356,6 +358,59 @@ describe('svd', () => {
       expect(a).toBeAllCloseTo(A)
     })
 
+
+  for( const [svd_name,svd_deco] of Object.entries(svd_decomps) )
+    for( const [rng,suffix] of [
+      [() =>                           Math.random()*8 - 4, ''                      ],
+      [() => Math.random() < 0.1 ? 0 : Math.random()*8 - 4, ' with occasional zeros']
+    ])
+      forEachItemIn(
+        function*(){
+          for( let run=1024; run-- > 0; )
+          {
+            const ndim = randInt(0,4),
+                 shape = Array.from({ length: ndim }, () => randInt(1,8) );
+            shape.push(
+              randInt(1,24),
+              randInt(1,24)
+            );
+            const A = tabulate(shape, 'float64', rng); Object.freeze(A.data.buffer);
+            yield A;
+          }
+        }()
+      ).it(`${svd_name} works on random examples` + suffix, A => {
+        const [M,N]= A.shape.slice(-2), L = Math.min(M,N),
+          [U,SV,V]= svd_deco(A),       D = diag_mat(SV)
+
+        for( const sv of SV.reshape(-1,L) )
+        for( let i=1; i < sv.shape[0]; i++ )
+        {
+          expect(sv(i-1)).not.toBeLessThan(sv(i))
+          expect(sv(i  )).not.toBeLessThan(-0.0)
+        }
+
+        const a = matmul(U,D,V);
+
+        const U_TOL = eps(A.dtype) * M*4,
+              V_TOL = eps(A.dtype) * N*4;
+
+        if( M >= N ) {
+          const I = eye(N)
+          expect( matmul2(U.T,U) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
+          expect( matmul2(V.T,V) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
+          expect( matmul2(V,V.T) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
+        }
+        else {
+          const I = eye(M)
+          expect( matmul2(U.T,U) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
+          expect( matmul2(U,U.T) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
+          expect( matmul2(V,V.T) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
+        }
+        expect(D).toBeDiagonal()
+        expect(a).toBeAllCloseTo(A)
+      })
+
+
   for( const [svd_name,svd_deco] of Object.entries(svd_decomps) )
     forEachItemIn(
       function*(){
@@ -367,27 +422,64 @@ describe('svd', () => {
             randInt(1,24),
             randInt(1,24)
           )
-          const A = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1),
-             [M,N]= shape.slice(-2)
+          const [A] = _rand_rankdef(...shape);
+          yield  A;
+        }
+      }()
+    ).it(`${svd_name} works on random rank-deficient examples`, A => {
+      const [M,N]= A.shape.slice(-2), L = Math.min(M,N),
+        [U,SV,V]= svd_deco(A),       D = diag_mat(SV)
 
-          // CREATE SOME RANK DEFICIENCIES
-          if( Math.random() < 0.5 ) {
-            const a = A.reshape(-1,M,N);
-            for( let k=a.shape[0]; k-- > 0; )
-            for( let i=0; i < M; i++ )
-              if( Math.random() < 0.1 ) {
-                const l = randInt(0,M),
-                  scale = Math.random()*4 - 2;
-                for( let j=0; j < N; j++ ) a.set( [k,i,j], scale*a(k,l,j) );
-              }
-          }
-          Object.freeze(A.data.buffer)
+      for( const sv of SV.reshape(-1,L) )
+      for( let i=1; i < sv.shape[0]; i++ )
+      {
+        expect(sv(i-1)).not.toBeLessThan(sv(i))
+        expect(sv(i  )).not.toBeLessThan(-0.0)
+      }
+
+      const a = matmul(U,D,V);
+
+      const U_TOL = eps(A.dtype) * M*4,
+            V_TOL = eps(A.dtype) * N*4;
+
+      if( M >= N ) {
+        const I = eye(N)
+        expect( matmul2(U.T,U) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
+        expect( matmul2(V.T,V) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
+        expect( matmul2(V,V.T) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
+      }
+      else {
+        const I = eye(M)
+        expect( matmul2(U.T,U) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
+        expect( matmul2(U,U.T) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
+        expect( matmul2(V,V.T) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
+      }
+      expect(D).toBeDiagonal()
+      expect(a).toBeAllCloseTo(A)
+    })
+
+
+  for( const [svd_name,svd_deco] of Object.entries(svd_decomps) )
+    forEachItemIn(
+      function*(){
+        for( let run=1024; run-- > 0; )
+        {
+          const                         sparseness = Math.random(),
+            rng = () => Math.random() < sparseness ? 0 : Math.random()*8 - 4;
+
+          const ndim = randInt(0,4),
+               shape = Array.from({ length: ndim }, () => randInt(1,8) );
+          shape.push(
+            randInt(1,24),
+            randInt(1,24)
+          );
+          const A = tabulate(shape, 'float64', rng); Object.freeze(A.data.buffer)
           yield A
         }
       }()
-    ).it(`${svd_name} works on generated examples`, A => {
+    ).it(`${svd_name} works on random sparse examples`, A => {
       const [M,N]= A.shape.slice(-2), L = Math.min(M,N),
-         [U,SV,V]= svd_deco(A),       D = diag_mat(SV)
+        [U,SV,V]= svd_deco(A),       D = diag_mat(SV)
 
       for( const sv of SV.reshape(-1,L) )
       for( let i=1; i < sv.shape[0]; i++ )
