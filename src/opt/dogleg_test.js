@@ -38,7 +38,7 @@ describe('dogleg', () => {
 
 
   forEachItemIn(
-    function*(){                     const n = 18;
+    function*(){                     const n = 16;
       function*       range() { for( let i=n+1; i-- > 0; ) yield Math.PI*(1-2*(i/n)); }
       for( const x of range() )
       for( const y of range() ) { yield [x,y];
@@ -87,7 +87,7 @@ describe('dogleg', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=8; run-- > 0; ) {
+      for( let run=6; run-- > 0; ) {
         const                            N      =  Math.random()*4 + 1 | 0,
                       coeffs = tabulate([N], () => Math.random()*4 - 2);
         Object.freeze(coeffs)
@@ -182,7 +182,7 @@ describe('dogleg', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=8; run-- > 0; )
+      for( let run=6; run-- > 0; )
       { const                            N      =  Math.random()*4 + 1 | 0,
                       coeffs = tabulate([N], () => Math.random()*4 - 2);
         Object.freeze(coeffs)
@@ -283,7 +283,7 @@ describe('dogleg', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=8; run-- > 0; )
+      for( let run=6; run-- > 0; )
       {
         const         coeffs = tabulate([2], () => Math.random()*4 - 2);
         Object.freeze(coeffs);

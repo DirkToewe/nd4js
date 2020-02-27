@@ -17,6 +17,8 @@
  */
 
 import {array, asarray, NDArray} from '../nd_array'
+
+import {roots_polyquad1d} from './polyquad1d'
 import {TrustRegionSolverLSQ} from './_trust_region_solver'
 
 
@@ -29,36 +31,6 @@ import {TrustRegionSolverLSQ} from './_trust_region_solver'
 
 // TODO implement dogbox method as well which allows for box-constrained optimization
 
-/* Returns the more positive root of a + 2bx + cx²
- */
-function quad_root( a, b, c )
-{
-  // FIXME: make this work for b===0
-  if( !(0 <= c) ) throw new Error('Assertion failed.');
-
-  if( b < 0 ) {
-    a = -a;
-    b = -b;
-    c = -c;
-  }
-
-  const z = b + Math.sqrt(b*b - a*c);
-
-  const x1 = -a/z, // <- Citardauq
-        x2 = -z/c; // <- Quadratic
-
-  if( !(x1 <= 0 && x2 >= 0 ||
-        x1 >= 0 && x2 <= 0) )
-    throw new Error('Assertion failed.');
-
-  const x = Math.max(x1,x2);
-
-  if( !(Math.abs(a + 2*b*x + c*x*x) <= 1e-4) )
-    throw new Error('Assertion failed: ' + Math.abs(a + 2*b*x + c*x*x));
-
-  return x;
-}
-
 /** Solves a nonlinear least-squares problem using a
  *  trust-region variant Levenberg-Marquard algorithm
  *  as described in "THE LEVENBERG-MARQUARDT ALGORITHM:
@@ -68,9 +40,9 @@ export function* lsq_dogleg_gen(
   fJ,//: (x0: float[nInputs]) => [f: float[nSamples], j: float[nSamples,nInputs]] - THE OPTIMIZATION FUNCTION AND ITS JACOBIAN
   x0,//: float[nInputs] - THE START POINT OF THE OPTIMIZATION
   /*opt=*/{
-    r0    = 1e-2,        // <-   START TRUST REGION RADIUS (meaning radius AFTER scaling)
-    rMin  = 1e-4,        // <- MINIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
-    rMax  = Infinity,    // <- MAXIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
+    r0   = 1e-2,         // <-   START TRUST REGION RADIUS (meaning radius AFTER scaling)
+    rMin = 1e-4,         // <- MINIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
+    rMax = Infinity,     // <- MAXIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
     shrinkLower= 0.05,   // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT MOST
     shrinkUpper= 0.95,   // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT LEAST
     grow = 1.5,          // <-    GROW TRUST REGION RADIUS BY THIS FACTOR
@@ -140,14 +112,12 @@ export function* lsq_dogleg_gen(
       new NDArray( JJ.shape, JJ.data.slice() )
     ];
 
-    const mse = err_now / M;
-
     const gn = solver.scaledNorm(G),
           cp = solver.cauchyPointTravel();
     if( !(cp <= 0) )
       throw new Error('Assertion failed.');
 
-    { const t = Math.max(-R/gn, cp); // <- don't go beyond trust region
+    { const t = Math.max(-R/gn, cp); // <- don't go beyond trust region radius
       for( let i=N; i-- > 0; )
         dX[i] = t*G[i];
     };
@@ -173,8 +143,9 @@ export function* lsq_dogleg_gen(
           b += u*v;
           c += v*v;
         } a -= R*R;
+          b *= 2;
 
-        const t = Math.min(quad_root(a, b, c), 1); // <- don't go beyond gauss-newton point (i.e. when it lies inside rust region)
+        const t = Math.min(1, roots_polyquad1d(a,b,c)[1]); // <- don't go beyond gauss-newton point (i.e. when it lies inside rust region)
 /*DEBUG*/        if( !(0 <= t) ) throw new Error('Assertion failed.');
 
         for( let i=N; i-- > 0; ) {
@@ -293,9 +264,9 @@ export function* fit_dogleg_gen(
   if( ! (fg instanceof Function) )
     throw new Error('fit_lm_gen(x,y, fg, p0): fg must be a function.');
 
-  x = asarray('float64', x ); // <- TODO allow non-ndarray x ?
-  y = asarray('float64', y );
-  p0= asarray('float64', p0);
+  x = array('float64', x ); // <- TODO allow non-ndarray x ?
+  y = array('float64', y );
+  p0= array('float64', p0);
 
   const FloatArray = Float64Array;
 
@@ -323,10 +294,10 @@ export function* fit_dogleg_gen(
   );
   Object.freeze(x);
 
-  const R = new FloatArray(M  ),
-        J = new FloatArray(M*P),
-       RJ =[new NDArray(Int32Array.of(M  ), R),
-            new NDArray(Int32Array.of(M,P), J)];
+  const R  = new FloatArray(M  ),
+         J = new FloatArray(M*P),
+        RJ =[new NDArray(Int32Array.of(M  ), R),
+             new NDArray(Int32Array.of(M,P), J)];
 
   const fJ = p =>
   {
