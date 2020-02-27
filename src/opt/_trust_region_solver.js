@@ -39,28 +39,31 @@ export class TrustRegionSolverLSQ
     this.M = M|0;
     this.N = N|0;
 
-    const L = Math.min(M,N);
+    const L = Math.min(M,N),
+          K = Math.max(L+N, M);
 
     this.P = new Int32Array(N); // <- column permutation by RRQR
     this.Q = new Int32Array(N); // <- column permutation by RRQR
 
     this.D = new Float64Array(N), // <- trust region scaling diagonal
-    this.D.fill(Number.MIN_VALUE);
+    this.D.fill(Number.MIN_VALUE / Number.EPSILON); // <- TODO is this really a good idea?
 
-    this.R = new Float64Array(     L*N ); // <- stores result of RRQR
-    this.T = new Float64Array( (M+N)*N ); // <- used to compute URV decomp (for rank-deficient least-squares to find global min) and regularized QR decomp (used to find regularized min.).
+    this.R = new Float64Array( L*N ); // <- stores result of RRQR
+    this.S = new Float64Array( L*L ); // <- stores complete orthogonal decomp R (in rank-deficient case)
+    this.T = new Float64Array( K*N ); // <- working memory for decompositions (RRQR/URV)
 
-//    this.V = this.T.subarray(-N*N); // <- TODO: In unlikely case that M < N, use economic SRRQR instead of full SRRQR
-    this.V = new Float64Array(N*N); // <- TODO: In unlikely case that M < N, use economic SRRQR instead of full SRRQR
+    this.V = new Float64Array(N*N); // <- stores complete orthogonal decomp V TODO: In unlikely case (M < N), economic SRRQR could be used instead of full
 
-    this.F = new Float64Array(     M*1 );
-    this.Y = new Float64Array( (M+N)*1 );
+    this.F = new Float64Array( M*1 );
+    this.Y = new Float64Array( K*1 ); // <- (L+N)*1 should be enough ... right?
 
     this.X = new Float64Array(N*1);
 
-    this.norm = new Float64Array(2*N);
+    this.norm = new Float64Array(2*N); // <- this is not necessary, Y could be used instead
 
     this.G = new Float64Array(N);
+
+    this.rank = -1;
 
     this._state = 0;
     Object.seal(this);
@@ -100,9 +103,6 @@ export class TrustRegionSolverLSQ
         Jg += J[N*i+j] * G[j];
       b += Jg * Jg;
     }
-
-    if( !(0 <= a) ) throw new Error(`Assertion failed.`);
-    if( !(0 <= b) ) throw new Error(`Assertion failed.`);
 
     return 0===a ? 0 :
            0===b ? -Infinity : -a/b;
@@ -158,7 +158,7 @@ export class TrustRegionSolverLSQ
     G.fill(0.0);
     for( let i=M; i-- > 0; )
     for( let j=N; j-- > 0; )
-      G[j] += T[N*i+j] * F[i];
+      G[j] += J[N*i+j] * F[i];
   }
 
   computeMinGlobal()
@@ -166,7 +166,7 @@ export class TrustRegionSolverLSQ
     if( this._state !== 1 ) throw new Error('TrustRegionSolverLSQ.prototype.computeMinGlobal(): can only be called once after every update(f,J) call.');
     this._state = 2;
 
-    const {M,N, P,Q, D, R,T,V,X, F,Y, norm} = this;
+    const {M,N, P,Q, D, R,S,T, V, X, F,Y, norm} = this;
 
     const L = Math.min(M,N);
 
@@ -177,7 +177,8 @@ export class TrustRegionSolverLSQ
     for( let i=L*N; i-- > 0; )
       R[i] = T[i];
 
-    const rank = _rrqr_rank(M,N, T,0, /*tmp=*/norm);
+    const rank =
+     this.rank = _rrqr_rank(M,N, T,0, /*tmp=*/norm);
 
     if( rank < N )
     { // RANK DEFICIENT CASE -> USE COMPLETE ORTHOGONAL DECOMPOSITION
@@ -193,11 +194,16 @@ export class TrustRegionSolverLSQ
       V.fill(0.0);
       _urv_decomp_full( rank,N, T,0, V,0, Q,0 );
 
+      // backup complete orthogonal T to S
+      for( let i=rank; i-- > 0; )
+      for( let j=rank; j-- > 0; )
+        S[L*i+j] = T[N*i+j];
+
       // compute least squares solution
-      for( let i=N; i-- > 0; )
+      for( let i=rank; i-- > 0; )
         Y[i] = -F[i];
 
-      _triu_solve(rank,N,1, T,0, Y,0); // Y = T \ Y
+      _triu_solve(rank,L,1, S,0, Y,0); // Y = S \ Y
 
       X.fill(0.0);
       for( let k=rank; k-- > 0; )
@@ -211,62 +217,145 @@ export class TrustRegionSolverLSQ
     else
     { // FULL RANK CASE -> SCALING NOT RELEVANT TO GLOBAL SOLUTION
       for( let i=N; i-- > 0; )
-        norm[i] = -F[i];
+        Y[i] = -F[i];
 
-      _triu_solve(N,N,1, T,0, /*tmp=*/norm,0);
+      _triu_solve(N,N,1, T,0, Y,0);
 
       for( let i=N; i-- > 0; )
-        X[P[i]] = /*tmp[i]=*/norm[i];
+        X[P[i]] = Y[i];
     }
   }
 
+  // Regularized least squares (RLS) solver. Solves the follwing equation system:
+  //
+  //   (JᵀJ + λI)x = Jᵀf
+  //
+  // The equation above can be solved as the following least squares problem:
+  //
+  //   min ║Ax - z║₂
+  //    x
+  //
+  // where
+  //       ┏       ┓        ┏   ┓
+  //       ┃       ┃        ┃   ┃
+  //       ┃       ┃        ┃   ┃
+  //       ┃   J   ┃        ┃-f ┃
+  //       ┃       ┃        ┃   ┃
+  //       ┃       ┃        ┃   ┃
+  //   A = ┃┄┄┄┄┄┄┄┃    z = ┃┄┄┄┃
+  //       ┃√λ     ┃        ┃ 0 ┃
+  //       ┃   ⋱   ┃        ┃ ⋮ ┃
+  //       ┃    √λ ┃        ┃ 0 ┃
+  //       ┗       ┛        ┗   ┛
+  //
+  // On top of that we can utilize the fact that J has already
+  // been RRQR decomposed in computeMinGlobal().
   computeMinRegularized( λ )
   {
     if(  this._state !== 2
-      && this._state !== 3 ) throw new Error('TrustRegionSolverLSQ.prototype.computeMinRegularized(λSqrt): can only be (repeatedly) called after computeMinGlobal().');
+      && this._state !== 3 ) throw new Error('TrustRegionSolverLSQ.prototype.computeMinRegularized(λ): can only be (repeatedly) called after computeMinGlobal().');
     this._state = 3;
 
-    if( !(0 < λ) )
-      throw new Error('TrustRegionSolverLSQ.prototype.computeMinRegularized(λSqrt): λSqrt must be positive.');
-
-    const {M,N, P, D, R,T,X, F,Y, norm} = this;
+    const {M,N, P, D, R,S,T, V, X, F,Y, rank: rnk} = this;
 
     const L = Math.min(M,N);
 
-    for( let i=0; i < M; i++ )
-      Y[i] = -F[i];
-    Y.fill(0.0, M);
-
-    for( let i=L*N; i-- > 0; )
-      T[i] = R[i];
-    T.fill(0.0, L*N);
-
-    const λSqrt = Math.sqrt(λ);
-
-    for( let i=N; i-- > 0; ) {
-      const Dλ = D[P[i]] * λSqrt;
-
-      if( !(0 < Dλ) ) throw new Error('TrustRegionSolverLSQ.prototype.computeMinRegularized(λSqrt): λSqrt too small (caused underflow).');
-
-      T[M*N + N*i+i] = Dλ;
-    }
-
-    // COMPLETE QR DECOMPOSITION
-    for( let i=0              ; i <  N  ; i++ )
-    for( let j=Math.max(M,i+1); j <= M+i; j++ )
+    if( 0===λ && rnk < N )
     {
-      // USE GIVENS ROTATION TO ELIMINATE ELEMENT R_ji
-      const ji = N*j+i, T_ji = T[ji]; if(0 === T_ji) continue;
-      const ii = N*i+i, T_ii = T[ii],
-                 norm = Math.hypot(T_ji,T_ii),
-      c = T_ii / norm,
-      s = T_ji / norm;
-          T[ji]= 0; if(0 === s) continue;
-          T[ii]= norm;
-      _giv_rot_rows(T, N-1-i, ii+1,
-                              ji+1, c,s);
-      _giv_rot_rows(Y, 1, i,j, c,s);
+      // UNDER-DETERMINED/RANK-DEFICIENT CASE -> USE COMPLETE ORTHOGONAL DECOMPOSTION
+      if( this._state!==2 )
+      {   this._state = 2;
+        // GLOBAL MIN. NEEDS TO BE RECOMPUTED
+        
+        // compute least squares solution
+        for( let i=rnk; i-- > 0; )
+          Y[i] = -F[i];
+
+        _triu_solve(rnk,L,1, S,0, Y,0); // Y = S \ Y
+
+        X.fill(0.0);
+        for( let k=rnk; k-- > 0; )
+        for( let i= N ; i-- > 0; )
+          X[i] += V[N*k+i] * Y[k]; // X = V.T @ Y
+
+        // factor out scaling
+        for( let i=N; i-- > 0; )
+          X[i] /= D[i];
+      }
+
+      // COMPUTE DISTANCE
+      const r = this.scaledNorm(X); // <- the scaled length
+
+      // COMPUTE DISTANCE DERIVATIVE dr/dλ, see:
+      //  "THE LEVENBERG-MARQUARDT ALGORITHM: IMPLEMENTATION AND THEORY"
+      //   by Jorge J. Moré
+      //   Chapter 5 "The Levenberg-Marquardt Parameter", Equation (5.8)
+      Y.fill(0.0, 0,rnk);
+      for( let i=rnk; i-- > 0; )
+      for( let j= N ; j-- > 0; )
+        Y[i] += X[j]*D[j]*V[N*i+j];
+
+      // FORWARD SUBSTITUTION
+      for( let i=0; i < rnk; i++ )
+      {                            Y[i] /= S[L*i+i];
+        for( let j=i; ++j < rnk; ) Y[j] -= S[L*i+j] * Y[i];
+      }
+
+      let dr = 0;
+      for( let i=rnk; i-- > 0; ) {
+        const d = Y[i];
+        dr += d*d;
+      } dr /= -r;
+
+      return [r,dr];
     }
+
+    if( !(0 <= λ) )
+      throw new Error('TrustRegionSolverLSQ.prototype.computeMinRegularized(λ): λ must be positive.');
+
+    for( let i=rnk; i-- > 0; )
+      Y[i] = -F[i];
+    Y.fill(0.0, rnk,rnk+N);
+
+    // COPY R->T TO REUSE THE RRQR OF J
+    for( let i=rnk*N; i-- > 0; )
+      T[i] = R[i];
+    T.fill(0.0, rnk*N,(rnk+N)*N);
+
+    // TODO scale T to norm(T,'fro')=1 to avoid underflow ?
+
+    if( 0 !== λ )
+    {
+      const λSqrt = Math.sqrt(λ);
+
+      for( let i=N; i-- > 0; ) {
+        const Dλ = D[P[i]] * λSqrt;
+
+        if( !(0 < Dλ) ) throw new Error('TrustRegionSolverLSQ.prototype.computeMinRegularized(λ): λ too small (caused underflow).');
+
+        const       j = (i-rnk+N) % N;
+        T[rnk*N + N*j+i] = Dλ;
+      }
+
+      // COMPLETE QR DECOMPOSITION
+      for( let i=0; i < N; i++ ) { const J = Math.min(i+1,rnk)+N;
+      for( let j=N; j < J; j++ )
+      {
+        // USE GIVENS ROTATION TO ELIMINATE ELEMENT R_ji
+        const ji = N*j+i, T_ji = T[ji]; if(0 === T_ji) continue;
+        const ii = N*i+i, T_ii = T[ii],
+                   norm = Math.hypot(T_ji,T_ii),
+        c = T_ii / norm,
+        s = T_ji / norm;
+            T[ji]= 0; if(0 === s) continue;
+            T[ii]= norm;
+        _giv_rot_rows(T, N-1-i, ii+1,
+                                ji+1, c,s);
+        _giv_rot_rows(Y, 1, i,j, c,s);
+      }}
+    }
+    else if( rnk !== N )
+      throw new Error('Assertion failed.');
 
     _triu_solve(N,N,1, T,0, Y,0);
 
@@ -276,25 +365,25 @@ export class TrustRegionSolverLSQ
     // COMPUTE DISTANCE
     const r = this.scaledNorm(X); // <- the scaled length
 
-    // COMPUTE DISTANCE DERIVATIVE, see:
+    // COMPUTE DISTANCE DERIVATIVE dr/dλ, see:
     //  "THE LEVENBERG-MARQUARDT ALGORITHM: IMPLEMENTATION AND THEORY"
     //   by Jorge J. Moré
-    //   Chapter 5 "The Levenberg-Marquardt Parameter", Eq. (5.8)
-    norm.fill(0.0, 0,N);
+    //   Chapter 5 "The Levenberg-Marquardt Parameter", Equation (5.8)
+    Y.fill(0.0, 0,N);
     for( let i=N; i-- > 0; ) {
       const j = P[i];
-      norm[i] = X[j]*D[j]*D[j];
+      Y[i] = X[j]*D[j]*D[j];
     }
 
     // FORWARD SUBSTITUTION
     for( let i=0; i < N; i++ )
-    {                          norm[i] /= T[N*i+i];
-      for( let j=i; ++j < N; ) norm[j] -= T[N*i+j] * norm[i];
+    {                          Y[i] /= T[N*i+i];
+      for( let j=i; ++j < N; ) Y[j] -= T[N*i+j] * Y[i];
     }
 
     let dr = 0;
     for( let i=N; i-- > 0; ) {
-      const d = norm[i];
+      const d = Y[i];
       dr += d*d;
     } dr /= -r;
 

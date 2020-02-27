@@ -25,12 +25,19 @@ import {zip_elems} from '../zip_elems'
 
 import {diag_mat} from '../la/diag'
 import {lstsq} from '../la/lstsq'
-import {matmul2} from '../la/matmul'
+import {matmul,
+        matmul2} from '../la/matmul'
 import {FrobeniusNorm} from '../la/norm'
+import {rand_ortho} from '../la/rand_ortho'
 import {solve} from '../la/solve'
+import {svd_lstsq} from '../la/svd'
+import {svd_jac_2sided} from '../la/svd_jac_2sided'
 
 import {num_grad} from './num_grad'
 import {TrustRegionSolverLSQ} from './_trust_region_solver'
+
+import {computeMinGlobal_overdet_gen,
+        computeMinGlobal_underdet_gen} from './_trust_region_solver_test_data'
 
 
 const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
@@ -197,7 +204,7 @@ describe('TrustRegionSolverLSQ', () => {
       // (taking into account diagonal scaling of the Trust-Region method)
       // https://www.math.usm.edu/lambers/mat419/lecture15.pdf
       const JJT = matmul2(JD,JD.T);
-      expect(Dx).toBeAllCloseTo(matmul2(JD.T, solve(JJT,f)), {rtol: 1e-4});
+      expect(Dx).toBeAllCloseTo(matmul2(JD.T, solve(JJT,f)), {rtol: 5e-4});
     }
   })
 
@@ -205,8 +212,8 @@ describe('TrustRegionSolverLSQ', () => {
   forEachItemIn(
     function*(){
       for( let run=1024; run-- > 0; )
-      { const N = randInt(1,64),
-              M = randInt(1,64);
+      { const N = randInt(1,48),
+              M = randInt(1,48);
 
         function* fJ(){
           for( let run=randInt(1,32); run-- > 0; )
@@ -254,11 +261,57 @@ describe('TrustRegionSolverLSQ', () => {
 
 
   forEachItemIn(
-    function*(){
-      for( let run=512; run-- > 0; )
-      { const N = randInt(1,32),
-              M = randInt(1,32);
+    computeMinGlobal_overdet_gen()
+  ).it(`computeMinRegularized(0) works for pre-generated over-determined examples`, ([f,J, R,DR]) => {
+    const [M,N] = J.shape,
+         solver = new TrustRegionSolverLSQ(M,N)
 
+    solver.update(f,J);
+    solver.computeMinGlobal();
+
+    expect( solver.scaledNorm(solver.X) ).toBeAllCloseTo(R);
+
+    const [r,dr] = solver.computeMinRegularized(0);
+
+    expect( r).toBeAllCloseTo( R);
+    expect(dr).toBeAllCloseTo(DR);
+  })
+
+
+  forEachItemIn(
+    computeMinGlobal_underdet_gen()
+  ).it(`computeMinRegularized(0) works for pre-generated under-determined examples`, ([f,J, R,DR]) => {
+    const [M,N] = J.shape,
+         solver = new TrustRegionSolverLSQ(M,N)
+
+    solver.update(f,J);
+    solver.computeMinGlobal();
+
+    expect( solver.scaledNorm(solver.X) ).toBeAllCloseTo(R);
+
+    const [r,dr] = solver.computeMinRegularized(0);
+
+    expect( r).toBeAllCloseTo( R);
+    expect(dr).toBeAllCloseTo(DR);
+  })
+
+
+  forEachItemIn(
+    function*(){
+      function* shapes() {
+        for( let N=0  ; N++ < 4; )
+        for( let M=N-1; M++ < 4; )
+          yield [M,N];
+
+        for( let run=512; run-- > 0; ) {
+          const N = randInt(1,16),
+                M = randInt(N,16);
+          yield[M,N];
+        }
+      }
+
+      for( const [M,N] of shapes() )
+      {
         function* fJ(){
           for( let run=randInt(1,16); run-- > 0; )
           {
@@ -272,8 +325,9 @@ describe('TrustRegionSolverLSQ', () => {
             Object.freeze(J.data.buffer);
 
             function* lambdas() {
-              for( let trial=randInt(1,16); trial-- > 0; )
-                yield Math.random()*8 + 1;
+              for( let trial=randInt(1,16); trial-- > 0; ) {
+                yield Math.random()*8 + 0.1;
+              }
             }
 
             yield [f,J, lambdas()];
@@ -283,14 +337,15 @@ describe('TrustRegionSolverLSQ', () => {
         yield [M,N, fJ()];
       }
     }()
-  ).it(`computeMinRegularized(λSqrt) works for random rank-deficient examples`, ([M,N, fJ]) => {
+  ).it(`computeMinRegularized(λ) works for random over-determined examples`, ([M,N, fJ]) => {
     const solver = new TrustRegionSolverLSQ(M,N),
          X_shape = Int32Array.of(N,1),
          f_shape = Int32Array.of(M);
 
-    const g = num_grad(
-      λ => solver.computeMinRegularized(λ)[0]
-    );
+    const g = num_grad( λ => {
+      const [r,dr] = solver.computeMinRegularized(λ);
+      return r;
+    });
 
     for( const [f,J, lambdas] of fJ )
     {
@@ -315,9 +370,199 @@ describe('TrustRegionSolverLSQ', () => {
 //        expect( solve(A,y) ).toBeAllCloseTo( lstsq(B,z) );
 //        expect(x).toBeAllCloseTo( solve(A,y) );
 
-        expect(x).toBeAllCloseTo( lstsq(B,z) );
+        expect(x).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(B), z) );
 
-        expect(dr).toBeAllCloseTo( g(λ) );
+        expect(dr).toBeAllCloseTo( g(λ), {rtol: 1e-3} );
+      }
+    }
+  })
+
+
+  forEachItemIn(
+    function*(){
+      function* shapes() {
+        for( let run=512; run-- > 0; ) {
+          const M = randInt(1,16),
+                N = randInt(M,16);
+          yield[M,N];
+        }
+      }
+
+      for( const [M,N] of shapes() )
+      {
+        const L = Math.min(M,N);
+
+        function* fJ(){
+          for( let run=randInt(1,16); run-- > 0; )
+          {
+            const rank = randInt(1,1+L);
+
+            const f = tabulate([M,1],'float64', () => Math.random()*8-4),
+                  J = tabulate([M,N],'float64', () => Math.random()*8-4);
+
+            Object.freeze(f);
+            Object.freeze(J);
+            Object.freeze(f.data.buffer);
+            Object.freeze(J.data.buffer);
+
+            function* lambdas() {
+              for( let trial=randInt(1,16); trial-- > 0; ) {
+                yield Math.random()*8 + 0.1;
+              }
+            }
+
+            yield [f,J, lambdas()];
+          }
+        }
+
+        yield [M,N, fJ()];
+      }
+    }()
+  ).it(`computeMinRegularized(λ) works for random under-determined examples`, ([M,N, fJ]) => {
+    const solver = new TrustRegionSolverLSQ(M,N),
+         X_shape = Int32Array.of(N,1),
+         f_shape = Int32Array.of(M);
+
+    const g = num_grad( λ => {
+      const [r,dr] = solver.computeMinRegularized(λ);
+      return r;
+    });
+
+    for( const [f,J, lambdas] of fJ )
+    {
+      const neg_f = new NDArray(f_shape, f.data.map(x => -x));
+
+      solver.update(neg_f,J);
+      solver.computeMinGlobal();
+
+      for( const λ of lambdas )
+      {
+        const [r,dr] = solver.computeMinRegularized(λ),
+               λSqrt = Math.sqrt(λ);
+
+        if( isNaN( r) ) throw new Error('Assertion failed.');
+        if( isNaN(dr) ) throw new Error('Assertion failed.');
+
+        const x = new NDArray(X_shape, solver.X.slice()),
+              D = new NDArray(X_shape, solver.D.slice()),
+              I = tabulate([N,N], (i,j) => (i===j)*λSqrt),
+             JD = zip_elems([J,D.T], (j,d) => j/d),
+             dx = zip_elems([x,D  ], (x,d) => x*d);
+
+        const B = concat([JD,I]),
+              z = concat([f,tabulate([N,1], 'float64', () => 0)]);
+
+//        const A = zip_elems([matmul2(J.T,J), λD], (j,d) => j + d*d),
+//              y = matmul2(J.T, f);
+//        expect( solve(A,y) ).toBeAllCloseTo( lstsq(B,z) );
+//        expect(x).toBeAllCloseTo( solve(A,y) );
+
+        const DX = svd_lstsq(...svd_jac_2sided(B), z);
+
+        expect(dx).toBeAllCloseTo(DX);
+
+        expect(dr).toBeAllCloseTo( g(λ), {rtol: 1e-3, atol: 1e-6} );
+      }
+    }
+  })
+
+
+  forEachItemIn(
+    function*(){
+      function* shapes() {
+        for( let N=0  ; N++ < 4; )
+        for( let M=N-1; M++ < 4; )
+          yield [M,N];
+
+        for( let run=512; run-- > 0; ) {
+          const N = randInt(1,16),
+                M = randInt(1,16);
+          yield[M,N];
+        }
+      }
+
+      for( const [M,N] of shapes() )
+      {
+        const L = Math.min(M,N);
+
+        function* fJ(){
+          for( let run=randInt(1,16); run-- > 0; )
+          {
+            const rank = randInt(1,1+L);
+
+            const U = rand_ortho('float64', M,L),
+                  V = rand_ortho('float64', L,N),
+                  S = tabulate([L,L], 'float64', (i,j) => {
+                    if( i !== j || rank <= i ) return 0;
+
+                    return Math.random() + 0.1
+                  });
+
+            const f = tabulate([M,1],'float64', () => Math.random()*8-4),
+                  J = matmul(U,S,V);
+
+            Object.freeze(f);
+            Object.freeze(J);
+            Object.freeze(f.data.buffer);
+            Object.freeze(J.data.buffer);
+
+            function* lambdas() {
+              for( let trial=randInt(1,16); trial-- > 0; ) {
+                yield Math.random()*8 + 0.1;
+              }
+            }
+
+            yield [f,J, lambdas()];
+          }
+        }
+
+        yield [M,N, fJ()];
+      }
+    }()
+  ).it(`computeMinRegularized(λ) works for random rank-deficient examples`, ([M,N, fJ]) => {
+    const solver = new TrustRegionSolverLSQ(M,N),
+         X_shape = Int32Array.of(N,1),
+         f_shape = Int32Array.of(M);
+
+    const g = num_grad( λ => {
+      const [r,dr] = solver.computeMinRegularized(λ);
+      return r;
+    });
+
+    for( const [f,J, lambdas] of fJ )
+    {
+      const neg_f = new NDArray(f_shape, f.data.map(x => -x));
+
+      solver.update(neg_f,J);
+      solver.computeMinGlobal();
+
+      for( const λ of lambdas )
+      {
+        const [r,dr] = solver.computeMinRegularized(λ),
+               λSqrt = Math.sqrt(λ);
+
+        if( isNaN( r) ) throw new Error('Assertion failed.');
+        if( isNaN(dr) ) throw new Error('Assertion failed.');
+
+        const x = new NDArray(X_shape, solver.X.slice()),
+              D = new NDArray(X_shape, solver.D.slice()),
+              I = tabulate([N,N], (i,j) => (i===j)*λSqrt),
+             JD = zip_elems([J,D.T], (j,d) => j/d),
+             dx = zip_elems([x,D  ], (x,d) => x*d);
+
+        const B = concat([JD,I]),
+              z = concat([f,tabulate([N,1], 'float64', () => 0)]);
+
+//        const A = zip_elems([matmul2(J.T,J), λD], (j,d) => j + d*d),
+//              y = matmul2(J.T, f);
+//        expect( solve(A,y) ).toBeAllCloseTo( lstsq(B,z) );
+//        expect(x).toBeAllCloseTo( solve(A,y) );
+
+        const DX = svd_lstsq(...svd_jac_2sided(B), z);
+
+        expect(dx).toBeAllCloseTo(DX);
+
+        expect(dr).toBeAllCloseTo( g(λ), {rtol: 1e-3, atol: 1e-6} );
       }
     }
   })
@@ -348,30 +593,29 @@ describe('TrustRegionSolverLSQ', () => {
       }
     }()
   ).it(`G is the correct gradient`, ([M,N, fJ]) => {
-    const solver = new TrustRegionSolverLSQ(M,N),
-         X_shape = Int32Array.of(N,1),
-         f_shape = Int32Array.of(M);
+    const solver = new TrustRegionSolverLSQ(M,N);
 
     const NORM = new FrobeniusNorm();
 
     for( const [f,J] of fJ )
-    {      
+    {
       const [M,N] = J.shape;
 
-      const g = num_grad(x => {
+      const g = num_grad( x => {
         if( x.ndim     !== 1 ) throw new Error('Assertion failed.');
         if( x.shape[0] !== N ) throw new Error('Assertion failed.');
-        x = x.data;
+//        x = x.data;
 
-        let result = 0;
+        let result = 0.0;
 
         for( let i=M; i-- > 0; )
         {
-          let s = f.data[i];
+          let s = 0;
 
           for( let j=N; j-- > 0; )
-            s += J(i,j) * x[j];
+            s += J(i,j) * x(j);
 
+          s += f(i);
           result += s*s;
         }
 
@@ -382,8 +626,8 @@ describe('TrustRegionSolverLSQ', () => {
 
       expect( solver.G ).toBeAllCloseTo( g( new Float64Array(N) ) );
 
-      if( Math.random() < 0.5 )
-        solver.computeMinGlobal();
+//      if( Math.random() < 0.5 )
+//        solver.computeMinGlobal();
     }
   })
 
