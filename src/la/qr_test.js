@@ -31,19 +31,60 @@ describe('qr', () => {
   })
 
 
+  const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
+
+
+  for( const [rng,suffix] of [
+    [() =>                           Math.random()*8 - 4, ''                      ],
+    [() => Math.random() < 0.1 ? 0 : Math.random()*8 - 4, ' with occasional zeros']
+  ])
   forEachItemIn(
     function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
       for( let run=1024; run-- > 0; )
       {
-        const shape = Int32Array.from({ length: randInt(2,5) }, () => randInt(1,32)),
-              QR = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1)
-        Object.freeze(QR.data.buffer)
-        yield QR
+        const                       shape = Int32Array.from({ length: randInt(2,5) }, () => randInt(1,24)),
+                      QR = tabulate(shape, 'float64', rng);
+        Object.freeze(QR.data.buffer);
+        yield         QR;
       }
     }()
-  ).it('qr_decomp works on random examples', QR => {
+  ).it('qr_decomp_full works on random examples' + suffix, QR => {
+    const [M,N] = QR.shape.slice(-2),
+          [Q,R] = qr_decomp_full(QR),
+             L  = Math.min(M,N),
+            qr  = matmul2(Q,R)
+    Object.freeze(Q .data.buffer)
+    Object.freeze( R.data.buffer)
+    Object.freeze(qr.data.buffer)
+
+    expect( Q.shape ).toEqual( Int32Array.of(...QR.shape.slice(0,-1), M) )
+    expect( R.shape ).toEqual( QR.shape )
+
+    expect(R).toBeUpperTriangular()
+    expect(qr).toBeAllCloseTo(QR)
+
+    const I = eye(M)
+    Object.freeze(I.data.buffer)
+    expect( matmul2(Q.T,Q) ).toBeAllCloseTo(I)
+    expect( matmul2(Q,Q.T) ).toBeAllCloseTo(I)
+  })
+
+
+  for( const [rng,suffix] of [
+    [() =>                           Math.random()*8 - 4, ''                      ],
+    [() => Math.random() < 0.1 ? 0 : Math.random()*8 - 4, ' with occasional zeros']
+  ])
+  forEachItemIn(
+    function*(){
+      for( let run=1024; run-- > 0; )
+      {
+        const                       shape = Int32Array.from({ length: randInt(2,5) }, () => randInt(1,32)),
+                      QR = tabulate(shape, 'float64', rng);
+        Object.freeze(QR.data.buffer);
+        yield         QR;
+      }
+    }()
+  ).it('qr_decomp works on random examples' + suffix, QR => {
     const [M,N] = QR.shape.slice(-2),
           [Q,R] = qr_decomp(QR),
              L  = Math.min(M,N),
@@ -67,35 +108,85 @@ describe('qr', () => {
 
   forEachItemIn(
     function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
+      function* shapes() {
+        const steps_per_binade = 4;
 
-      for( let run=1024; run-- > 0; )
-      {
-        const shape = Int32Array.from({ length: randInt(2,5) }, () => randInt(1,24)),
-              QR = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1)
-        Object.freeze(QR.data.buffer)
-        yield QR
+        for( let M=8; M > 1; M-- )
+        for( let N=8; N > 1; N-- )
+          yield [M,N];
+
+        for( let run=1024; run-- > 0; )
+        {
+          const M = randInt(1,128),
+                N = randInt(1,128);
+          yield [M,N];
+        }
       }
+
+      for( const [M,N] of shapes() )
+        yield _rand_rows0(M,N);
     }()
-  ).it('qr_decomp_full works on random examples', QR => {
+  ).it('qr_decomp works on random matrices with zero rows', QR => {
     const [M,N] = QR.shape.slice(-2),
-          [Q,R] = qr_decomp_full(QR),
+          [Q,R] = qr_decomp(QR),
              L  = Math.min(M,N),
             qr  = matmul2(Q,R)
     Object.freeze(Q .data.buffer)
     Object.freeze( R.data.buffer)
     Object.freeze(qr.data.buffer)
 
-    expect( Q.shape ).toEqual( Int32Array.of(...QR.shape.slice(0,-1), M) )
-    expect( R.shape ).toEqual( QR.shape )
+    expect( Q.shape ).toEqual( Int32Array.of(...QR.shape.slice(0,-2), M, L) )
+    expect( R.shape ).toEqual( Int32Array.of(...QR.shape.slice(0,-2), L, N) )
 
     expect(R).toBeUpperTriangular()
     expect(qr).toBeAllCloseTo(QR)
 
-    const I = eye(M)
+    const I = eye(L)
     Object.freeze(I.data.buffer)
-    expect( matmul2(Q.T,Q) ).toBeAllCloseTo(I)
-    expect( matmul2(Q,Q.T) ).toBeAllCloseTo(I)
+                 expect( matmul2(Q.T,Q) ).toBeAllCloseTo(I)
+    if( M <= N ) expect( matmul2(Q,Q.T) ).toBeAllCloseTo(I)
+  })
+
+
+  forEachItemIn(
+    function*(){
+      function* shapes() {
+        const steps_per_binade = 4;
+
+        for( let M=8; M > 1; M-- )
+        for( let N=8; N > 1; N-- )
+          yield [M,N];
+
+        for( let run=1024; run-- > 0; )
+        {
+          const M = randInt(1,128),
+                N = randInt(1,128);
+          yield [M,N];
+        }
+      }
+
+      for( const [M,N] of shapes() )
+        yield _rand_cols0(M,N);
+    }()
+  ).it('qr_decomp works on random matrices with zero columns', QR => {
+    const [M,N] = QR.shape.slice(-2),
+          [Q,R] = qr_decomp(QR),
+             L  = Math.min(M,N),
+            qr  = matmul2(Q,R)
+    Object.freeze(Q .data.buffer)
+    Object.freeze( R.data.buffer)
+    Object.freeze(qr.data.buffer)
+
+    expect( Q.shape ).toEqual( Int32Array.of(...QR.shape.slice(0,-2), M, L) )
+    expect( R.shape ).toEqual( Int32Array.of(...QR.shape.slice(0,-2), L, N) )
+
+    expect(R).toBeUpperTriangular()
+    expect(qr).toBeAllCloseTo(QR)
+
+    const I = eye(L)
+    Object.freeze(I.data.buffer)
+                 expect( matmul2(Q.T,Q) ).toBeAllCloseTo(I)
+    if( M <= N ) expect( matmul2(Q,Q.T) ).toBeAllCloseTo(I)
   })
 
 

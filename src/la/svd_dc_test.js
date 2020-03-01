@@ -20,6 +20,8 @@ import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {NDArray} from '../nd_array'
 import {diag_mat} from './diag'
 import {tabulate} from '../tabulate'
+import {_rand_rows0,
+        _rand_cols0} from '../_test_data_generators'
 import {zip_elems} from '../zip_elems'
 import {matmul, matmul2} from './matmul'
 import {eye} from './eye'
@@ -41,7 +43,7 @@ import {svd_dc,
        _svd_dc_bidiag} from './svd_dc'
 
 
-describe('svd', () => {
+describe('svd_dc', () => {
   beforeEach( () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
@@ -325,6 +327,41 @@ describe('svd', () => {
   })
 
 
+  const test_accuracy = A =>
+  {
+    expect(A.ndim).toBe(2);
+
+    const [M,N]= A.shape,   L = Math.min(M,N),
+       [U,sv,V]= svd_dc(A), D = diag_mat(sv);
+
+    for( let i=1; i < sv.shape[0]; i++ )
+    {
+      expect(sv(i-1)).not.toBeLessThan(sv(i))
+      expect(sv(i  )).not.toBeLessThan(-0.0)
+    }
+
+    const a = matmul(U,D,V);
+
+    const A_TOL = eps(A.dtype) * 4 * Math.max(M,N) * norm(A),
+          U_TOL = eps(A.dtype) * 4 * M,
+          V_TOL = eps(A.dtype) * 4 * N;
+
+    const I = eye( Math.min(M,N) );
+    if( M >= N ) {
+      expect( matmul2(U.T,U) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
+      expect( matmul2(V.T,V) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
+    }
+    if( M <= N ) {
+      expect( matmul2(U,U.T) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
+      expect( matmul2(V,V.T) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
+    }
+    expect(D).toBeDiagonal()
+
+    const        diff = zip_elems([A,a], (x,y) => x-y);
+    expect( norm(diff) ).not.toBeGreaterThan(A_TOL);
+  };
+
+
   for( const dr of [0,1] )
   for( const dc of [0,1] )
   if( 1 !== dr*dc )
@@ -365,34 +402,132 @@ describe('svd', () => {
         yield A
       }
     }()
-  ).it(`svd_dc is accurate for generated square matrices with aspect ratio [N+${dr},N+${dc}]`, A => {
-    const [M,N]= A.shape,   L = Math.min(M,N),
-       [U,sv,V]= svd_dc(A), D = diag_mat(sv);
+  ).it(
+    `svd_dc is accurate for random matrices with aspect ratio [N+${dr},N+${dc}]`,
+    test_accuracy
+  );
 
-    for( let i=1; i < sv.shape[0]; i++ )
-    {
-      expect(sv(i-1)).not.toBeLessThan(sv(i))
-      expect(sv(i  )).not.toBeLessThan(-0.0)
-    }
 
-    const a = matmul(U,D,V);
+  for( const [rng,suffix] of [
+    [() =>                           Math.random()*8 - 4, ''                      ],
+    [() => Math.random() < 0.1 ? 0 : Math.random()*8 - 4, ' with occasional zeros']
+  ])
+    forEachItemIn(
+      function*(){
+        const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
 
-    const A_TOL = eps(A.dtype) * 4 * Math.max(M,N) * norm(A),
-          U_TOL = eps(A.dtype) * 4 * M,
-          V_TOL = eps(A.dtype) * 4 * N;
+        function* shapes() {
+          const steps_per_binade = 4;
 
-    const I = eye( Math.min(M,N) );
-    if( M >= N ) {
-      expect( matmul2(U.T,U) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
-      expect( matmul2(V.T,V) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
-    }
-    if( M <= N ) {
-      expect( matmul2(U,U.T) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
-      expect( matmul2(V,V.T) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
-    }
-    expect(D).toBeDiagonal()
+          for( let M=8; M > 1; M-- )
+          for( let N=8; N > 1; N-- )
+            yield [M,N];
 
-    const        diff = zip_elems([A,a], (x,y) => x-y);
-    expect( norm(diff) ).not.toBeGreaterThan(A_TOL);
-  })
+          for( let run=1024; run-- > 0; )
+          {
+            const M = randInt(1,64),
+                  N = randInt(1,64);
+            yield [M,N];
+          }
+        }
+
+        for( const [M,N] of shapes() )
+        {
+          const A = tabulate([M,N], 'float64', rng);
+          Object.freeze(A.data.buffer)
+          yield A
+        }
+      }()
+    ).it(
+      'svd_dc is accurate for random matrices'+suffix,
+      test_accuracy
+    );
+
+
+  forEachItemIn(
+    function*(){
+      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
+
+      function* shapes() {
+        const steps_per_binade = 4;
+
+        for( let M=8; M > 1; M-- )
+        for( let N=8; N > 1; N-- )
+          yield [M,N];
+
+        for( let run=1024; run-- > 0; )
+        {
+          const M = randInt(1,64),
+                N = randInt(1,64);
+          yield [M,N];
+        }
+      }
+
+      for( const [M,N] of shapes() )
+      {
+        const                         sparseness = Math.random(),
+          rng = () => Math.random() < sparseness ? 0 : Math.random()*8 - 4;
+
+        const A = tabulate([M,N], 'float64', rng);
+        Object.freeze(A.data.buffer)
+        yield A
+      }
+    }()
+  ).it(
+    'svd_dc is accurate for random sparse matrices',
+    test_accuracy
+  );
+
+
+// FIXME make the following test pass:
+//  forEachItemIn(
+//    function*(){
+//      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
+//
+//      function* shapes() {
+//        for( let M=8; M > 1; M-- )
+//        for( let N=8; N > 1; N-- )
+//          yield [M,N];
+//
+//        for( let run=1024; run-- > 0; )
+//        {
+//          const M = randInt(1,64),
+//                N = randInt(1,64);
+//          yield [M,N];
+//        }
+//      }
+//
+//      for( const [M,N] of shapes() )
+//        yield _rand_rows0(M,N);
+//    }()
+//  ).it(
+//    'svd_dc is accurate for random matrices with zero rows',
+//    test_accuracy
+//  );
+
+
+  forEachItemIn(
+    function*(){
+      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
+
+      function* shapes() {
+        for( let M=8; M > 1; M-- )
+        for( let N=8; N > 1; N-- )
+          yield [M,N];
+
+        for( let run=1024; run-- > 0; )
+        {
+          const M = randInt(1,64),
+                N = randInt(1,64);
+          yield [M,N];
+        }
+      }
+
+      for( const [M,N] of shapes() )
+        yield _rand_cols0(M,N);
+    }()
+  ).it(
+    'svd_dc is accurate for random matrices with zero columns',
+    test_accuracy
+  );
 })

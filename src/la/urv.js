@@ -19,7 +19,8 @@
 import {ARRAY_TYPES} from '../dt'
 import {asarray, NDArray} from '../nd_array'
 import {srrqr_decomp_full} from './srrqr'
-import {_giv_rot_rows} from './_giv_rot'
+import {_giv_rot_qr,
+        _giv_rot_rows} from './_giv_rot'
 import {_triu_solve} from './tri'
 
 
@@ -60,9 +61,7 @@ export function _urv_decomp_full( M,N, R,R_off, V,V_off, P,P_off )
     for( let j=M; j   < N; j++ )
     { const ij = R_off + N*i+j, R_ij = R[ij]; if(0 === R_ij) continue;
       const ii = R_off + N*i+i, R_ii = R[ii];
-      const          norm = Math.hypot(R_ii,R_ij),
-          c = R_ii / norm,
-          s = R_ij / norm;
+      const [c,s,norm] = _giv_rot_qr(R_ii,R_ij);
       if( s !== 0 )
       { // ROT COLUMNS IN R
         for( let k=i; k-- > 0; ) // <- TODO can this be made cache friendlier?

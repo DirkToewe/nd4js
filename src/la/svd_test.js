@@ -525,23 +525,13 @@ describe('svd', () => {
 
         for( const N of sizes() )
         {
-          const shape = [N,N],
-                    A = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1);
-
-          // CREATE SOME RANK DEFICIENCIES
-          if( Math.random() < 0.25 ) {
-            for( let i=0; i < N; i++ )
-              if( Math.random() < 0.01 ) {
-                const l = randInt(0,N),
-                  scale = Math.random()*4 - 2;
-                for( let j=0; j < N; j++ ) A.set( [i,j], scale*A(l,j) );
-              }
-          }
-          Object.freeze(A.data.buffer)
-          yield A
+          const         A = _rand_rankdef(N,N);
+          Object.freeze(A);
+          Object.freeze(A.data.buffer);
+          yield         A
         }
       }()
-    ).it(`${svd_name} is accurate for generated square matrices`, A => {
+    ).it(`${svd_name} is accurate for random rank-deficient matrices`, A => {
       const [M,N]= A.shape,     L = Math.min(M,N),
          [U,sv,V]= svd_deco(A), D = diag_mat(sv);
 

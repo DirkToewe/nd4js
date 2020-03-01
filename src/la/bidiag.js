@@ -18,7 +18,8 @@
 
 import {asarray, NDArray} from '../nd_array'
 import {super_dtype, ARRAY_TYPES} from '../dt'
-import {_giv_rot_rows} from './_giv_rot'
+import {_giv_rot_qr,
+        _giv_rot_rows} from './_giv_rot'
 import {FrobeniusNorm} from './norm'
 import {_transpose_inplace} from './transpose_inplace'
 
@@ -39,14 +40,11 @@ function _bidiag_decomp_vert( M,N, U,U_off, B,V,BV_off )
 
   for( let i=0; i < N; i++ )
   { // ELIMINATE ELEMENTS BELOW (i,i) USING GIVENS
-                               const ii = U_off + N*i+i;
-    for( let j=i; ++j < M; ) { const ji = U_off + N*j+i;
-      const   B_ji = U[ji];
-      if( 0===B_ji ) continue;
+                                const ii = U_off + N*i+i;
+    for( let j=i; ++j < M; ) {  const ji = U_off + N*j+i;
+      const   B_ji = U[ji]; if( 0===B_ji ) continue;
       const   B_ii = U[ii];
-      let            norm = Math.hypot(B_ii,B_ji),
-          c = B_ii / norm,
-          s = B_ji / norm;
+      let [c,s,norm]= _giv_rot_qr(B_ii, B_ji);
       if( s !== 0 ) { // <- might happen in case of underflow
         if( c  <  0 ) {
             c *= -1;
@@ -64,10 +62,12 @@ function _bidiag_decomp_vert( M,N, U,U_off, B,V,BV_off )
       for( let j=N; --j > i+1; )
           NORM.include(U[U_off + N*i+j]);
       if( NORM.max === 0 ) continue;
-      const norm = NORM.resultIncl(U[ii+1]) * (U[ii+1] > 0 ? -1 : +1),
-             div = NORM.resultIncl(U[ii+1] -= norm);
+      const norm =          NORM.resultIncl(U[ii+1]) * (U[ii+1] > 0 ? -1 : +1);
+                            NORM.   include(U[ii+1] -= norm);
+      const  max =          NORM.max,
+             div =Math.sqrt(NORM.sum);
       for( let j=i; ++j < N; )
-        U[U_off + N*i+j] /= div;
+        U[U_off + N*i+j] = U[U_off + N*i+j] / max / div;
       // apply householder to right of V
       for( let j=0; j < N; j++ ) {
         let sum = 0; for(let k=i; ++k < N;) sum += V[BV_off + N*j+k] * U[U_off + N*i+k];
@@ -117,13 +117,12 @@ function _bidiag_decomp_square( N, U,B,V, off )
   { // ELIMINATE ELEMENTS BELOW (i,i) USING GIVENS
                                const ii = off + N*i+i;
     for( let j=i; ++j < N; ) { const ji = off + N*j+i;
-      const  B_ji = B[ji];
-      if(0===B_ji) continue;
-      const  B_ii = B[ii], norm = Math.hypot(B_ii,B_ji),
-                c = B_ii / norm,
-                s = B_ji / norm; if(0===s) continue; // <- can happen due to underflow
-                    B[ii]= norm;
-                    B[ji]= 0;
+      const  B_ji = B[ji]; if( 0===B_ji ) continue;
+      const  B_ii = B[ii],
+        [c,s,norm]= _giv_rot_qr(B_ii, B_ji);
+      B[ji]= 0; if(0===s) continue; // <- can happen due to underflow
+      B[ii]= norm;
+      
       _giv_rot_rows(B, N-1-i, ii+1,
                               ji+1,      c,s);
       _giv_rot_rows(U,   1+j, off + N*i,
@@ -134,10 +133,12 @@ function _bidiag_decomp_square( N, U,B,V, off )
     for( let j=N; --j > i+1; )
         NORM.include(B[off + N*i+j]);
     if( NORM.max === 0 ) continue;
-    const norm = NORM.resultIncl(B[ii+1]) * (B[ii+1] > 0 ? -1 : +1),
-           div = NORM.resultIncl(B[ii+1]-= norm);
+    const norm =          NORM.resultIncl(B[ii+1]) * (B[ii+1] > 0 ? -1 : +1);
+                          NORM.   include(B[ii+1]-= norm);
+    const  max =          NORM.max,
+           div =Math.sqrt(NORM.sum);
     for( let j=i; ++j < N; )
-      B[off + N*i+j] /= div;
+      B[off + N*i+j] = B[off + N*i+j] / max / div;
     // apply householder to right of V
     for( let j=0; j < N; j++ ) {
       let sum = 0; for(let k=i; ++k < N;) sum += V[off + N*j+k] * B[off + N*i+k];
@@ -164,30 +165,29 @@ export function _bidiag_decomp_horiz( M,N, U,U_off, B,B_off, V,V_off )
   B_off          |=0;
   V_off = V_off+N| 0;
 
-  if( M > N ) throw Error('Assertion failed.');
+  if( !(M <= N) ) throw Error('Assertion failed.');
 
   const NORM = new FrobeniusNorm();
   // INIT U TO IDENTITY
   for( let i=M; i-- > 0; ) U[U_off + M*i+i] = 1;
 
-  for( let i=0; i < M && i < N-1; i++ )
+  outer_loop:for( let i=0; i < M && i < N-1; i++ )
   { // ELIMINATE ELEMENTS BELOW (i,i) USING GIVENS
-                               const ii = V_off + N*i+i;
-    for( let j=i; ++j < M; ) { const ji = V_off + N*j+i;
-      const  B_ji = V[ji];
-      if(0===B_ji) continue
-      const  B_ii = V[ii], norm = Math.hypot(B_ii,B_ji),
-                c = B_ii / norm,
-                s = B_ji / norm;
-                    V[ji]= 0; if(0===s) continue;
-                    V[ii]= norm;
+                                          const ii = V_off + N*i+i;
+    inner_loop:for( let j=i; ++j < M; ) { const ji = V_off + N*j+i;
+      const  B_ji = V[ji];             if(0===B_ji) continue inner_loop;
+      const  B_ii = V[ii],
+        [c,s,norm]= _giv_rot_qr(B_ii, B_ji);
+      V[ji]= 0; if(0===s) continue inner_loop;
+      V[ii]= norm;
+
       _giv_rot_rows(V, N-1-i, ii+1,
                               ji+1,        c,s);
       _giv_rot_rows(U,   1+j, U_off + M*i,
                               U_off + M*j, c,s);
     }
-    // ELIMINATE ELEMENTS RIGHT OF (i,i+1) USING HOUSEHOLDER
 
+    // ELIMINATE ELEMENTS RIGHT OF (i,i+1) USING HOUSEHOLDER
     // compute householder vector
     const above = V_off + N*(i-1); // <- write householder to row (i-1)
     NORM.reset();
@@ -195,17 +195,17 @@ export function _bidiag_decomp_horiz( M,N, U,U_off, B,B_off, V,V_off )
       const        V_j = V[above+j] = V[V_off + N*i+j]; if(--j <= i ) break;
       NORM.include(V_j);
     }
-    if(    0 === NORM.max  )   { V[above+(i+1)] = 0; continue; }
-    const norm = NORM.resultIncl(V[above+(i+1)]) * (V[above+(i+1)] > 0 ? -1 : +1),
-         denom = NORM.resultIncl(V[above+(i+1)] -= norm);
-    for( let j=i; ++j < N; )     V[above+ j   ] /= denom;
+    if(             0 === NORM.max  )   { V[above+(i+1)] = 0; continue outer_loop; }
+    const norm =          NORM.resultIncl(V[above+(i+1)]) * (V[above+(i+1)] > 0 ? -1 : +1);
+                          NORM.   include(V[above+(i+1)] -= norm);
+    const  max =          NORM.max,
+           div =Math.sqrt(NORM.sum);
+    for( let j=i; ++j < N; ) V[above+j] = V[above+j] / max / div;
 
-    if(0===NORM.max) continue;
-
-    // apply householder to right of V
+    // apply householder to right of B (stored in V)
     for( let j=i; ++j < M; ){
-    let sum = 0; for( let k=i; ++k < N; ) sum += V[V_off + N*j+k] * V[above+k];
-        sum*= 2; for( let k=i; ++k < N; )        V[V_off + N*j+k]-= V[above+k] * sum;
+      let sum = 0; for( let k=i; ++k < N; ) sum += V[V_off + N*j+k] * V[above+k];
+          sum*= 2; for( let k=i; ++k < N; )        V[V_off + N*j+k]-= V[above+k] * sum;
     }
     V[ii+1] = norm;
   }
@@ -225,7 +225,7 @@ export function _bidiag_decomp_horiz( M,N, U,U_off, B,B_off, V,V_off )
     V.fill(0.0, V_off+N*i, V_off+N*(i+1));
               V[V_off+N*i+(i+1)] = 1;
 
-    if(0 > i) break;
+    if(i < 0) break;
 
     const above = V_off + N*(i-1); // <- read householder from row (i-1)
     // apply householder to right of V
@@ -237,7 +237,6 @@ export function _bidiag_decomp_horiz( M,N, U,U_off, B,B_off, V,V_off )
 }
 
 
-// TODO consider Householder reflections for eliminating right side of a row
 export function bidiag_decomp(A)
 {
   A = asarray(A);
@@ -249,10 +248,10 @@ export function bidiag_decomp(A)
     U_shape = Int32Array.from(A.shape),
     B_shape = Int32Array.from(U_shape),
     V_shape = Int32Array.from(U_shape),
-    [N,M] = A.shape.slice(-2), // <- TODO should be [M,N]
+    [M,N] = A.shape.slice(-2),
     len   = A.data.length / (M*N)| 0,
-    I     = Math.min(N,M)        | 0,// #rows    of bidiag. matrix B
-    J     = (N >= M ? I : I+1)   | 0;// #columns of bidiag. matrix B
+    I     = Math.min(M,N)        | 0,// #rows    of bidiag. matrix B
+    J     = (M >= N ? I : I+1)   | 0;// #columns of bidiag. matrix B
   U_shape[U_shape.length-1] = I;
   B_shape[B_shape.length-2] = I;
   B_shape[B_shape.length-1] = J;
@@ -269,37 +268,39 @@ export function bidiag_decomp(A)
 
       return [U,B,V];
     }
-    else if( N > M ) {
+    else if( M > N ) {
       const U =     DTypeArray.from(A.data); A = undefined;
-      const B = new DTypeArray(len*M*M),
-            V = new DTypeArray(len*M*M);
+      const B = new DTypeArray(len*N*N),
+            V = new DTypeArray(len*N*N);
       for(
         let U_off=0,
            BV_off=0; BV_off < B.length;
-            U_off += N*M,
-           BV_off +=   M*M
-      ) _bidiag_decomp_vert(N,M, U,U_off, B,V,BV_off);
+            U_off += M*N,
+           BV_off +=   N*N
+      ) _bidiag_decomp_vert(M,N, U,U_off, B,V,BV_off);
 
       return [U,B,V];
     }
-    else {/*N < M*/
-      const V = new DTypeArray(len*(N+1)*M);
+    else {/*M < N*/
+      const V = new DTypeArray(len*(M+1)*N);
+
+/*DEBUG*/      if( !(M < N) ) throw new Error('Assertion failed.');
 
       A = A.data;
-      for( let j=0,i=M; i < V.length; i += M )
-      for( let I=i+N*M; i < I;   j++, i++    ) V[i] = A[j];
+      for( let j=0,i=N; i < V.length; i += N )
+      for( let I=i+M*N; i < I;   j++, i++    ) V[i] = A[j];
       A = undefined;
 
-      const U = new DTypeArray(len * N * N   ),
-            B = new DTypeArray(len * N *(N+1));
+      const U = new DTypeArray(len * M * M   ),
+            B = new DTypeArray(len * M *(M+1));
       for(
         let U_off=0,
             B_off=0,
             V_off=0; B_off < B.length;
-            U_off += N*N,
-            B_off +=   N*(N+1),
-            V_off +=     (N+1)*M
-      ) _bidiag_decomp_horiz(N,M, U,U_off, B,B_off, V,V_off);
+            U_off += M*M,
+            B_off +=   M*(M+1),
+            V_off +=     (M+1)*N
+      ) _bidiag_decomp_horiz(M,N, U,U_off, B,B_off, V,V_off);
 
       return [U,B,V];
     }

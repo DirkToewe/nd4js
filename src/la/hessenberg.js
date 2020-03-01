@@ -42,10 +42,12 @@ export function _hessenberg_decomp(N, U,H, off)
     for( let j=i-1; j-- > 0; )
         NORM.include(H[rowI+j]);
     if( NORM.max === 0 ) continue;
-    const norm = NORM.resultIncl(H[ii]) * (H[ii] > 0 ? -1 : +1), // <- avoid cancellation error
-         denom = NORM.resultIncl(H[ii] -= norm);
+    const norm =          NORM.resultIncl(H[ii]) * (H[ii] > 0 ? -1 : +1); // <- avoid cancellation error
+                          NORM.   include(H[ii] -= norm);
+    const  max =          NORM.max,
+           div =Math.sqrt(NORM.sum);
     for( let j=i; j-- > 0; )
-      H[rowI+j] = H[rowI+j] * Math.SQRT2 / denom;
+      H[rowI+j] = H[rowI+j] * Math.SQRT2 / max / div;
 
     // APPLY HOUSEHOLDER TO RIGHT OF H
     for( let j=i; j-- > 0; ) {

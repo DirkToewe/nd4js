@@ -28,32 +28,81 @@ describe('hessenberg', () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
 
+  const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
+
+  for( const [rng,suffix] of [
+    [() =>                           Math.random()*8 - 4, ''                      ],
+    [() => Math.random() < 0.1 ? 0 : Math.random()*8 - 4, ' with occasional zeros']
+  ])
   forEachItemIn(
     function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from,
-                rng = () => Math.random() < 0.1 ? 0 : Math.random()*2-1;
-
-      for( let run = 0; run < 16; run++ )
-      for( let N=1; N < 16; N++ )
+      function* shapes()
       {
-        const A = tabulate([N,N], 'float64', rng)
-        Object.freeze(A.data.buffer)
-        yield A
+        for( let run = 0; run < 16; run++ )
+        for( let N=1; N < 16; N++ )
+          yield [N,N];
+
+        for( let run=1024; run-- > 0; )
+        {
+          const N = randInt(1,64),
+             ndim = randInt(2,5),
+            shape = Array.from({ length: ndim-2 }, () => randInt(1,8) );
+          yield [...shape, N,N];
+        }
       }
 
-      for( let run=512; run-- > 0; )
+      for( const shape of shapes() )
       {
-        const N = randInt(1,32),
-           ndim = randInt(2,5),
-          shape = Array.from({ length: ndim-2 }, () => randInt(1,32) )
-        shape.push(N,N)
-
-        const A = tabulate(shape, 'float64', rng)
-        Object.freeze(A.data.buffer)
-        yield A
+        const A = tabulate(shape, 'float64', rng);
+        Object.freeze(A.data.buffer);
+        yield A;
       }
     }()
-  ).it('hessenberg_decomp works on random examples', A => {
+  ).it('hessenberg_decomp works on random examples' + suffix, A => {
+    const [N]= A.shape.slice(-1),
+        [U,H]= hessenberg_decomp(A),
+           a = matmul(U,H,U.T)
+
+    expect(U.shape).toEqual(A.shape)
+    expect(H.shape).toEqual(A.shape)
+
+    const I = eye(N)
+    expect( matmul(U,U.T) ).toBeAllCloseTo(I)
+    expect( matmul(U.T,U) ).toBeAllCloseTo(I)
+    expect(a).toBeAllCloseTo(A)
+
+    expect(H).toBeUpperHessenberg()
+  })
+
+
+  forEachItemIn(
+    function*(){
+      function* shapes()
+      {
+        for( let run = 0; run < 16; run++ )
+        for( let N=1; N < 16; N++ )
+          yield [N,N];
+
+        for( let run=1024; run-- > 0; )
+        {
+          const N = randInt(1,64),
+             ndim = randInt(2,5),
+            shape = Array.from({ length: ndim-2 }, () => randInt(1,8) );
+          yield [...shape, N,N];
+        }
+      }
+
+      for( const shape of shapes() )
+      {
+        const                         sparseness = Math.random(),
+          rng = () => Math.random() < sparseness ? 0 : Math.random()*2 - 1;
+
+        const A = tabulate(shape, 'float64', rng);
+        Object.freeze(A.data.buffer);
+        yield A;
+      }
+    }()
+  ).it('hessenberg_decomp works on random sparse examples', A => {
     const [N]= A.shape.slice(-1),
         [U,H]= hessenberg_decomp(A),
            a = matmul(U,H,U.T)

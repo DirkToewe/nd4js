@@ -21,7 +21,8 @@ import {asarray, NDArray} from '../nd_array'
 import {eps, ARRAY_TYPES} from '../dt'
 import {unpermute_rows} from './permute'
 import {FrobeniusNorm} from './norm'
-import {_giv_rot_rows} from './_giv_rot'
+import {_giv_rot_qr,
+        _giv_rot_rows} from './_giv_rot'
 import {_transpose_inplace} from './transpose_inplace'
 import {_triu_solve} from './tri'
 
@@ -160,10 +161,9 @@ export function rrqr_decomp_full(A)
         const     R_ji = R[ji];
         if( 0 !== R_ji )
         {   const R_ii = R[ii],
-                         norm = Math.hypot(R_ii,R_ji),
-              c = R_ii / norm,
-              s = R_ji / norm; R[ji] = 0;
-          if( s !== 0 ) {      R[ii] = norm;
+             [c,s,norm]= _giv_rot_qr(R_ii,R_ji);
+                          R[ji] = 0;
+          if( s !== 0 ) { R[ii] = norm;
             _giv_rot_rows(R, N-1-i, ii+1,
                                     ji+1,        c,s);
             _giv_rot_rows(Q,   1+j, Q_off + M*i,
@@ -260,10 +260,9 @@ export function _rrqr_decomp_inplace( M,N,L, A,A_off, Y,Y_off, P,P_off, norm )
       const     A_ji = A[ji];
       if( 0 !== A_ji )
       {   const A_ii = A[ii],
-                       norm = Math.hypot(A_ii,A_ji),
-            c = A_ii / norm,
-            s = A_ji / norm; A[ji] = 0;
-        if( s !== 0 ) {      A[ii] = norm;
+           [c,s,norm]= _giv_rot_qr(A_ii,A_ji);
+                        A[ji] = 0;
+        if( s !== 0 ) { A[ii] = norm;
           _giv_rot_rows(A, N-1-i, ii+1,
                                   ji+1,    c,s);
           _giv_rot_rows(Y, L, Y_off + L*i,
@@ -350,9 +349,7 @@ export function rrqr_decomp(A)
         const     A_ji = Q[ji];
         if( 0 !== A_ji )
         {   const A_ii = Q[ii];
-          let            norm = Math.hypot(A_ii,A_ji),
-              c = A_ii / norm,
-              s = A_ji / norm;
+          let[c,s,norm]= _giv_rot_qr(A_ii,A_ji);
           if( s !== 0 ) {
             if( c < 0 ) {
                 c *= -1;

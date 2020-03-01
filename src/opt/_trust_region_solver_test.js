@@ -20,7 +20,8 @@ import {concat} from '../concat'
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {NDArray} from '../nd_array'
 import {tabulate} from '../tabulate'
-import {_rand_rankdef} from '../_test_data_generators'
+import {_rand_cols0,
+        _rand_rankdef} from '../_test_data_generators'
 import {zip_elems} from '../zip_elems'
 
 import {diag_mat} from '../la/diag'
@@ -261,20 +262,84 @@ describe('TrustRegionSolverLSQ', () => {
 
 
   forEachItemIn(
+    function*(){
+      function* shapes() {
+        for( let M=8; M > 1; M-- )
+        for( let N=8; N > 1; N-- )
+          yield [M,N];
+
+        for( let run=512; run-- > 0; )
+        {
+          const M = randInt(1,64),
+                N = randInt(1,64); // <- TODO remove after testing
+          yield [M,N];
+        }
+      }
+
+      for( const [M,N] of shapes() )
+      {
+        function* fJ()
+        {
+          for( let run=randInt(1,32); run-- > 0; )
+          {
+            const f =  tabulate([M,1],'float64', () => Math.random()*4-2),
+                  J =_rand_cols0(M,N);
+
+            Object.freeze(f);
+            Object.freeze(f.data.buffer);
+
+            yield [f,J];
+          }
+        }
+
+        yield [M,N, fJ()];
+      }
+    }()
+  ).it('computeMinGlobal() works for random examples zero columns in J', ([M,N, fJ]) => {
+    const solver = new TrustRegionSolverLSQ(M,N),
+         X_shape = Int32Array.of(N,1),
+         f_shape = Int32Array.of(M);
+
+    for( const [f,J] of fJ )
+    {
+      const neg_f = new NDArray(f_shape, f.data.map(x => -x));
+
+      solver.update(neg_f,J);
+      solver.computeMinGlobal();
+
+      const x = new NDArray(X_shape, solver.X.slice()),
+           Jx = matmul2(J,x);
+
+      // check that x is a solution
+      expect( matmul2(J.T, zip_elems([Jx,f], 'float64', (x,y) => x-y) ) ).toBeAllCloseTo(0);
+
+      const D = new NDArray(X_shape, solver.D),
+           JD = zip_elems([J, D.T], 'float64', (j,d) => j/d),
+            Dx= zip_elems([x, D  ], 'float64', (x,d) => x*d);
+
+      expect(Dx).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(JD),f) );
+    }
+  })
+
+
+  forEachItemIn(
     computeMinGlobal_overdet_gen()
   ).it(`computeMinRegularized(0) works for pre-generated over-determined examples`, ([f,J, R,DR]) => {
     const [M,N] = J.shape,
          solver = new TrustRegionSolverLSQ(M,N)
 
-    solver.update(f,J);
-    solver.computeMinGlobal();
+    for( let repeat=4; repeat-- > 0; )
+    {
+      solver.update(f,J);
+      solver.computeMinGlobal();
 
-    expect( solver.scaledNorm(solver.X) ).toBeAllCloseTo(R);
+      expect( solver.scaledNorm(solver.X) ).toBeAllCloseTo(R);
 
-    const [r,dr] = solver.computeMinRegularized(0);
+      const [r,dr] = solver.computeMinRegularized(0);
 
-    expect( r).toBeAllCloseTo( R);
-    expect(dr).toBeAllCloseTo(DR);
+      expect( r).toBeAllCloseTo( R);
+      expect(dr).toBeAllCloseTo(DR);
+    }
   })
 
 
@@ -284,15 +349,18 @@ describe('TrustRegionSolverLSQ', () => {
     const [M,N] = J.shape,
          solver = new TrustRegionSolverLSQ(M,N)
 
-    solver.update(f,J);
-    solver.computeMinGlobal();
+    for( let repeat=4; repeat-- > 0; )
+    {
+      solver.update(f,J);
+      solver.computeMinGlobal();
 
-    expect( solver.scaledNorm(solver.X) ).toBeAllCloseTo(R);
+      expect( solver.scaledNorm(solver.X) ).toBeAllCloseTo(R);
 
-    const [r,dr] = solver.computeMinRegularized(0);
+      const [r,dr] = solver.computeMinRegularized(0);
 
-    expect( r).toBeAllCloseTo( R);
-    expect(dr).toBeAllCloseTo(DR);
+      expect( r).toBeAllCloseTo( R);
+      expect(dr).toBeAllCloseTo(DR);
+    }
   })
 
 

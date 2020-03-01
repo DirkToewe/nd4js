@@ -17,10 +17,31 @@
  */
 
 
+/** Computes cos and sin of a Givens rotation as used by QR.
+ */
+export function _giv_rot_qr( A_ii, A_ji )
+{
+  const max = Math.max(
+    Math.abs(A_ii),
+    Math.abs(A_ji)
+  );
+  if( 0===max ) return [1,0,0]; // <- handles NaN
+  A_ii /= max;
+  A_ji /= max;
+  let     norm = Math.sqrt( A_ii*A_ii + A_ji*A_ji );
+  A_ii /= norm;
+  A_ji /= norm;
+          norm *= max;
+/*DEBUG*/  if( !(0 <= norm) ) throw new Error('Assertion failed: ' + norm);
+  return [A_ii, A_ji, norm];
+}
+
+
 /** Applies a Givens rotation to rows i and j.
  */
 export function _giv_rot_rows( W, N, i, j, c, s )
 {
+/*DEBUG*/ if( !(Math.abs(Math.hypot(c,s) - 1) <= 1e-6) ) throw new Error('Assertion failed.');
   i |= 0;
   j |= 0;
   c = +c;
@@ -40,6 +61,7 @@ export function _giv_rot_rows( W, N, i, j, c, s )
  */
 export function _giv_rot_cols( W, N, i, j, c, s )
 {
+/*DEBUG*/ if( !(Math.abs(Math.hypot(c,s) - 1) <= 1e-6) ) throw new Error('Assertion failed.');
   i |= 0;
   j |= 0;
   c = +c;

@@ -20,7 +20,8 @@ import {eps, ARRAY_TYPES} from '../dt'
 import math from '../math'
 import {asarray, NDArray} from '../nd_array'
 
-import {_giv_rot_rows} from './_giv_rot'
+import {_giv_rot_qr,
+        _giv_rot_rows} from './_giv_rot'
 import {FrobeniusNorm} from './norm'
 import {_norm,
         _norm_update} from './rrqr'
@@ -315,10 +316,9 @@ export function srrqr_decomp_full( X, opt={} )
                 R_jk = R[jk];
       if( 0 !== R_jk )
       {   const R_kk = R[kk],
-                       norm = Math.hypot(R_kk,R_jk),
-            c = R_kk / norm,
-            s = R_jk / norm; R[jk] = 0;
-        if( s !== 0 ) {      R[kk] = norm;
+           [c,s,norm] = _giv_rot_qr(R_kk,R_jk);
+                        R[jk] = 0;
+        if( s !== 0 ) { R[kk] = norm;
           _giv_rot_rows(R, N-1-k, kk+1,
                                   jk+1, c,s);
           _giv_rot_rows(
@@ -687,10 +687,9 @@ export function srrqr_decomp_full( X, opt={} )
                     R_ji = R[ji];
           if( 0 !== R_ji )
           {   const R_ii = R[ii],
-                           norm = Math.hypot(R_ii,R_ji),
-                c = R_ii / norm,
-                s = R_ji / norm; R[ji] = 0;
-            if( s !== 0 ) {      R[ii] = norm;
+               [c,s,norm]= _giv_rot_qr(R_ii,R_ji);
+                           R[ji] = 0;
+            if( s !== 0 ) {R[ii] = norm;
               _giv_rot_rows(R, N-1-i, ii+1,
                                       ji+1,        c,s);
               _giv_rot_rows(Q, M, Q_off + M* i,
@@ -737,10 +736,9 @@ export function srrqr_decomp_full( X, opt={} )
                   R_ji = R[ji];
         if( 0 !== R_ji )
         {   const R_ii = R[ii],
-                         norm = Math.hypot(R_ii,R_ji),
-              c = R_ii / norm,
-              s = R_ji / norm; R[ji] = 0;
-          if( s !== 0 ) {      R[ii] = norm;
+             [c,s,norm]= _giv_rot_qr(R_ii,R_ji);
+                          R[ji] = 0;
+          if( s !== 0 ) { R[ii] = norm;
             _giv_rot_rows(R, N-1-i, ii+1,
                                     ji+1,        c,s);
             _giv_rot_rows(Q, M, Q_off + M* i,

@@ -18,7 +18,8 @@
 
 import {asarray, NDArray} from '../nd_array'
 import {ARRAY_TYPES} from '../dt'
-import {_giv_rot_rows} from './_giv_rot'
+import {_giv_rot_qr,
+        _giv_rot_rows} from './_giv_rot'
 import {_transpose_inplace} from './transpose_inplace'
 import {_triu_solve} from './tri'
 
@@ -58,9 +59,7 @@ export function qr_decomp_full(A)
       // USE GIVENS ROTATION TO ELIMINATE ELEMENT R_ji
       const ij = R_off+N*i+j, R_ij = R[ij]; if(0 === R_ij) continue;
       const jj = R_off+N*j+j, R_jj = R[jj],
-                 norm = Math.hypot(R_jj,R_ij),
-      c = R_jj / norm,
-      s = R_ij / norm;
+        [c,s,norm] =_giv_rot_qr(R_jj,R_ij);
           R[ij]= 0; if(0 === s) continue;
           R[jj]= norm;
       _giv_rot_rows( R, N-1-j, jj+1,
@@ -107,9 +106,7 @@ export function qr_decomp(A)
     { // USE GIVENS ROTATION TO ELIMINATE ELEMENT R_ji
       const ij = Q_off + M*i+j, R_ij = Q[ij]; if(0 === R_ij) continue;
       const jj = Q_off + M*j+j, R_jj = Q[jj];
-      let            norm = Math.hypot(R_jj,R_ij),
-          c = R_jj / norm,
-          s = R_ij / norm;
+      let [c,s,norm] =_giv_rot_qr(R_jj,R_ij);
       if( s !== 0 ) {
         if( c < 0 ) {
             c *= -1;

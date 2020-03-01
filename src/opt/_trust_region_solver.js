@@ -18,7 +18,8 @@
 
 import {NDArray} from '../nd_array'
 
-import {_giv_rot_rows} from '../la/_giv_rot'
+import {_giv_rot_qr,
+        _giv_rot_rows} from '../la/_giv_rot'
 import {FrobeniusNorm} from '../la/norm'
 import {_rrqr_rank,
         _rrqr_decomp_inplace,
@@ -344,9 +345,7 @@ export class TrustRegionSolverLSQ
         // USE GIVENS ROTATION TO ELIMINATE ELEMENT R_ji
         const ji = N*j+i, T_ji = T[ji]; if(0 === T_ji) continue;
         const ii = N*i+i, T_ii = T[ii],
-                   norm = Math.hypot(T_ji,T_ii),
-        c = T_ii / norm,
-        s = T_ji / norm;
+         [c,s,norm] = _giv_rot_qr(T_ii,T_ji);
             T[ji]= 0; if(0 === s) continue;
             T[ii]= norm;
         _giv_rot_rows(T, N-1-i, ii+1,

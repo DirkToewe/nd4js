@@ -53,7 +53,7 @@ export function rand_ortho( dtype, ...shape )
 
   const NORM = new FrobeniusNorm();
 
-  // TODO: this should be computable more efficiently
+  // TODO: this should be computable more efficiently for non-square matrices
 
   for( let off=0; off < U.length; off += M*N )
   {
@@ -71,12 +71,13 @@ export function rand_ortho( dtype, ...shape )
       for( let i=0;; i++ ) {
         const  x_i = x[i] = rand_normal(); if(i >= k) break;
         NORM.include(x_i);
-      }                                     d[k] = (x[k] > 0 ? -1 : +1);
-      const  norm = NORM.resultIncl(x[k]) * d[k];
-      if(0===norm) continue;
-      const   div = NORM.resultIncl(x[k] -= norm);
+      }                                              d[k] = x[k] > 0 ? -1 : +1;
+      const  norm =          NORM.resultIncl(x[k]) * d[k];
+      if(0===norm) continue; NORM.   include(x[k] -= norm);
+      const   max =          NORM.max,
+              div =Math.sqrt(NORM.sum);
       for( let i=k; i >= 0; i-- )
-        x[i] /= div;
+        x[i] = x[i] / max / div;
 
       // apply householder to right of Q
       for(let i=L; i-- > 0;){

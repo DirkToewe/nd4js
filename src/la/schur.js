@@ -17,12 +17,15 @@
  */
 
 import {ARRAY_TYPES} from '../dt'
-import {asarray, NDArray} from '../nd_array'
-import {math} from '../math'
-import {hessenberg_decomp} from './hessenberg'
-import {root1d_bisect} from '../opt/root1d_bisect'
-import {matmul2} from './matmul'
 import {MutableComplex} from '../dt/mutable_complex'
+import {math} from '../math'
+import {asarray, NDArray} from '../nd_array'
+
+import {root1d_bisect} from '../opt/root1d_bisect'
+
+import {_giv_rot_qr} from './_giv_rot'
+import {hessenberg_decomp} from './hessenberg'
+import {matmul2} from './matmul'
 
 
 export function schur_eigenvals(T)
@@ -577,11 +580,10 @@ function schur_qrfrancis_inplace(Q,H)
       // APPLY "DOUBLE SHIFTED" GIVENS ROTATIONS
       for( let row=2; row-- > 0; j=k, a2=a3 )
         if( a2 != 0 )
-        { const      norm = Math.hypot(a1,a2),
-            c = a1 / norm,
-            s = a2 / norm;
-          giv(i,j,c,s); // if( Math.abs(c*a2 - s*a1) > 1e-8 ) throw new Error('Assertion failed.')
-          a1 = c*a1 + s*a2
+        { const  [c,s,norm] = _giv_rot_qr(a1,a2);
+          giv(i,j,c,s);
+          a1 = norm;
+//*DEBUG*/          if( !(Math.abs(c*a2 - s*a1) <= 1e-8) ) throw new Error('Assertion failed.')
         }
 
       // REINSTATE HESSENBERG PROPERTY
@@ -589,14 +591,13 @@ function schur_qrfrancis_inplace(Q,H)
       { i = col+1
         const J = Math.min(end,col+4);
         for( j=col+2; j < J; j++ )
-        { const H_i = h(i,col),
-                H_j = h(j,col);
-          if( H_j == 0 ) continue;
-          const norm = Math.hypot(H_i,H_j),
-                c = H_i / norm,
-                s = H_j / norm;
-          giv(i,j,c,s); // if( Math.abs( h(j,col) ) > 1e-8 ) throw new Error('Assertion failed!')
+        { const  H_i = h(i,col),
+                 H_j = h(j,col);
+          if(0===H_j) continue;
+          const  [c,s,norm] = _giv_rot_qr(H_i,H_j);
+          giv(i,j,c,s);
           H[H_off + N*j+col] *= 0.0; // <- handles NaN
+//*DEBUG*/          if( !(Math.abs(h(j,col)) <= 1e-8) ) throw new Error('Assertion failed.')
         }
       }
     }

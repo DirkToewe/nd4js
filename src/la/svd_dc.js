@@ -19,7 +19,8 @@
 import {ARRAY_TYPES, eps} from '../dt'
 import {asarray, NDArray} from '../nd_array'
 import {transpose_inplace} from './transpose_inplace'
-import {_giv_rot_rows} from './_giv_rot'
+import {_giv_rot_qr,
+        _giv_rot_rows} from './_giv_rot'
 import {_svd_jac_angles} from './_svd_jac_utils'
 import {FrobeniusNorm} from './norm'
 import {_bidiag_decomp_horiz} from './bidiag'
@@ -40,13 +41,9 @@ export const _svd_dc_1x2 = ( N, U,U_off, F,B_off,V_off ) =>
   B_off |= 0;
   V_off |= 0;
 
-  let c = F[B_off  ],
-      s = F[B_off+1];
-  const  norm = Math.hypot(c,s);
-  if(0!==norm) {
-    c /= norm;
-    s /= norm;
-
+  const [c,s,norm] = _giv_rot_qr(F[B_off], F[B_off+1]);
+  if(0!==norm)
+  {
     F[B_off  ] = norm;
     F[B_off+1] = NaN;
 
@@ -86,9 +83,7 @@ export const _svd_dc_2x3 = ( N, U,U_off, F,B_off,V_off ) =>
   //   RQ-decompose down to 2x2 problem
   if( 0 !== b4 )
   { // eliminate B[1,2] (stored in b4)
-    const     norm = Math.hypot(b3,b4),
-      ca = b3/norm,
-      sa = b4/norm;
+    const [ca,sa,norm] = _giv_rot_qr(b3,b4);
     F[V_off + N*1+1] =  ca;
     F[V_off + N*2+1] =  sa;
     b3 = norm;
@@ -96,10 +91,8 @@ export const _svd_dc_2x3 = ( N, U,U_off, F,B_off,V_off ) =>
     b2 =  ca*b2;
     if( 0 !== b4 )
     { // eliminate B[0,2] (stored in b4)
-      const     norm = Math.hypot(b1,b4),
-        cb = b1/norm,
-        sb = b4/norm;
-           b1 = norm;
+      const [cb,sb,norm] = _giv_rot_qr(b1,b4);
+      b1 = norm;
       F[V_off      ] =  cb;
       F[V_off+N*1  ] =  sb*-sa;
       F[V_off+N*2  ] =  sb* ca;
@@ -206,13 +199,13 @@ export const _svd_dc_neves = (N,n, U,U_off, F,B_off,V_off, I) =>
   // OFF-DIAGONAL ELEMENTS: z[i] = F[B_off + 2*i+1]
 
   // TODO remove checks after testing
-  // ensure d[-1] === 1
-  if( F[B_off + 2*m-2] !== 0 )
-    throw new Error('Assertion failed.');
-  // ensure d[i] >= d[i+1]
-  for( let i=1; i < m; i++ )
-    if( F[B_off + 2*(i-1)] < F[B_off + 2*i] )
-      throw new Error('Assertion failed.');
+/*DEBUG*/  // ensure d[-1] === 1
+/*DEBUG*/  if( F[B_off + 2*m-2] !== 0 )
+/*DEBUG*/    throw new Error('Assertion failed.');
+/*DEBUG*/  // ensure d[i] >= d[i+1]
+/*DEBUG*/  for( let i=1; i < m; i++ )
+/*DEBUG*/    if( F[B_off + 2*(i-1)] < F[B_off + 2*i] )
+/*DEBUG*/      throw new Error('Assertion failed.');
 
   const NORM = new FrobeniusNorm();
 
@@ -586,7 +579,7 @@ export const _svd_dc_neves = (N,n, U,U_off, F,B_off,V_off, I) =>
     }
     const norm = NORM.result;
 
-    if( ! (0 < norm || i === m-1) ) throw new Error('Assertion failed.');
+    if( ! (0 < norm || i === m-1) ) throw new Error('Assertion failed: ' + norm);
 
     for( let j=n1; j < m; j++ )
       F[W_off + m*i+j] /= norm;

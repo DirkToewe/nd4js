@@ -18,7 +18,9 @@
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {tabulate} from '../tabulate'
-import {_rand_rankdef} from '../_test_data_generators'
+import {_rand_rows0,
+        _rand_cols0,
+        _rand_rankdef} from '../_test_data_generators'
 
 import {matmul, matmul2} from './matmul'
 import {bidiag_decomp} from './bidiag'
@@ -48,32 +50,32 @@ describe('bidiag', () => {
         for( let run=1024; run-- > 0; )
         {
           const ndim = randInt(2,5),
-              shape = Int32Array.from({ length: ndim }, () => randInt(1,32) );
+               shape = Int32Array.from({ length: ndim }, () => randInt(1,32) );
           yield tabulate(shape, 'float64', rng);
         }
       }()
     ).it('bidiag_decomp works on random examples'+suffix, A => {
       const [N,M] = A.shape.slice(-2),
-          [U,B,V] = bidiag_decomp(A)
+          [U,B,V] = bidiag_decomp(A);
 
       const a = matmul(U,B,V);
 
-      expect(B).toBeUpperBidiagonal()
+      expect(B).toBeUpperBidiagonal();
 
       if( N >= M ) {
-        const I = eye(M)
-        expect( matmul2(U.T,U) ).toBeAllCloseTo(I)
-        expect( matmul2(V.T,V) ).toBeAllCloseTo(I)
-        expect( matmul2(V,V.T) ).toBeAllCloseTo(I)
+        const I = eye(M);
+        expect( matmul2(U.T,U) ).toBeAllCloseTo(I);
+        expect( matmul2(V.T,V) ).toBeAllCloseTo(I);
+        expect( matmul2(V,V.T) ).toBeAllCloseTo(I);
       }
       else {
-        const I = eye(N)
-        expect( matmul2(U.T,U) ).toBeAllCloseTo(I)
-        expect( matmul2(U,U.T) ).toBeAllCloseTo(I)
-        expect( matmul2(V,V.T) ).toBeAllCloseTo( eye(N+1) )
+        const I = eye(N);
+        expect( matmul2(U.T,U) ).toBeAllCloseTo(I);
+        expect( matmul2(U,U.T) ).toBeAllCloseTo(I);
+        expect( matmul2(V,V.T) ).toBeAllCloseTo( eye(N+1) );
       }
 
-      expect(a).toBeAllCloseTo(A)
+      expect(a).toBeAllCloseTo(A);
     })
 
 
@@ -91,25 +93,114 @@ describe('bidiag', () => {
     }()
   ).it('bidiag_decomp works on random sparse examples', A => {
     const [N,M] = A.shape.slice(-2),
-        [U,B,V] = bidiag_decomp(A)
+        [U,B,V] = bidiag_decomp(A);
 
     const a = matmul(U,B,V);
 
-    expect(B).toBeUpperBidiagonal()
+    expect(B).toBeUpperBidiagonal();
 
     if( N >= M ) {
-      const I = eye(M)
-      expect( matmul2(U.T,U) ).toBeAllCloseTo(I)
-      expect( matmul2(V.T,V) ).toBeAllCloseTo(I)
-      expect( matmul2(V,V.T) ).toBeAllCloseTo(I)
+      const I = eye(M);
+      expect( matmul2(U.T,U) ).toBeAllCloseTo(I);
+      expect( matmul2(V.T,V) ).toBeAllCloseTo(I);
+      expect( matmul2(V,V.T) ).toBeAllCloseTo(I);
     }
     else {
-      const I = eye(N)
-      expect( matmul2(U.T,U) ).toBeAllCloseTo(I)
-      expect( matmul2(U,U.T) ).toBeAllCloseTo(I)
-      expect( matmul2(V,V.T) ).toBeAllCloseTo( eye(N+1) )
+      const I = eye(N);
+      expect( matmul2(U.T,U) ).toBeAllCloseTo(I);
+      expect( matmul2(U,U.T) ).toBeAllCloseTo(I);
+      expect( matmul2(V,V.T) ).toBeAllCloseTo( eye(N+1) );
     }
 
-    expect(a).toBeAllCloseTo(A, {atol: 1e-7})
+    expect(a).toBeAllCloseTo(A, {atol: 1e-7});
   })
+
+
+  forEachItemIn(
+    function*(){
+      function* shapes() {
+        for( let M=8; M > 1; M-- )
+        for( let N=8; N > 1; N-- )
+          yield [M,N];
+
+        for( let run=2048; run-- > 0; )
+        {
+          const M = randInt(1,128),
+                N = randInt(1,128);
+          yield [M,N];
+        }
+      }
+
+      for( const [M,N] of shapes() )
+        yield _rand_rows0(M,N);
+    }()
+  ).it('bidiag_decomp works on random matrices with zero rows', A => {
+    const [N,M] = A.shape.slice(-2),
+        [U,B,V] = bidiag_decomp(A);
+
+    const a = matmul(U,B,V);
+
+    expect(B).toBeUpperBidiagonal();
+
+    if( N >= M ) {
+      const I = eye(M);
+      expect( matmul2(U.T,U) ).toBeAllCloseTo(I);
+      expect( matmul2(V.T,V) ).toBeAllCloseTo(I);
+      expect( matmul2(V,V.T) ).toBeAllCloseTo(I);
+    }
+    else {
+      const I = eye(N);
+      expect( matmul2(U.T,U) ).toBeAllCloseTo(I);
+      expect( matmul2(U,U.T) ).toBeAllCloseTo(I);
+      expect( matmul2(V,V.T) ).toBeAllCloseTo( eye(N+1) );
+    }
+
+    expect(a).toBeAllCloseTo(A);
+  });
+
+
+  forEachItemIn(
+    function*(){
+      function* shapes() {
+        for( let M=8; M > 1; M-- )
+        for( let N=8; N > 1; N-- )
+          yield [M,N];
+
+        for( let run=2048; run-- > 0; )
+        {
+          const M = randInt(1,128),
+                N = randInt(1,128); // <- TODO remove after testing
+          yield [M,N];
+        }
+      }
+
+      for( const [M,N] of shapes() )
+        yield _rand_cols0(M,N);
+    }()
+  ).it('bidiag_decomp works on random matrices with zero columns', A => {
+    const [M,N] = A.shape.slice(-2),
+        [U,B,V] = bidiag_decomp(A);
+    Object.freeze(U.data.buffer); Object.freeze(U);
+    Object.freeze(B.data.buffer); Object.freeze(B);
+    Object.freeze(V.data.buffer); Object.freeze(V);
+
+    const a = matmul(U,B,V);
+
+    expect(B).toBeUpperBidiagonal();
+
+    if( M >= N ) {
+      const I = eye(N);
+      expect( matmul2(U.T,U) ).toBeAllCloseTo(I);
+      expect( matmul2(V.T,V) ).toBeAllCloseTo(I);
+      expect( matmul2(V,V.T) ).toBeAllCloseTo(I);
+    }
+    else {
+      const I = eye(M)
+      expect( matmul2(U.T,U) ).toBeAllCloseTo(I);
+      expect( matmul2(U,U.T) ).toBeAllCloseTo(I);
+      expect( matmul2(V,V.T) ).toBeAllCloseTo( eye(M+1) );
+    }
+
+    expect(a).toBeAllCloseTo(A);
+  });
 })

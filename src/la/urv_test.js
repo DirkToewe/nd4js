@@ -20,15 +20,17 @@
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {_rand_rankdef} from '../_test_data_generators'
 import {tabulate} from '../tabulate'
+import {_rand_rows0,
+        _rand_cols0} from '../_test_data_generators'
 import {zip_elems} from '../zip_elems'
 
 import {eye} from './eye'
 import {matmul,
         matmul2} from './matmul'
 import {permute_cols} from './permute'
+import {solve} from './solve'
 import {urv_decomp_full,
         urv_lstsq} from './urv'
-import {solve} from './solve'
 
 
 describe('urv', () => {
@@ -40,16 +42,139 @@ describe('urv', () => {
   const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
 
 
+  for( const [rng,suffix] of [
+    [() =>                           Math.random()*8 - 4, ''                      ],
+    [() => Math.random() < 0.1 ? 0 : Math.random()*8 - 4, ' with occasional zeros']
+  ])
   forEachItemIn(
     function*(){
       for( let run=1024; run-- > 0; )
       {
-        const ndim = randInt(0,5);
+        const ndim = randInt(2,5),
+             shape = [
+               ...Array.from({ length: ndim-2 }, () => randInt(1,8) ),
+               randInt(1,64),
+               randInt(1,64)
+             ];
+
+        yield tabulate(shape, 'float64', rng);
+      }
+    }()
+  ).it('urv_decomp_full works on random examples' + suffix, A => {
+    const lead = A.shape.slice(0,-2),
+         [M,N] = A.shape.slice(-2);
+
+    const [U,R,V, ranks] = urv_decomp_full(A);
+
+    expect(ranks.shape).toEqual(lead)
+    expect(ranks.dtype).toBe('int32')
+
+    expect(U.dtype).toBe(A.dtype);
+    expect(R.dtype).toBe(A.dtype);
+    expect(V.dtype).toBe(A.dtype);
+
+    expect( U.shape ).toEqual( Int32Array.of(...lead, M,M) )
+    expect( R.shape ).toEqual( Int32Array.of(...lead, M,N) )
+    expect( V.shape ).toEqual( Int32Array.of(...lead, N,N) )
+
+    expect(R).toBeUpperTriangular();
+
+    let         i = 0;
+    for( const Ri of R.reshape(-1,M,N) )
+    {
+      const  rnk = ranks.data[i++];
+      if(N > rnk) { 
+        const  rhs = Ri.sliceElems([,,], [rnk,,]);
+        expect(rhs).toBeAllCloseTo(0, {rtol:0, atol:0});
+      }
+      if(M > rnk ) {
+        const  bot = Ri.sliceElems([rnk,,]);
+        expect(bot).toBeAllCloseTo(0, {rtol:0, atol:0});
+      }
+    }
+
+    let                                     I = eye(M,M);
+    expect( matmul2(U,U.T) ).toBeAllCloseTo(I);
+    expect( matmul2(U.T,U) ).toBeAllCloseTo(I);
+                                            I = eye(N,N);
+    expect( matmul2(V,V.T) ).toBeAllCloseTo(I);
+    expect( matmul2(V.T,V) ).toBeAllCloseTo(I);
+
+    expect( matmul(U,R,V) ).toBeAllCloseTo(A);
+  })
+
+
+  forEachItemIn(
+    function*(){
+      for( let run=1024; run-- > 0; )
+      {
+        const                         sparseness = Math.random(),
+          rng = () => Math.random() < sparseness ? 0 : Math.random()*2 - 1;
+
+        const ndim = randInt(2,5),
+             shape = [
+               ...Array.from({ length: ndim-2 }, () => randInt(1,8) ),
+               randInt(1,64),
+               randInt(1,64)
+             ];
+
+        yield tabulate(shape, 'float64', rng);
+      }
+    }()
+  ).it('urv_decomp_full works on random sparse examples', A => {
+    const lead = A.shape.slice(0,-2),
+         [M,N] = A.shape.slice(-2);
+
+    const [U,R,V, ranks] = urv_decomp_full(A);
+
+    expect(ranks.shape).toEqual(lead)
+    expect(ranks.dtype).toBe('int32')
+
+    expect(U.dtype).toBe(A.dtype);
+    expect(R.dtype).toBe(A.dtype);
+    expect(V.dtype).toBe(A.dtype);
+
+    expect( U.shape ).toEqual( Int32Array.of(...lead, M,M) )
+    expect( R.shape ).toEqual( Int32Array.of(...lead, M,N) )
+    expect( V.shape ).toEqual( Int32Array.of(...lead, N,N) )
+
+    expect(R).toBeUpperTriangular();
+
+    let         i = 0;
+    for( const Ri of R.reshape(-1,M,N) )
+    {
+      const  rnk = ranks.data[i++];
+      if(N > rnk) { 
+        const  rhs = Ri.sliceElems([,,], [rnk,,]);
+        expect(rhs).toBeAllCloseTo(0, {rtol:0, atol:0});
+      }
+      if(M > rnk ) {
+        const  bot = Ri.sliceElems([rnk,,]);
+        expect(bot).toBeAllCloseTo(0, {rtol:0, atol:0});
+      }
+    }
+
+    let                                     I = eye(M,M);
+    expect( matmul2(U,U.T) ).toBeAllCloseTo(I);
+    expect( matmul2(U.T,U) ).toBeAllCloseTo(I);
+                                            I = eye(N,N);
+    expect( matmul2(V,V.T) ).toBeAllCloseTo(I);
+    expect( matmul2(V.T,V) ).toBeAllCloseTo(I);
+
+    expect( matmul(U,R,V) ).toBeAllCloseTo(A, {atol: 1e-7});
+  })
+
+
+  forEachItemIn(
+    function*(){
+      for( let run=1024; run-- > 0; )
+      {
+        const ndim = randInt(2,5);
 
         yield _rand_rankdef(
           ...Array.from({ length: ndim-2 }, () => randInt(1,8) ),
-          randInt(1,32),
-          randInt(1,32)
+          randInt(1,64),
+          randInt(1,64)
         );
       }
     }()
@@ -79,9 +204,13 @@ describe('urv', () => {
     for( let Ri of R.reshape(-1,M,N) )
     {
       const  rnk = ranks.data[i++];
-      if(N > rnk)
-      { Ri = Ri.sliceElems([,,], [rnk,,]);
-        expect(Ri).toBeAllCloseTo(0, {rtol:0, atol:0});
+      if(N > rnk) { 
+        const  rhs = Ri.sliceElems([,,], [rnk,,]);
+        expect(rhs).toBeAllCloseTo(0, {rtol:0, atol:0});
+      }
+      if(M > rnk ) {
+        const  bot = Ri.sliceElems([rnk,,]);
+        expect(bot).toBeAllCloseTo(0, {rtol:0, atol:0});
       }
     }
 
@@ -94,6 +223,130 @@ describe('urv', () => {
 
     expect( matmul(U,R,V) ).toBeAllCloseTo(A);
   })
+
+
+  forEachItemIn(
+    function*(){
+      function* shapes() {
+        for( let M=8; M > 1; M-- )
+        for( let N=8; N > 1; N-- )
+          yield [M,N];
+
+        for( let run=2048; run-- > 0; )
+        {
+          const M = randInt(1,128),
+                N = randInt(1,128);
+          yield [M,N];
+        }
+      }
+
+      for( const [M,N] of shapes() )
+        yield _rand_rows0(M,N);
+    }()
+  ).it('urv_decomp_full works on random matrices with zero rows', A => {
+    const lead = A.shape.slice(0,-2),
+         [M,N] = A.shape.slice(-2);
+
+    const [U,R,V, ranks] = urv_decomp_full(A);
+
+    expect(ranks.shape).toEqual(lead)
+    expect(ranks.dtype).toBe('int32')
+
+    expect(U.dtype).toBe(A.dtype);
+    expect(R.dtype).toBe(A.dtype);
+    expect(V.dtype).toBe(A.dtype);
+
+    expect( U.shape ).toEqual( Int32Array.of(...lead, M,M) )
+    expect( R.shape ).toEqual( Int32Array.of(...lead, M,N) )
+    expect( V.shape ).toEqual( Int32Array.of(...lead, N,N) )
+
+    expect(R).toBeUpperTriangular();
+
+    let         i = 0;
+    for( const Ri of R.reshape(-1,M,N) )
+    {
+      const  rnk = ranks.data[i++];
+      if(N > rnk) { 
+        const  rhs = Ri.sliceElems([,,], [rnk,,]);
+        expect(rhs).toBeAllCloseTo(0, {rtol:0, atol:0});
+      }
+      if(M > rnk ) {
+        const  bot = Ri.sliceElems([rnk,,]);
+        expect(bot).toBeAllCloseTo(0, {rtol:0, atol:0});
+      }
+    }
+
+    let                                     I = eye(M,M);
+    expect( matmul2(U,U.T) ).toBeAllCloseTo(I);
+    expect( matmul2(U.T,U) ).toBeAllCloseTo(I);
+                                            I = eye(N,N);
+    expect( matmul2(V,V.T) ).toBeAllCloseTo(I);
+    expect( matmul2(V.T,V) ).toBeAllCloseTo(I);
+
+    expect( matmul(U,R,V) ).toBeAllCloseTo(A);
+  });
+
+
+  forEachItemIn(
+    function*(){
+      function* shapes() {
+        for( let M=8; M > 1; M-- )
+        for( let N=8; N > 1; N-- )
+          yield [M,N];
+
+        for( let run=2048; run-- > 0; )
+        {
+          const M = randInt(1,128),
+                N = randInt(1,128);
+          yield [M,N];
+        }
+      }
+
+      for( const [M,N] of shapes() )
+        yield _rand_cols0(M,N);
+    }()
+  ).it('urv_decomp_full works on random matrices with zero columns', A => {
+    const lead = A.shape.slice(0,-2),
+         [M,N] = A.shape.slice(-2);
+
+    const [U,R,V, ranks] = urv_decomp_full(A);
+
+    expect(ranks.shape).toEqual(lead)
+    expect(ranks.dtype).toBe('int32')
+
+    expect(U.dtype).toBe(A.dtype);
+    expect(R.dtype).toBe(A.dtype);
+    expect(V.dtype).toBe(A.dtype);
+
+    expect( U.shape ).toEqual( Int32Array.of(...lead, M,M) )
+    expect( R.shape ).toEqual( Int32Array.of(...lead, M,N) )
+    expect( V.shape ).toEqual( Int32Array.of(...lead, N,N) )
+
+    expect(R).toBeUpperTriangular();
+
+    let         i = 0;
+    for( const Ri of R.reshape(-1,M,N) )
+    {
+      const  rnk = ranks.data[i++];
+      if(N > rnk) { 
+        const  rhs = Ri.sliceElems([,,], [rnk,,]);
+        expect(rhs).toBeAllCloseTo(0, {rtol:0, atol:0});
+      }
+      if(M > rnk ) {
+        const  bot = Ri.sliceElems([rnk,,]);
+        expect(bot).toBeAllCloseTo(0, {rtol:0, atol:0});
+      }
+    }
+
+    let                                     I = eye(M,M);
+    expect( matmul2(U,U.T) ).toBeAllCloseTo(I);
+    expect( matmul2(U.T,U) ).toBeAllCloseTo(I);
+                                            I = eye(N,N);
+    expect( matmul2(V,V.T) ).toBeAllCloseTo(I);
+    expect( matmul2(V.T,V) ).toBeAllCloseTo(I);
+
+    expect( matmul(U,R,V) ).toBeAllCloseTo(A);
+  });
 
 
   forEachItemIn(
