@@ -118,10 +118,13 @@ describe('urv', () => {
                randInt(1,64)
              ];
 
-        yield tabulate(shape, 'float64', rng);
+        yield [
+          tabulate(shape, 'float64', rng),
+          sparseness
+        ];
       }
     }()
-  ).it('urv_decomp_full works on random sparse examples', A => {
+  ).it('urv_decomp_full works on random sparse examples', ([A,sparseness]) => {
     const lead = A.shape.slice(0,-2),
          [M,N] = A.shape.slice(-2);
 
@@ -161,7 +164,7 @@ describe('urv', () => {
     expect( matmul2(V,V.T) ).toBeAllCloseTo(I);
     expect( matmul2(V.T,V) ).toBeAllCloseTo(I);
 
-    expect( matmul(U,R,V) ).toBeAllCloseTo(A, {atol: 1e-7});
+    expect( matmul(U,R,V) ).toBeAllCloseTo(A, {atol: 1e-6});
   })
 
 
@@ -232,7 +235,7 @@ describe('urv', () => {
         for( let N=8; N > 1; N-- )
           yield [M,N];
 
-        for( let run=2048; run-- > 0; )
+        for( let run=1024; run-- > 0; )
         {
           const M = randInt(1,128),
                 N = randInt(1,128);
@@ -294,7 +297,7 @@ describe('urv', () => {
         for( let N=8; N > 1; N-- )
           yield [M,N];
 
-        for( let run=2048; run-- > 0; )
+        for( let run=1024; run-- > 0; )
         {
           const M = randInt(1,128),
                 N = randInt(1,128);
@@ -347,6 +350,68 @@ describe('urv', () => {
 
     expect( matmul(U,R,V) ).toBeAllCloseTo(A);
   });
+
+
+  // FIXME make the following test pass (infinite loop due to SRRQR not using scaling)
+  forEachItemIn(
+    function*(){
+      for( let run=1024; run-- > 0; )
+      {
+        const                         sparseness = Math.random(),
+          rng = () => Math.random() < sparseness ? 0 : Math.random()*512*Number.MIN_VALUE;
+
+        const ndim = randInt(2,5),
+             shape = [
+               ...Array.from({ length: ndim-2 }, () => randInt(1,8) ),
+               randInt(1,64),
+               randInt(1,64)
+             ];
+
+        yield tabulate(shape, 'float64', rng);
+      }
+    }()
+  ).it('urv_decomp_full works on random examples close to zero', A => {
+    const lead = A.shape.slice(0,-2),
+         [M,N] = A.shape.slice(-2);
+
+    const [U,R,V, ranks] = urv_decomp_full(A);
+
+    expect(ranks.shape).toEqual(lead)
+    expect(ranks.dtype).toBe('int32')
+
+    expect(U.dtype).toBe(A.dtype);
+    expect(R.dtype).toBe(A.dtype);
+    expect(V.dtype).toBe(A.dtype);
+
+    expect( U.shape ).toEqual( Int32Array.of(...lead, M,M) )
+    expect( R.shape ).toEqual( Int32Array.of(...lead, M,N) )
+    expect( V.shape ).toEqual( Int32Array.of(...lead, N,N) )
+
+    expect(R).toBeUpperTriangular();
+
+    let         i = 0;
+    for( const Ri of R.reshape(-1,M,N) )
+    {
+      const  rnk = ranks.data[i++];
+      if(N > rnk) { 
+        const  rhs = Ri.sliceElems([,,], [rnk,,]);
+        expect(rhs).toBeAllCloseTo(0, {rtol:0, atol:0});
+      }
+      if(M > rnk ) {
+        const  bot = Ri.sliceElems([rnk,,]);
+        expect(bot).toBeAllCloseTo(0, {rtol:0, atol:0});
+      }
+    }
+
+    let                                     I = eye(M,M);
+    expect( matmul2(U,U.T) ).toBeAllCloseTo(I);
+    expect( matmul2(U.T,U) ).toBeAllCloseTo(I);
+                                            I = eye(N,N);
+    expect( matmul2(V,V.T) ).toBeAllCloseTo(I);
+    expect( matmul2(V.T,V) ).toBeAllCloseTo(I);
+
+    expect( matmul(U,R,V) ).toBeAllCloseTo(A, {atol: 1e-7});
+  })
 
 
   forEachItemIn(

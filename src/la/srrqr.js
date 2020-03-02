@@ -573,6 +573,17 @@ export function srrqr_decomp_full( X, opt={} )
                                    r_off += 1
   )
   {
+    // SCALE R // <- FIXME: rethink scaling regarding underflow and overflow
+    NORM.reset();
+    for( let i=M*N; i-- > 0; )
+      NORM.include(R[R_off + i]);
+    const        SCALE = NORM.max===0 ? 1 : NORM.result;
+    if(!isFinite(SCALE)) throw new Error('Assertion failed: ' + SCALE);
+    if(!  (0  <  SCALE)) throw new Error('Assertion failed: ' + SCALE);
+    if(    1 !== SCALE )
+      for( let i=M*N; i-- > 0; )
+        R[R_off + i] /= SCALE;
+
     // INIT P
     for( let i=0; i < N; i++ ) P[P_off + i] = i;
 
@@ -586,8 +597,10 @@ export function srrqr_decomp_full( X, opt={} )
     // RETRIEVE TOLERANCES
     dtol = DTOL(r_off),
     ztol = ZTOL(r_off);
-    if( !(dtol >=1) ) throw new Error('Assertion failed.');
-    if( !(ztol >=0) ) throw new Error('Assertion failed.');
+    if( ! isFinite(dtol) ) throw new Error(`Assertion failed. Invalid dtol: ${dtol}.`);
+    if( ! isFinite(ztol) ) throw new Error(`Assertion failed. Invalid ztol: ${ztol}.`);
+    if( !    (1 <= dtol) ) throw new Error(`Assertion failed. Invalid dtol: ${dtol}.`);
+    if( !    (0 <= ztol) ) throw new Error(`Assertion failed. Invalid ztol: ${ztol}.`);
 
     // INIT BINARY SEARCH BOUNDS
     k0 = k = 0;
@@ -768,7 +781,16 @@ export function srrqr_decomp_full( X, opt={} )
 //*DEBUG*/      if( !(Math.abs(logdet_A() - predict_logdet_A) <= 1e-6) )
 //*DEBUG*/        throw new Error(`${logdet_A()} != ${predict_logdet_A}`); 
     }
+
+    // UNSCALE R
+    if( 1 !== SCALE )
+      for( let i=M*N; i-- > 0; )
+        R[R_off + i] *= SCALE;
+
+    // WRITE RANK
     r[r_off] = k;
+
+    // TRANSPOSE Q (was transposed for cache alignment)
     _transpose_inplace(M, Q,Q_off);
   }
 
