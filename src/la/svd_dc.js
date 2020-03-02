@@ -352,10 +352,10 @@ export const _svd_dc_neves = (N,n, U,U_off, F,B_off,V_off, I) =>
     { const di = F[B_off + 2*i  ],
             dj = F[B_off + 2*j  ], oi = I[inn_off + i],
             zi = F[B_off + 2*i+1],
-            zj = F[B_off + 2*j+1], z = Math.hypot(zi,zj);
+            zj = F[B_off + 2*j+1],
+       [c,s,z] = _giv_rot_qr(zj,zi);
       if( (di-dj)/TOL <= di || ! isFinite( Math.sqrt(m) / (di-dj) ) ) // <- TODO find better criteria
-      { const c = zj / z,
-              s = zi / z;
+      {
         F[W_off + 2*n1  ] = c;
         F[W_off + 2*n1+1] = s;
         F[B_off + 2*j+1] = z;
@@ -775,12 +775,10 @@ export function _svd_dc_bidiag( N, n, U,U_off, F,B_off,V_off, I )
   //       ┃        ┆      ┃ ┃           ┆       ┆  ┃ ┃          ┆          ┃   ┃        ┆      ┃ ┃          ┆       ┆ ┃ ┃┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┄┄┄┄┄┄┃
   //       ┗               ┛ ┗                      ┛ ┃          ┆          ┃   ┗               ┛ ┗                    ┛ ┃  -s*w1   ┆  c*w2    ┃
   //                                                  ┗                     ┛                                            ┗                     ┛
-  const [c,s,h] = function(){
-    let   c = b1 * F[V_off + N*m0 + m0],
-          s = b2 * F[V_off + N*n0 + m ];
-    const h = Math.hypot(c,s);
-    return [c/h, s/h, h];
-  }();
+  const [c,s,h] = _giv_rot_qr(
+    b1 * F[V_off + N*m0 + m0],
+    b2 * F[V_off + N*n0 + m ]
+  );
 
 //  if( ! isFinite(h) ) throw new Error('Assertion failed.'); 
 
