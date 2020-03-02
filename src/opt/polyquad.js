@@ -31,7 +31,7 @@ import {TrustRegionSolverLSQ} from './_trust_region_solver'
 
 /* Returns the more positive root of a + bx + cx²
  */
-export function roots_polyquad1d( a, b, c )
+export function roots1d_polyquad( a, b, c )
 {
   // https://arxiv.org/abs/1409.8072
   if( isNaN(a) ) throw new Error('roots_quad_poly(a,b,c): a must be number.');

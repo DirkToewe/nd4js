@@ -18,10 +18,10 @@
 
 import {forEachItemIn} from '../jasmine_utils'
 
-import {roots_polyquad1d} from './polyquad1d'
+import {roots1d_polyquad} from './polyquad'
 
 
-describe('polyquad1d', () => {
+describe('polyquad', () => {
   forEachItemIn(
     function*() {
       const N = 24;
@@ -47,11 +47,11 @@ describe('polyquad1d', () => {
       for( const c  of cRange() )
         yield [c,x1,x2];
     }()
-  ).it('roots_polyquad1d(a,b,c) satisfies element-wise mixed stability', ([c, x1, x2]) => {
+  ).it('roots1d_polyquad(a,b,c) satisfies element-wise mixed stability', ([c, x1, x2]) => {
     let a = +(x1*x2) * c,
         b = -(x1+x2) * c;
 
-    const [y1,y2] = roots_polyquad1d(a,b,c),
+    const [y1,y2] = roots1d_polyquad(a,b,c),
               tol = 1e-7;
 
     if( x1 > x2 ) [x1,x2] = [x2,x1];

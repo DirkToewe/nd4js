@@ -18,7 +18,7 @@
 
 import {array, asarray, NDArray} from '../nd_array'
 
-import {roots_polyquad1d} from './polyquad1d'
+import {roots1d_polyquad} from './polyquad'
 import {TrustRegionSolverLSQ} from './_trust_region_solver'
 
 
@@ -145,7 +145,7 @@ export function* lsq_dogleg_gen(
         } a -= R*R;
           b *= 2;
 
-        const t = Math.min(1, roots_polyquad1d(a,b,c)[1]); // <- don't go beyond gauss-newton point (i.e. when it lies inside rust region)
+        const t = Math.min(1, roots1d_polyquad(a,b,c)[1]); // <- don't go beyond gauss-newton point (i.e. when it lies inside rust region)
 /*DEBUG*/        if( !(0 <= t) ) throw new Error('Assertion failed.');
 
         for( let i=N; i-- > 0; ) {
