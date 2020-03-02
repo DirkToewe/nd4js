@@ -17,12 +17,15 @@
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
+import math from '../math'
 import {tabulate} from '../tabulate'
+import {_rand_rows0,
+        _rand_cols0} from '../_test_data_generators'
 import {zip_elems} from '../zip_elems'
+
+import {eye} from './eye'
 import {matmul2} from './matmul'
 import {qr_decomp, qr_decomp_full, qr_lstsq} from './qr'
-import {eye} from './eye'
-import math from '../math'
 
 
 describe('qr', () => {

@@ -525,15 +525,19 @@ describe('svd', () => {
 
         for( const N of sizes() )
         {
-          const         A = _rand_rankdef(N,N);
+          const        [A,RANKS] = _rand_rankdef(N,N);
           Object.freeze(A);
           Object.freeze(A.data.buffer);
-          yield         A
+          yield        [A,RANKS];
         }
       }()
-    ).it(`${svd_name} is accurate for random rank-deficient matrices`, A => {
+    ).it(`${svd_name} is accurate for random rank-deficient matrices`, ([A,RANKS]) => {
       const [M,N]= A.shape,     L = Math.min(M,N),
          [U,sv,V]= svd_deco(A), D = diag_mat(sv);
+      Object.freeze( U.data.buffer); Object.freeze( U);
+      Object.freeze(sv.data.buffer); Object.freeze(sv);
+      Object.freeze( V.data.buffer); Object.freeze( V);
+      Object.freeze( D.data.buffer); Object.freeze( D);
 
       for( let i=1; i < sv.shape[0]; i++ )
       {
@@ -561,6 +565,14 @@ describe('svd', () => {
       }
       expect(D).toBeDiagonal()
       expect( norm(zip_elems([A,a], (x,y) => x-y)) ).not.toBeGreaterThan(A_TOL);
+
+      const ranks = svd_rank(sv);
+
+      expect(ranks.shape).toEqual(lead)
+      expect(RANKS.shape).toEqual(lead)
+      expect(ranks.dtype).toBe('int32')
+      expect(RANKS.dtype).toBe('int32')
+      expect(ranks).toBeAllCloseTo(RANKS, {rtol:0, atol:0});
     })
 
 
