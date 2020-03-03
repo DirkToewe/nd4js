@@ -1,0 +1,120 @@
+<!--
+  This file is part of ND.JS.
+  
+  ND.JS is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  ND.JS is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
+-->
+<!DOCTYPE html>
+<html>
+ <head>
+   <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+   <title>Strandbeest Simulator</title>
+   <script src="../dist/nd.min.js"></script>
+ </head>
+ <body>
+   <svg style="width:100%; height:95vh;" viewBox="-100 -50 200 150">
+     <path id="svg_path" style="stroke:black;fill:none;"/>
+   </svg>
+   <script type="text/javascript">
+'use strict';
+( () => {
+  const y0 = nd.array([
+      0.0,             0.0,
+    -35.0353991829,   19.5071987762,
+     17.7855809088,   37.4956412365,
+     50.7538954493,  - 0.0954512769988,
+      2.77183874468, -39.2021288959,
+    -17.0054756067,  -84.0335669394,
+    -28.0419102143,  -19.2671627536
+  ]);
+  Object.freeze(y0);
+  Object.freeze(y0.data.buffer);
+
+  const edges = [
+    [0, 1],
+    [0, 2],
+    [0, 4],
+    [1, 2],
+    [1, 6],
+    [2, 3],
+    [3, 4],
+    [4, 5],
+    [4, 6],
+    [5, 6]
+  ];
+  Object.freeze(edges);
+
+  const update_svg = y =>
+  {
+    let svg_path_d = ''
+    for( const [i,j] of edges )
+      svg_path_d += `M${y(2*i)},${-y(2*i+1)}L${y(2*j)},${-y(2*j+1)}`;
+
+    const svg_path = document.getElementById('svg_path');
+    svg_path.setAttributeNS(null, 'd', svg_path_d);
+  }
+
+  const dy = (y,t) =>
+  {
+    const A = nd.tabulate([14,14], () => 0),
+          v = nd.tabulate([14, 1], () => 0);
+
+    let row=0;
+
+    // linkage constraints
+    for( const [i,j] of edges )
+    {
+      let dx = y(2*i  ) - y(2*j  ),
+          dy = y(2*i+1) - y(2*j+1);
+      const hyp = Math.hypot(dx,dy);
+      dx /= hyp;
+      dy /= hyp;
+      A.set([row, 2*i  ],  dx);
+      A.set([row, 2*i+1],  dy);
+      A.set([row, 2*j  ], -dx);
+      A.set([row, 2*j+1], -dy);
+      v.set([row,0], 0);
+      row++;
+    }
+
+    // fixed bearing BC
+    A.set([row, 2*0  ], 1); v.set([row,0], 0); row++;
+    A.set([row, 2*0+1], 1); v.set([row,0], 0); row++;
+
+    // rotation BC
+    const dx = y(2*3  ) -38.0,
+          dy = y(2*3+1) - 7.8;
+    A.set([row, 2*3  ], 1); v.set([row,0],  dy); row++;
+    A.set([row, 2*3+1], 1); v.set([row,0], -dx); row++;
+
+    const  result = nd.la.solve(A,v).reshape(-1);
+    return result;
+  }
+
+  let y = y0;
+
+  function update(){
+    update_svg(y);
+    requestAnimationFrame(update);
+  }
+  update();
+
+  setInterval(() => {
+    y = nd.integrate.odeint_rk4(dy, y,/*t0=*/0, /*dt=*/0.05);
+  }, 10);
+})()
+   </script>
+ </body>
+</html>
