@@ -47,7 +47,6 @@ export class TrustRegionSolverLSQ
     this.Q = new Int32Array(N); // <- column permutation by RRQR
 
     this.D = new Float64Array(N), // <- trust region scaling diagonal
-    this.D.fill(Number.MIN_VALUE / Number.EPSILON); // <- TODO is this really a good idea?
 
     this.R = new Float64Array( L*N ); // <- stores result of RRQR
     this.S = new Float64Array( L*L ); // <- stores complete orthogonal decomp R (in rank-deficient case)
@@ -60,7 +59,7 @@ export class TrustRegionSolverLSQ
 
     this.X = new Float64Array(N*1);
 
-    this.norm = new Float64Array(2*N); // <- this is not necessary, Y could be used instead
+    this.norm = new Float64Array(2*N); // <- couldn't Y be used instead?
 
     this.G = new Float64Array(N);
 
@@ -186,8 +185,11 @@ export class TrustRegionSolverLSQ
 
       // factor in scaling
       for( let i=L; i-- > 0; )
-      for( let j=N; j-- > 0; )
-        T[N*i+j] /= D[P[j]];
+      for( let j=N; j-- > 0; ) {
+        const         d = D[P[j]];
+        if(     0 !== d )
+          T[N*i+j] /= d;
+      }
 
       // complete orthogonal decompositon
       for( let i=N; i-- > 0; )
@@ -212,8 +214,11 @@ export class TrustRegionSolverLSQ
         X[i] += V[N*k+i] * Y[k]; // X = V.T @ Y
 
       // factor out scaling
-      for( let i=N; i-- > 0; )
-        X[i] /= D[i];
+      for( let i=N; i-- > 0; ) {
+        const     d = D[i];
+        if( 0 !== d )
+          X[i] /= d;
+      }
     }
     else
     { // FULL RANK CASE -> SCALING NOT RELEVANT TO GLOBAL SOLUTION
@@ -255,7 +260,9 @@ export class TrustRegionSolverLSQ
   {
     if(  this._state !== 2
       && this._state !== 3 ) throw new Error('TrustRegionSolverLSQ.prototype.computeMinRegularized(λ): can only be (repeatedly) called after computeMinGlobal().');
-    this._state = 3;
+
+    if( 0 !== λ )
+      this._state = 3;
 
     const {M,N, P, D, R,S,T, V, X, F,Y, rank: rnk} = this;
 
@@ -280,12 +287,17 @@ export class TrustRegionSolverLSQ
           X[i] += V[N*k+i] * Y[k]; // X = V.T @ Y
 
         // factor out scaling
-        for( let i=N; i-- > 0; )
-          X[i] /= D[i];
+        for( let i=N; i-- > 0; ) {
+          const     d = D[i];
+          if( 0 !== d )
+            X[i] /= d;
+        }
       }
 
       // COMPUTE DISTANCE
-      const r = this.scaledNorm(X); // <- the scaled length
+      const  r = this.scaledNorm(X); // <- the scaled length
+      if(0===r)
+        return [0,0];
 
       // COMPUTE DISTANCE DERIVATIVE dr/dλ, see:
       //  "THE LEVENBERG-MARQUARDT ALGORITHM: IMPLEMENTATION AND THEORY"
@@ -330,7 +342,11 @@ export class TrustRegionSolverLSQ
       const λSqrt = Math.sqrt(λ);
 
       for( let i=N; i-- > 0; ) {
-        const Dλ = D[P[i]] * λSqrt;
+        let Dλ = D[P[i]];
+        if( Dλ===0 )
+            Dλ = 1;
+        else
+            Dλ *= λSqrt;
 
         if( !(0 < Dλ) ) throw new Error('TrustRegionSolverLSQ.prototype.computeMinRegularized(λ): λ too small (caused underflow).');
 
@@ -356,19 +372,24 @@ export class TrustRegionSolverLSQ
     else if( rnk !== N )
       throw new Error('Assertion failed.');
 
-    _triu_solve(N,N,1, T,0, Y,0);
+    if(  0!==λ || this._state!==2 ) // <- AVOID RECOMPUTING GLOBAL MIN.
+    { if(0===λ)   this._state = 2;
 
-    for( let i=N; i-- > 0; )
-      X[P[i]] = Y[i];
+      _triu_solve(N,N,1, T,0, Y,0);
+
+      for( let i=N; i-- > 0; )
+        X[P[i]] = Y[i];
+    }
 
     // COMPUTE DISTANCE
-    const r = this.scaledNorm(X); // <- the scaled length
+    const  r = this.scaledNorm(X); // <- the scaled length
+    if(0===r)
+      return [0,0];
 
     // COMPUTE DISTANCE DERIVATIVE dr/dλ, see:
     //  "THE LEVENBERG-MARQUARDT ALGORITHM: IMPLEMENTATION AND THEORY"
     //   by Jorge J. Moré
     //   Chapter 5 "The Levenberg-Marquardt Parameter", Equation (5.8)
-    Y.fill(0.0, 0,N);
     for( let i=N; i-- > 0; ) {
       const j = P[i];
       Y[i] = X[j]*D[j]*D[j];

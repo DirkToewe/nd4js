@@ -361,7 +361,7 @@ describe('dogleg', () => {
       x,y, fg, /*p0=*/coeffs.mapElems( x => x + Math.random()*4 - 2 )
     ))
     {
-      expect(++nIter).toBeLessThan(512);
+      expect(++nIter).toBeLessThan(1024);
 
       if( ! isFinite(mse) )
         console.log({coeffs, param, mse, grad})

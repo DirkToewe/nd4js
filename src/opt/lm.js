@@ -16,279 +16,252 @@
  * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {asarray, NDArray} from '../nd_array'
+import {array, asarray, NDArray} from '../nd_array'
 
-import {lstsq} from '../la/lstsq'
+import {FrobeniusNorm} from '../la/norm'
 
-
-// Regularized least squares (RLS) solver. Solves the follwing equation system:
-//
-//   (JᵀJ + λI)x = Jᵀy
-//
-const RLS = (J,y, λ) => {
-  if( J.ndim !== 2 ) throw new Error('Assertion failed.');
-  if( y.ndim !== 2 ) throw new Error('Assertion failed.');
-  if( y.shape[0] !== J.shape[0] ) throw new Error('Assertion failed.');
-  if( y.shape[1] !== 1          ) throw new Error('Assertion failed.');
-
-  if( ! (0 <= λ && λ < Infinity) )
-    throw new Error(`fit_lm_gen(x,y, fg, p0): Illegal damping factor λ=${λ} during iteration.`);
-
-  if( 0 === λ )
-    return lstsq(J,y);
-
-  const [M,N] = J.shape;
-
-  J = J.data;
-  y = y.data;
-
-  // The equation above can be solved as the following least squares problem:
-  //
-  //   min ║Ax - z║₂
-  //    x
-  //
-  // where
-  //       ┏       ┓        ┏   ┓
-  //       ┃       ┃        ┃   ┃
-  //       ┃       ┃        ┃   ┃
-  //       ┃   J   ┃        ┃ y ┃
-  //       ┃       ┃        ┃   ┃
-  //       ┃       ┃        ┃   ┃
-  //   A = ┃┄┄┄┄┄┄┄┃    z = ┃┄┄┄┃
-  //       ┃√λ     ┃        ┃ 0 ┃
-  //       ┃   ⋱   ┃        ┃ ⋮ ┃
-  //       ┃    √λ ┃        ┃ 0 ┃
-  //       ┗       ┛        ┗   ┛
-  let A = new Float64Array((M+N)*N),
-      z = new Float64Array( M+N );
-
-  λ = Math.sqrt(λ);
-
-  // Init A
-  for( let i=N; i-- > 0; )
-    A[M*N + N*i+i] = λ;
-
-  for( let i=M*N; i-- > 0; )
-    A[i] = J[i];
-
-  // Init z
-  for( let i=M; i-- > 0; )
-    z[i] = y[i];
-
-  A = new NDArray(Int32Array.of(M+N,N), A);
-  z = new NDArray(Int32Array.of(M+N,1), z);
-
-  return lstsq(A,z);
-};
+import {TrustRegionSolverLSQ} from './_trust_region_solver'
 
 
-/** Solves a nonlinear least-squares problem using the
- *  Levenberg-Marquard algorithm.
+/** Solves a nonlinear least-squares problem using a
+ *  trust-region variant Levenberg-Marquard algorithm
+ *  as described in:
+ *
+ *    "THE LEVENBERG-MARQUARDT ALGORITHM: IMPLEMENTATION AND THEORY"
+ *    by Jorge J. Moré.
  */
 export function* lsq_lm_gen(
-  fj,//: (x0: float[nInputs]) => [f: float[nSamples], j: float[nSamples,nInputs]]
-  x0,//: float[nInputs]
-  {
-    lambda0 = 10,
-    lambdaFactor = [1 / (Math.E-1), Math.PI-2],
-    improvement: {
-      accept    = 0,
-      expectLow = 0.25,
-      expectHigh= 0.75
-    } = {},
-    rls = RLS
+  fJ,//: (x0: float[nInputs]) => [f: float[nSamples], j: float[nSamples,nInputs]] - THE OPTIMIZATION FUNCTION AND ITS JACOBIAN
+  x0,//: float[nInputs] - THE START POINT OF THE OPTIMIZATION
+  /*opt=*/{
+    r0   = 1e-2,         // <-   START TRUST REGION RADIUS (meaning radius AFTER scaling)
+    rMin = 1e-4,         // <- MINIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
+    rMax = Infinity,     // <- MAXIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
+    rTol = 0.05,         // <-         TRUST REGION RADIUS TOLERANCE,
+    lmLower = 0.001,     // <- LOWER RELATIVE PER-STEP BOUND OF THE LEVENBERG-MARQUARDT PARAMETER ITERATION (USED TO AVOID EXCEEDINGLY SMALL LAMBDA PARAMETERS)
+    shrinkLower= 0.05,   // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT MOST
+    shrinkUpper= 0.95,   // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT LEAST
+    grow = 1.5,          // <-    GROW TRUST REGION RADIUS BY THIS FACTOR
+    expectGainMin = 0.25,// <- IF ACTUAL IMPROVEMENT RELATIVE TO PREDICTION IS WORSE  THAN THIS FACTOR, SHRINK TRUST REGION
+    expectGainMax = 0.75 // <- IF ACTUAL IMPROVEMENT RELATIVE TO PREDICTION IS BETTER THAN THIS FACTOR, GROW   TRUST REGION
   } = {}
 )
 {
-  const FloatArray = Float64Array;
+  x0 = array('float64', x0);
+  if( x0.ndim !== 1 )
+    throw new Error('lsq_dogleg_gen(fJ, x0): x0.ndim must be 1.');
 
-  let x = asarray('float64', x0);
-                             x0 = undefined;
+  if( !(fJ instanceof Function) )
+    throw new Error('lsq_dogleg_gen(fJ, x0): fJ must be Function.');
 
-  if( x.ndim !== 1 ) throw new Error('lsq_lm_gen(fj, x0): x0.ndim must be 1.');
+  if( !( 0 <= lmLower                ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.lmLower must be within [0,1).');
+  if( !(      lmLower < 1            ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.lmLower must be within [0,1).');
+  if( !(            0 <  r0          ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.r0 must be positive number.');
+  if( !(            0 <  rMin        ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.rMin must be positive number.');
+  if( !(         rMin <= rMax        ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.rMin must not be greater than opt.rMax.');
+  if( !(         rMin <= r0          ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.r0 must not be less than opt.rMin.');
+  if( !(         rMax >= r0          ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.r0 must not be greater than opt.rMax.');
+  if( !(            0 <  shrinkLower ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.shrinkLower must be positive number.');
+  if( !(  shrinkLower <= shrinkUpper ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.shrinkLower must not be greater than opt.shrinkUpper.');
+  if( !(  shrinkUpper < 1            ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.shrinkUpper must be less than 1.');
+  if( !(            1 < grow         ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.grow must be number greater than 1.');
+  if( !(            0 < expectGainMin) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMin must be positive number.');
+  if( !(expectGainMin < expectGainMax) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMin must be less than expectGainMax.');
+  if( !(expectGainMax < 1            ) )    console.warn('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMax should be less than 1.');
 
-  if( accept     < 0         )    console.warn('lsq_lm_gen(fj, x0, opt): opt.improvement.accept should not be negative.');
-  if( accept     > expectLow ) throw new Error('lsq_lm_gen(fj, x0, opt): opt.improvement.accept must be less than opt.improvement.expectLow.');
-  if( expectHigh < expectLow ) throw new Error('lsq_lm_gen(fj, x0, opt): opt.improvement.expectLow must be less than opt.improvement.expectHigh.');
-  if( expectHigh > 1         )    console.warn('lsq_lm_gen(fj, x0, opt): opt.improvement.expectHigh should not be greater than 1.');
+  let R = r0,
+      X = x0.data,
+      W = new Float64Array(X.length);
 
-  if( ! (0 <= lambda0 && lambda0 < Infinity) )
-    throw new Error(`lsq_lm_gen(fj, x0, opt): Invalid opt.lambda0=${lambda0}.`);
+  const NORM = new FrobeniusNorm();
 
-  if( lambdaFactor instanceof Array )
-  {
-    if(  lambdaFactor.length !== 2  ) throw new Error(`lsq_lm_gen(fj, x0, opt): opt.lambdaFactor must contain two numbers if Array.`);
-    const [lo,hi] = lambdaFactor;
-    if( ! (0 < lo && lo < 1       ) ) throw new Error(`lsq_lm_gen(fj, x0, opt): opt.lambdaFactor[0] must be in (0,1).`);
-    if( ! (1 < hi && hi < Infinity) ) throw new Error(`lsq_lm_gen(fj, x0, opt): opt.lambdaFactor[1] must be in (1,∞)`);
+  const X_shape = x0.shape,
+      mse_shape = new Int32Array(0);
+
+  let [ff,JJ] = fJ( new NDArray(X_shape, X.slice()) );
+  ff = array(ff);
+  JJ = array(JJ);
+  if( ff.ndim !== 1 ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ(x) returned [f,J] with f.ndim !== 1.');
+  if( JJ.ndim !== 2 ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ(x) returned [f,J] with J.ndim !== 2.');
+
+  const                  solver = new TrustRegionSolverLSQ(...JJ.shape),
+    {M,N, D, X: dX, G} = solver;
+
+  if( x0.shape[0] !== N )
+    throw new Error('lsq_dogleg_gen(fJ, x0): fJ(x) returned [f,J] where J.shape[1] did not match x0.shape[0].');
+
+  let f = ff.data,
+      J = JJ.data;
+
+  let err_now = 0;
+  for( let i=M; i-- > 0; ) {
+    const      s = f[i];
+    err_now += s*s;
   }
-  else if( ! (1 <= lambdaFactor && lambdaFactor < Infinity) )
-    throw new Error(`lsq_lm_gen(fj, x0, opt): Invalid opt.lambdaFactor=${lambda0}.`);
 
-  const [N] = x.shape,
-    x_shape = x.shape;
-
-  let     M = -1,
-    r_shape = undefined,
-    J_shape = undefined,
-    R_shape = undefined;
-
-  x = x.data;
-
-  let R = undefined,
-      G = undefined,
-      J = undefined,
-    mse = NaN;
-
-  const recompute = () =>
+  for(;;)
   {
-    let [r,j] = fj( new NDArray(x_shape, x.slice()) );
-    r = asarray(r);
-    j = asarray(j);
+    solver.update(ff,JJ);
 
-    if(r.ndim     !== 1         ) throw new Error('lsq_lm_gen(fj, x0): fj must have signature float[nInputs] => [float[nSamples], float[nSamples,nInputs]].');
-    if(j.ndim     !== 2         ) throw new Error('lsq_lm_gen(fj, x0): fj must have signature float[nInputs] => [float[nSamples], float[nSamples,nInputs]].');
-    if(j.shape[0] !== r.shape[0]) throw new Error('lsq_lm_gen(fj, x0): fj must have signature float[nInputs] => [float[nSamples], float[nSamples,nInputs]].');
-    if(j.shape[1] !== N         ) throw new Error('lsq_lm_gen(fj, x0): fj must have signature float[nInputs] => [float[nSamples], float[nSamples,nInputs]].');
+    yield [
+      new NDArray(  X_shape, X.slice()),
+      new NDArray(mse_shape, Float64Array.of(err_now / M) ),
+      new NDArray(  X_shape, G.map(g => g*2/M) ),
+      new NDArray( ff.shape, ff.data.slice() ),
+      new NDArray( JJ.shape, JJ.data.slice() )
+    ];
 
-    if( M < 0 ) { // <- 1st time around we have to determine M
-      [M] = r.shape;
-      r_shape = r.shape;
-      J_shape = j.shape;
-      R_shape = Int32Array.of(M,1);
-      R = new FloatArray(M  );
-      G = new FloatArray(  N);
-      J = new FloatArray(M*N);
-    }
-    else if( j.shape[0] !== M )
-      throw new Error('lsq_lm_gen(fj, x0): fj must be consistent.');
+    solver.computeMinGlobal();
 
-    r = r.data;
-    j = j.data;
-
-    // copy j -> J
-    for( let i=M*N; i-- > 0; )
-      J[i] = j[i];
-
-    // copy r -> R
-    for( let i=M; i-- > 0; )
-      R[i] = r[i];
-
-    // compute G
-    G.fill(0);
-    for( let i=M; i-- > 0; )
-    for( let j=N; j-- > 0; )
-      G[j] += J[N*i+j] * R[i] / M; // <- TODO check underflow?
-
-    // compute mean square error
-    mse = 0;
-    for( let i=M; i-- > 0; ) {
-      const  r = R[i];
-      mse += r*r / M; // <- TODO check underflow?
-    }
-    mse *= 0.5;
-  };
-
-  const compute_dx = (J,R,lambda) => {
-    let dx = rls(
-      new NDArray(J_shape, J.slice()),
-      new NDArray(R_shape, R.slice()),
-      lambda
-    );  dx = asarray(dx);
-    if( dx.ndim     !== 2 ) throw new Error('Assertion failed.');
-    if( dx.shape[0] !== N ) throw new Error('Assertion failed.');
-    if( dx.shape[1] !== 1 ) throw new Error('Assertion failed.');
-    return dx.data;
-  };
-
-  if( lambdaFactor === 1 )
-    for(;;)
+    if( ! (solver.scaledNorm(dX) <= R*(1+rTol)) )
     {
-      recompute();
+      NORM.reset();
+      for( let i=N; i-- > 0; ) {
+        const d = D[i];
+        let   g = G[i];
+        if(0 !== d)  g /= d;
+        NORM.include(g);
+      }
 
-      yield [
-        /*meanSquareErr=*/mse,
-        /*gradient =*/new NDArray(x_shape, G.slice()),
-        /*params   =*/new NDArray(x_shape, x.slice()),
-        /*residuals=*/new NDArray(r_shape, R.slice())
-      ];
+      // GLOBAL MIN OUTSIDE TRUST REGION -> FIND LAMBDA
+      let [r,dr] = solver.computeMinRegularized(0);
+      r -= R;
 
-      const dx = compute_dx(J,R, lambda0);
+      if( ! isFinite(r) ) throw new Error('Assertion failed.');
+      if( !(0 <  r) ) throw new Error('Assertion failed.');
+      if( !(0 > dr) ) throw new Error('Assertion failed.');
 
-      for( let i=N; i-- > 0; )
-        x[i] -= dx[i];
-    }
-  else
-  {
-    const [shrink,grow] = lambdaFactor instanceof Array
-      ? lambdaFactor
-      : [1/lambdaFactor, lambdaFactor];
+      let λMin = -r / dr,
+          λMax = NORM.result / R, // <- FIXME something's wrong here
+          λ = 0;
 
-    recompute();
-
-    let   _mse,
-          _R = R.slice(),
-          _J = J.slice(),
-          _x = x.slice(),
-      lambda = lambda0;
-
-    for(;;)
-    {
-      yield [
-        mse,
-        /*gradient =*/new NDArray(x_shape, G.slice()),
-        /*params   =*/new NDArray(x_shape, x.slice()),
-        /*residuals=*/new NDArray(r_shape, R.slice())
-      ];
-
-      [_R,R] = [R,_R];
-      [_J,J] = [J,_J];
-      [_x,x] = [x,_x];
-      _mse = mse;
-
+/*DEBUG*/      let nIter = -1;
       for(;;)
       {
-        const dx = compute_dx(_J,_R, lambda);
+/*DEBUG*/        if( 8 < ++nIter ) throw new Error('Assertion failed.');
+//*DEBUG*/        if( ! (solver.computeMinRegularized(λMin)[0] > R) ) throw new Error('Assertion failed.');
+//*DEBUG*/        if( ! (solver.computeMinRegularized(λMax)[0] < R) ) throw new Error('Assertion failed.');
 
-        for( let i=N; i-- > 0; )
-          x[i] = _x[i] - dx[i];
+/*DEBUG*/        if( ! (λMin >= 0   ) ) throw new Error('Assertion failed.');
+/*DEBUG*/        if( ! (   0 <= λMax) ) throw new Error('Assertion failed.');
+/*DEBUG*/        if( ! (λMin <  λMax) ) throw new Error('Assertion failed.');
 
-        recompute();
+        // Algorithm (5.5) (a)
+        if( ! (λMin < λ && λ < λMax) )
+          λ = Math.max(lmLower*λMax, Math.sqrt(λMin*λMax));
 
-        let est = 0; // <- estimated mean square error
-        for( let i=0; i < M; i++ ) { let r = 0;
-        for( let j=0; j < N; j++ )       r-= _J[N*i+j] * dx[j];
-            r += _R[i]
-          est += r*r/M;
-        }
-        est *= 0.5;
+/*DEBUG*/        if( ! (λMin < λ && λ < λMax) ) throw new Error('Assertion failed.');
 
-        if( est > _mse ) throw new Error('Assertion failed.'); // <- TODO comment out after testing
+        // Algorithm (5.5) (b)
+        [r,dr] = solver.computeMinRegularized(λ);
 
-        const improvement = (_mse - mse)
-                          / (_mse - est);
+        if( ! isFinite(r) ) throw new Error('Assertion failed.');
 
-        if( improvement < expectLow  ) // <- if worse  than expected, shift towards gradient descent
-        {
-          let l = lambda*grow;
-          if( l===lambda ) l += Number.MIN_VALUE;
-          if( l===lambda ) throw new Error('Assertion failed.');
-          if(!isFinite(l)) throw new Error('Assertion failed.');
-          lambda = l;
-        }
-        else if( improvement > expectHigh ) // <- if better than expected, shift towards gauss-newton
-        {
-          if( 0===lambda ) break;
-          let l = lambda*shrink;
-          if( l===lambda ) l -= Number.MIN_VALUE;
-          if( l===lambda ) throw new Error('Assertion failed.');
-          lambda = l;
-        }
-
-        if( improvement >= accept )
+        if( Math.abs(R-r) <= R*rTol )
           break;
+
+        if( r < R )
+          λMax = λ;
+
+        λMin = Math.max(λMin, λ + (R-r) / dr);
+
+        // Algorithm (5.5) (c)
+        λ += (R-r)/dr * (r/R);
       }
+
+/*DEBUG*/      if( !(Math.abs(solver.scaledNorm(dX)-R) <= R*rTol) ) // <- check that solution is in radius
+/*DEBUG*/        throw new Error('Assertion failed.');
     }
+
+/*DEBUG*/    if( !(solver.scaledNorm(dX) <= R*(1+rTol)) )
+/*DEBUG*/      throw new Error('Assertion failed.');
+
+    let err_predict = 0;
+    for( let i=M; i-- > 0; )
+    {
+      let s = 0;
+      for( let j=N; j-- > 0; )
+        s += J[N*i+j] * dX[j];
+      s += f[i];
+      err_predict += s*s;
+    }
+
+/*DEBUG*/    if( !(err_predict <= err_now) )
+/*DEBUG*/      throw new Error('Assertion failed.');
+
+    for( let i=N; i-- > 0; )
+      W[i] = dX[i] + X[i];
+
+    let [_f,_J] = fJ( new NDArray(X_shape, W.slice()) );
+    _f = array(_f);
+    _J = array(_J);
+    if(_f.ndim !== 1 ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ(x) returned [f,J] with f.ndim !== 1.');
+    if(_J.ndim !== 2 ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ(x) returned [f,J] with J.ndim !== 2.');
+
+    if( M !== _f.shape[0] ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ must return [f,J] with consistent shapes');
+    if( M !== _J.shape[0] ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ must return [f,J] with consistent shapes');
+    if( N !== _J.shape[1] ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ must return [f,J] with consistent shapes');
+
+    f = _f.data;
+    let err_next = 0;
+    for( let i=M; i-- > 0; ) {
+      const       s = f[i];
+      err_next += s*s;
+    }
+
+    const   predict = err_now - err_predict,
+             actual = err_now - err_next;
+         if( actual > predict*expectGainMax ) R = Math.min(rMax, R*grow);
+    else if( actual < predict*expectGainMin )
+    {
+      let grad_now = 0;
+      for( let i=N; i-- > 0; )
+        grad_now += dX[i] * G[i];
+      grad_now *= 2;
+//*DEBUG*/      const func = s => {
+//*DEBUG*/        const Z = new Float64Array(N);
+//*DEBUG*/        for( let i=N; i-- > 0; )
+//*DEBUG*/          Z[i] = X[i] + dX[i] * s;
+//*DEBUG*/        let [{data: f}] = fJ( new NDArray(X_shape,Z) );
+//*DEBUG*/        return f.reduce((x,y) => x + y*y, 0);
+//*DEBUG*/      };
+//*DEBUG*/      const grad = num_grad(func);
+//*DEBUG*/
+//*DEBUG*/      if( !(Math.abs(func(0) - err_now ) <= 1e-6) ) throw new Error('Assertion failed.');
+//*DEBUG*/      if( !(Math.abs(func(1) - err_next) <= 1e-6) ) throw new Error('Assertion failed.');
+//*DEBUG*/      if( !(Math.abs(grad(0) - grad_now) <= 1e-6) ) throw new Error('Assertion failed.');
+//*DEBUG*/
+//*DEBUG*/      // minimize quadratic polynomial through {err_now, grad_now, err_next} to compute shrink
+//*DEBUG*/      const a = err_now,
+//*DEBUG*/            b = grad_now,
+//*DEBUG*/            c = err_next - err_now - grad_now;
+//*DEBUG*/
+//*DEBUG*/      const poly = s => a + b*s + c*s*s,
+//*DEBUG*/            goly = s =>     b   + c*s*2;
+//*DEBUG*/
+//*DEBUG*/      if( !(Math.abs(goly(0) -grad_now ) <= 1e-6) ) throw new Error('Assertion failed.');
+//*DEBUG*/      if( !(Math.abs(poly(0) - err_now ) <= 1e-6) ) throw new Error('Assertion failed.');
+//*DEBUG*/      if( !(Math.abs(poly(1) - err_next) <= 1e-6) ) throw new Error('Assertion failed.');
+      let shrink = 0.5 * grad_now / (grad_now + err_now - err_next);
+//*DEBUG*/      if( !(Math.abs(goly(shrink)) <= 1e-6) ) {
+//*DEBUG*/        console.log({a,b,err_now,err_next,grad_now})
+//*DEBUG*/        throw new Error('Assertion failed: ' + Math.abs(grad(shrink)));
+//*DEBUG*/      }
+      if( !(shrinkLower <= shrink) ) shrink = shrinkLower;
+      if( !(shrinkUpper >= shrink) ) shrink = shrinkUpper;
+      R = Math.max(rMin, R*shrink);
+    }
+
+    // ONLY ACCEPT NEW X IF BETTER
+    if( err_now > err_next ) {
+        err_now = err_next;
+      [W,X] = [X,W];
+      ff = _f;
+      JJ = _J;
+    }
+
+    f = ff.data;
+    J = JJ.data;
   }
 }
 
@@ -301,6 +274,9 @@ export function* fit_lm_gen(
   opt
 )
 {
+  if( ! (fg instanceof Function) )
+    throw new Error('fit_lm_gen(x,y, fg, p0): fg must be a function.');
+
   x = asarray(          x ); // <- TODO allow non-ndarray x ?
   y = asarray('float64',y );
   p0= asarray('float64',p0);
@@ -336,7 +312,7 @@ export function* fit_lm_gen(
        RJ =[new NDArray(Int32Array.of(M  ), R),
             new NDArray(Int32Array.of(M,P), J)];
 
-  const fj = p =>
+  const fJ = p =>
   {
     const fgp = fg(p);
     if( !(fgp instanceof Function) )
@@ -367,5 +343,5 @@ export function* fit_lm_gen(
     return RJ;
   };
 
-  yield* lsq_lm_gen(fj, p0, opt);
+  yield* lsq_lm_gen(fJ, p0, opt);
 }

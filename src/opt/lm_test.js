@@ -17,14 +17,18 @@
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
-import {array, asarray, NDArray} from '../nd_array'
+import {array, NDArray} from '../nd_array'
 import {tabulate} from '../tabulate'
-import {zip_elems} from '../zip_elems'
 
 import {norm} from '../la/norm'
 
-import {fit_lm_gen} from './lm'
+import {lsq_lm_gen,
+        fit_lm_gen} from './lm'
 import {num_grad} from './num_grad'
+import {rosenbrock,
+        rosenbrock_grad,
+        rosenbrock_lsq,
+        rosenbrock_lsq_jac} from './test_fn/rosenbrock'
 
 
 describe('levenberg-marquardt', () => {
@@ -34,29 +38,64 @@ describe('levenberg-marquardt', () => {
 
 
   forEachItemIn(
-    function*(){
-      for( const opt of [
-        undefined,
-        { lambda0: 0                    },
-        {              lambdaFactor: 1  },
-        { lambda0: 0,  lambdaFactor: 1  },
-        { lambda0: 1,  lambdaFactor: 1  },
-
-        { lambda0: 0,  lambdaFactor: 1.1},
-        { lambda0: 0.1,lambdaFactor: 1.7},
-        {              lambdaFactor: 1.3},
-        { lambda0: 2.2                  }
-      ])
-        for( let run=3; run-- > 0; )
-        {
-          const                            N = Math.random()*4 + 1 | 0,
-                        coeffs = tabulate([N], () => Math.random()*4 - 2);
-          Object.freeze(coeffs)
-          Object.freeze(coeffs.data.buffer)
-          yield    [opt,coeffs];
-        }
+    function*(){                     const n = 16;
+      function*       range() { for( let i=n+1; i-- > 0; ) yield Math.PI*(1-2*(i/n)); }
+      for( const x of range() )
+      for( const y of range() ) { yield [x,y];
+      for( const z of range() ) { yield [x,y,z]; }}
     }()
-  ).it(`fit_lm_gen fits coefficients of polynomial.`, ([opt,coeffs]) => {
+  ).it('lsq_lm_gen works on rosenbrock_lsq', x0 => {
+
+    let nCalls = 0
+    const fJ = x => {
+      expect(++nCalls).toBeLessThan(2048);
+      return [
+        rosenbrock_lsq(x),
+        rosenbrock_lsq_jac(x)
+      ];
+    };
+
+    const N = x0.length,
+          M = (N-1)*2;
+
+    for( const [x, mse, mse_grad] of lsq_lm_gen(fJ, x0) )
+    {
+      expect(x       ).toEqual( jasmine.any(NDArray) )
+      expect(mse     ).toEqual( jasmine.any(NDArray) )
+      expect(mse_grad).toEqual( jasmine.any(NDArray) )
+
+      expect(x       .ndim).toBe(1)
+      expect(mse     .ndim).toBe(0)
+      expect(mse_grad.ndim).toBe(1)
+
+      expect(x       .shape).toEqual( Int32Array.of(N) )
+      expect(mse_grad.shape).toEqual( Int32Array.of(N) )
+
+      expect(mse     ).toBeAllCloseTo( rosenbrock(x) / M )
+      expect(mse_grad).toBeAllCloseTo( rosenbrock_grad(x).mapElems(x => x/M) )
+
+      const gNorm = norm(mse_grad);
+      if(   gNorm <= 1e-8 ) {
+        expect(x       ).toBeAllCloseTo(1)
+        expect(mse     ).toBeAllCloseTo(0)
+        expect(mse_grad).toBeAllCloseTo(0)
+        break;
+      }
+    }
+  })
+
+
+  forEachItemIn(
+    function*(){
+      for( let run=6; run-- > 0; ) {
+        const                            N      =  Math.random()*4 + 1 | 0,
+                      coeffs = tabulate([N], () => Math.random()*4 - 2);
+        Object.freeze(coeffs)
+        Object.freeze(coeffs.data.buffer)
+        yield         coeffs;
+      }
+    }()
+  ).it(`fit_lm_gen fits coefficients of polynomial.`, coeffs => {
 
     const [N] = coeffs.shape;
 
@@ -113,8 +152,8 @@ describe('levenberg-marquardt', () => {
     Object.freeze(x.data.buffer);
     Object.freeze(y.data.buffer);
 
-    const computeRes = p =>       x.data.map( (x,i) => f(p)( array([x]) ) - y(i) ),
-          computeErr = p => 0.5 * x.data.reduce( (sum,x,i) => sum + (f(p)( array([x]) ) - y(i))**2 / M, 0 ),
+    const computeRes = p => x.data.map( (x,i) => f(p)( array([x]) ) - y(i) ),
+          computeErr = p => x.data.reduce( (sum,x,i) => sum + (f(p)( array([x]) ) - y(i))**2 / M, 0 ),
           computeGrad= num_grad(computeErr);
 
     let nIter = 0,
@@ -123,8 +162,8 @@ describe('levenberg-marquardt', () => {
         param,
         res;
 
-    for( [mse, grad, param, res] of fit_lm_gen(
-      x,y, fg, tabulate([N], () => Math.random()*4 - 2), opt
+    for( [param, mse, grad, res] of fit_lm_gen(
+      x,y, fg, /*p0=*/tabulate([N], () => Math.random()*4 - 2)
     ))
     {
       expect(++nIter).toBeLessThan(64);
@@ -137,30 +176,21 @@ describe('levenberg-marquardt', () => {
         break;
     }
 
-    if( opt != null && 'lambda0' in opt && opt.lambda0 === 0 )
-      expect(nIter).toBe(2);
     expect(param).toBeAllCloseTo(coeffs);
   })
 
 
   forEachItemIn(
     function*(){
-      for( let run=3; run-- > 0; )
-        for( const opt of [
-          undefined,
-          { lambda0: Math.random()*2                                   },
-          {                           lambdaFactor: Math.random()+1.01 },
-          { lambda0: Math.random()*2, lambdaFactor: Math.random()+1.01 }
-        ])
-        {
-          const                            N = Math.random()*4 + 1 | 0,
-                        coeffs = tabulate([N], () => Math.random()*4 - 2);
-          Object.freeze(coeffs)
-          Object.freeze(coeffs.data.buffer)
-          yield    [opt,coeffs];
-        }
+      for( let run=6; run-- > 0; )
+      { const                            N      =  Math.random()*4 + 1 | 0,
+                      coeffs = tabulate([N], () => Math.random()*4 - 2);
+        Object.freeze(coeffs)
+        Object.freeze(coeffs.data.buffer)
+        yield         coeffs;
+      }
     }()
-  ).it('fit_lm_gen fits coefficients of polynomial in root form.', ([opt,coeffs]) => {
+  ).it('fit_lm_gen fits coefficients of polynomial in root form.', coeffs => {
 
     const [N] = coeffs.shape;
 
@@ -198,7 +228,7 @@ describe('levenberg-marquardt', () => {
     ;{      
       const h = p => x => num_grad( p => f(p)(x) )(p);
 
-      for( let repeat=64; repeat-- > 0; )
+      for( let repeat=16; repeat-- > 0; )
       {
         const x = array([ Math.random()*4 - 2 ]),
               p = tabulate([N], 'float64', () => Math.random()*4 - 2);
@@ -220,8 +250,8 @@ describe('levenberg-marquardt', () => {
     Object.freeze(x.data.buffer);
     Object.freeze(y.data.buffer);
 
-    const computeRes = p =>       x.data.map(        (x,i) =>        f(p)( array([x]) ) - y(i) ),
-          computeErr = p => 0.5 * x.data.reduce( (sum,x,i) => sum + (f(p)( array([x]) ) - y(i))**2 / M, 0 ),
+    const computeRes = p => x.data.map(        (x,i) =>        f(p)( array([x]) ) - y(i) ),
+          computeErr = p => x.data.reduce( (sum,x,i) => sum + (f(p)( array([x]) ) - y(i))**2 / M, 0 ),
           computeGrad= num_grad(computeErr);
 
     let nIter = 0,
@@ -230,8 +260,8 @@ describe('levenberg-marquardt', () => {
         param,
         res;
 
-    for( [mse, grad, param, res] of fit_lm_gen(
-      x,y, fg, tabulate([N], () => Math.random()*4 - 2), opt
+    for( [param, mse, grad, res] of fit_lm_gen(
+      x,y, fg, /*p0=*/tabulate([N], () => Math.random()*4 - 2)
     ))
     {
       expect(++nIter).toBeLessThan(512);
@@ -253,7 +283,7 @@ describe('levenberg-marquardt', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=24; run-- > 0; )
+      for( let run=6; run-- > 0; )
       {
         const         coeffs = tabulate([2], () => Math.random()*4 - 2);
         Object.freeze(coeffs);
@@ -317,8 +347,8 @@ describe('levenberg-marquardt', () => {
     Object.freeze(x.data.buffer);
     Object.freeze(y.data.buffer);
 
-    const computeRes = p =>       x.data.map(        (x,i) =>        f(p)( array([x]) ) - y(i) ),
-          computeErr = p => 0.5 * x.data.reduce( (sum,x,i) => sum + (f(p)( array([x]) ) - y(i))**2 / M, 0 ),
+    const computeRes = p => x.data.map(        (x,i) =>        f(p)( array([x]) ) - y(i) ),
+          computeErr = p => x.data.reduce( (sum,x,i) => sum + (f(p)( array([x]) ) - y(i))**2 / M, 0 ),
           computeGrad= num_grad(computeErr);
 
     let nIter = 0,
@@ -327,8 +357,8 @@ describe('levenberg-marquardt', () => {
         param,
         res;
 
-    for( [mse, grad, param, res] of fit_lm_gen(
-      x,y, fg, coeffs.mapElems( x => x + Math.random()*3 - 1.5 )
+    for( [param, mse, grad, res] of fit_lm_gen(
+      x,y, fg, /*p0=*/coeffs.mapElems( x => x + Math.random()*4 - 2 )
     ))
     {
       expect(++nIter).toBeLessThan(512);
