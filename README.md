@@ -1,6 +1,8 @@
 # Introduction
 `nd4js` is a lightweight JavaScript library for ND-Arrays including some optimization functionality and one of the most complete linear algebra modules for the web. It is strongly inspired by [NumPy](http://www.numpy.org/). There are, however, some key differences. Broadcasting, slicing and reshape work in a similar way as in NumPy. Instead of the predefined operations (+, -, *, /, sin, cos, ...), `nd4js` relies on functional-style map- and zip-like methods.
 
+The goal of this library is to explore and improve the author's understanding of linear algebra, optimization and computational numerics in general. The author is therefore constantly working on the edge of his knowledge. Despite his best efforts, no guarantees can be made about performance, numeric accuracy, reproducability or anything at all. There will be bugs, underflows, overflows, NaNs, memory issues and the like. If You find a bug - and don't want to keep it - feel free file an issue or a PR.
+
 A function reference can be found [here](https://dirktoewe.github.io/ndjs/doc.html).
 
   * [Installation](#installation)

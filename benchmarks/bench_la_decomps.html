@@ -41,9 +41,10 @@
                                   ['square',0,0],
                                   ['horiz' ,0,1]] )
        {
-         for( const typ of [0,1] )
-           methods[['rrqr_',
-                      'qr_'][typ]+shape] = async N => {
+         for( const typ of [0,1,2] )
+           methods[['srrqr_',
+                     'rrqr_',
+                       'qr_'][typ]+shape] = async N => {
              const M = N+m;
                    N = N+n;
        
@@ -53,12 +54,13 @@
              await sleep();
        
              const  t0 = performance.now(),
-               [Q,R,P] = [nd.la.rrqr_decomp,
-                          nd.la.  qr_decomp][typ](A),
+               [Q,R,P] = [nd.la.srrqr_decomp_full,
+                          nd.la. rrqr_decomp,
+                          nd.la.   qr_decomp][typ](A),
                     dt = performance.now() - t0;
              Object.freeze(Q.data.buffer);
              Object.freeze(R.data.buffer);
-             if(typ === 0) {
+             if(typ !== 2) {
                Object.freeze(P.data.buffer);
                await sleep();
                A = nd.la.permute_cols(A,P);
@@ -72,7 +74,7 @@
 
              await sleep();
 
-             const I = nd.la.eye(dtype, Math.min(M,N));
+             const I = nd.la.eye(dtype, typ===0 ? M : Math.min(M,N));
              Object.freeze(I.data.buffer);
 
              await sleep();
@@ -248,9 +250,8 @@
        };
 
 
-       for( const [name,svd] of [['svd_jac'   , nd.la.svd_jac_2sided_blocked],
-                                 ['svd_dc'    , nd.la.svd_dc                ],
-                                 ['svd_dc_old', nd.la.svd_dc_old            ]] )
+       for( const [name,svd] of [['svd_jac', nd.la.svd_jac_2sided_blocked],
+                                 ['svd_dc' , nd.la.svd_dc                ]] )
          methods[name] = async N => {
            const A = nd.tabulate([N,N], dtype, () => Math.random()*2-1); await sleep();
            Object.freeze(A.data.buffer);
@@ -281,13 +282,24 @@
            return dt;
          };
 
+         methods = {
+           'matmul'   : methods.matmul,
+           'qr_square': methods.qr_square,
+         };
 
-       methods = {
-         'svd_jac': methods.svd_jac,
-         'svd_dc'    : methods.svd_dc,
-         'svd_dc_old': methods.svd_dc_old,
-       };
+//       methods = {
+//         'svd_jac': methods.svd_jac,
+//         'svd_dc'    : methods.svd_dc,
+//         'svd_dc_old': methods.svd_dc_old,
+//       };
 
+//       methods = {
+//        'svd_dc': methods.svd_dc,
+//
+//        'srrqr_square': methods.srrqr_square,
+//         'rrqr_square': methods. rrqr_square,
+//           'qr_square': methods.   qr_square
+//       };
 
        const layout = {
          title: 'NDJS - Decomposition Benchmark',

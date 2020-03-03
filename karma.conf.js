@@ -13,6 +13,7 @@ module.exports = function(config) {
     browserDisconnectTimeout: 1*HOUR,
     browserNoActivityTimeout: 1*HOUR,
         browserSocketTimeout: 1*HOUR,
+          processKillTimeout: 1*HOUR,
 //              captureTimeout: 1*HOUR,
 
     plugins: [
