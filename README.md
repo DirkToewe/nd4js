@@ -13,6 +13,7 @@ A function reference can be found [here](https://dirktoewe.github.io/ndjs/doc.ht
   * [Binary Operations (+, -, *, /, ...)](#binary-operations------)
   * [Ternary Operations (?:, ...)](#ternary-operations--)
   * [Linear Algebra](#linear-algebra)
+  * [Optimization](#optimization)
 
 # Installation
 
@@ -263,8 +264,20 @@ Available operations and decompositions:
   * [Singular Value Decomposition (SVD)](https://dirktoewe.github.io/ndjs/doc.html#nd.la.svd_decomp)
   * [QR Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.qr_decomp)
   * [Rank-Revaling QR Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.rrqr_decomp)
-  * [LU Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.lu_decomp)
+  * [URV Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.urv_decomp_full)
   * [Cholesky Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.cholesky_decomp)
   * [Hessenberg Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.hessenberg_decomp)
   * [Bidiagonal Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.bidiag_decomp)
+  * [LU Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.lu_decomp)
+
+# Optimization
+
+`nd4js` offers the following linear and nonlinear optimization methods and solvers:
+  * [Parameter-Linear Curve Fitting (Linear Regression)](https://dirktoewe.github.io/ndjs/doc.html#nd.opt.fit_param_lin)
+  * [Trust Region Nonlinear Curve Fitting and Least Squares]
+    * [Levenberg-Marquardt](https://dirktoewe.github.io/ndjs/doc.html#nd.opt.lsq_lm_gen)
+    * [Dogleg Method](https://dirktoewe.github.io/ndjs/doc.html#nd.opt.lsq_dogleg_gen)
+  * [L-BFGS Optimizer](https://dirktoewe.github.io/ndjs/doc.html#nd.opt.min_lbfgs_gen)
+  * [Bisection Solver 1D](https://dirktoewe.github.io/ndjs/doc.html#nd.opt.root1d_bisect)
+  * [Golden Section Search Minimizer 1D](https://dirktoewe.github.io/ndjs/doc.html#nd.opt.min1d_gss)
 

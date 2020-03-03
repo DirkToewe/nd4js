@@ -1,0 +1,82 @@
+<!--
+  This file is part of ND.JS.
+  
+  ND.JS is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  ND.JS is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
+-->
+<!DOCTYPE html>
+<html>
+ <head>
+   <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+   <title>Beer Foam Decay (Curve Fitting)</title>
+   <script src="../dist/nd.min.js"></script>
+   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+ </head>
+ <body>
+   <script type="text/javascript">
+'use strict';
+( async () => {
+  // Determine half-life of beer using dataset from:
+  // "Multivariate Analyses of Beer Foam Stand" by James J. Hackbart
+  const time = nd.array([[ 0,    15,    30,    45,    60,   90,   120,   150,   180,   210,   240,   270,   300   ]]).T,
+      height = nd.array( [17.40, 15.10, 13.10, 11.60, 10.60, 8.70,  7.40,  6.35,  5.40,  4.50,  3.80,  3.30,  2.90] );
+
+  // Exponential decay function.
+  const fG = ([H0, c]) => ([t]) => [
+     H0 * 2**(-t*c),
+    [     2**(-t*c),                    // <- d(fG) / d(H0)
+     H0 * 2**(-t*c) * Math.log(2) * -t] // <- d(fG) / d(c)
+  ];
+
+  const [H0,c] = function(){
+    for( const [[H0,c], mse, mse_grad] of nd.opt.fit_lm_gen(time, height, fG, /*p0=*/[1,1]) )
+      if( nd.la.norm(mse_grad) <= 1e-6 )
+        return [H0,c];
+  }();
+
+  const plot = document.createElement('div');
+  plot.style = 'width:100%; height:95vh;';
+  document.body.appendChild(plot);
+
+  const N = 128;
+
+  const fit_x = Array.from({length: N+1}, (_,i) => 340*i/N - 20),
+        fit_y = fit_x.map( t => fG([H0,c])([t])[0] );
+
+  const data = [
+    {
+      type: 'scattergl',
+      mode: 'markers',
+      name: 'dataset',
+      x: [...  time.data],
+      y: [...height.data]
+    },{
+      type: 'scattergl',
+      mode: 'lines',
+      name: 'curve fit',
+      x: fit_x,
+      y: fit_y
+    }
+  ];
+
+  const layout = {
+    title: '<b>Beer Foam Decay Curve Fitting using<br>Levenberg-Marquardt trust region</b><br>Dataset from: <i>"Multivariate Analyses of Beer Foam Stand"</i> by <i>James J. Hackbart.</i>'
+  };
+
+  await Plotly.plot(plot, {layout, data});
+})();
+   </script>
+ </body>
+</html>

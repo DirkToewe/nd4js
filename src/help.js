@@ -858,6 +858,214 @@ Example
 `
 
 
+nd.opt.root1d_bisect.__doc__ = `\
+Finds a single root of a continuous univariate function using the bisection method.
+
+Parameters
+----------
+F: float => float
+  Continuous function for which a root is to be found.
+x1: float
+  One side of the range containing a root. F(x1) and F(x2) must have opposite signs (or be zero).
+x2: float
+  Other side of the range containing a root. F(x1) and F(x2) must have opposite signs (or be zero).
+
+Returns
+-------
+x0: float
+  A root of F, i.e. F(x0) ≈ 0.
+
+References
+----------
+.. [1] https://en.wikipedia.org/wiki/Bisection_method
+
+Example
+-------
+>>> const sqrt9 = nd.opt.root1d_bisect(x => x*x-9, 0, 9);
+... console.log('sqrt(9) =', sqrt9);
+  sqrt(9) = 3
+`
+
+
+nd.opt.min1d_gss.__doc__ = `\
+Finds a single minimum of a continuous univariate function using Golden Section Search.
+
+Parameters
+----------
+F: float => float
+  Continuous function for which a minimum is to be found.
+x1: float
+  One side of the range containing a root. Must be left of the minimum.
+x2: float
+  Other side of the range containing a root. Must be right of the minimum.
+
+Returns
+-------
+xMin: float
+  A local minimum of F.
+
+References
+----------
+.. [1] https://en.wikipedia.org/wiki/Golden-section_search
+
+Example
+-------
+>>> const sqrt9 = nd.opt.min1d_gss(x => Math.abs(x*x-9), -9, +9);
+... console.log('sqrt(9) =', sqrt9);
+  sqrt(9) = 3
+`
+
+
+nd.opt.fit_lin.__doc__ = `\
+Fits a parameter-linear linear function using Linear Regression or Ridge Regression.
+
+Parameters
+----------
+x: float[n_samples(,n_inputs)]
+  Function inputs of the sample points that the function is fit through.
+y: float[n_samples]
+  Function outputs of the sample points that the function is fit through.
+regularization: float
+  [optional] A regularization factor that penalizes the norm of
+  the function coefficients. The larger the regularization, the
+  smaller the coefficients tend to be, i.e. the function becomes
+  smoother and more approximative than interpolative.
+funcs: (float[n_inputs] => float)[n_coeffs]
+  Components of the function that is to be fit through (x,y).
+  Each component has it's own linear parameter/coefficient, i.e.
+  \`fit(x) = c[0]*funcs[0](x) + c[1]*funcs[1](x) + ...\`.
+
+Returns
+-------
+fit {coeffs: float[n]}: float[n_coeffs]
+  A function that fits the points given by x and y. The coefficients
+  and the function components can be retrieved as \`fit.coeffs\` and
+  \`fit.funcs\` properties of the function.
+
+References
+----------
+.. [1] https://en.wikipedia.org/wiki/Linear_regression
+
+Example
+-------
+>>> const [a,b,c,d] = [3,1,2,4];
+... 
+... // Underlying function
+... const fun = ([x,y]) => a + b*x + c*x*y + d * Math.sin(y);
+... 
+... // Generate sample points to fit to
+... let X = [],
+...     Y = [];
+... for( let xi = -2; xi <= +2; xi += 0.5 ) {
+... for( let yi = -2; yi <= +2; yi += 0.5 ) {
+...   X.push(     [xi,yi]  );
+...   Y.push( fun([xi,yi]) );
+... }}
+...
+... // Fitted function
+... const fit = nd.opt.fit_lin(
+...   X,Y,
+...   [([x,y]) => Math.sin(y),
+...    ([x,y]) => x*y,
+...    ([x,y]) => x,
+...    ([x,y]) => 1]
+... );
+... 
+... console.log(
+...   'Fitted coefficients: [d,c,b,a] =',
+...   [...fit.coeffs.map(x => x.toFixed(12))]
+... );
+... 
+... console.log( 'fun([-1,-1]) =',  fun([-1,-1]) );
+... console.log( 'fit([-1,-1]) =',  fit([-1,-1]) );
+  Fitted coefficients: [d,c,b,a] = [ 4, 2, 1, 3 ]
+  fun([-1,-1]) = 0.634116060768414
+  fit([-1,-1]) = 0.6341160607684131
+`
+
+
+nd.opt.fit_lm_gen.__doc__ = `\
+Nonlinear least squares fit of a function to the given sample points using
+the Levenberg-Marquardt trust region method.
+
+Parameters
+----------
+x: float[n_samples,n_inputs]
+  Function inputs of the sample points that the function is fit through.
+y: float[n_samples]
+  Function outputs of the sample points that the function is fit through.
+fg: (params: float[nParam]) => (x: float[nDim]) => [f: float, g: float[nParam]]
+  Functions whose parameters are fitted. Returns the function value and its
+  gradients with respect to its parameters.
+p0: float[nParam]
+  Starting values for the parameters for fitting.
+opt : {
+  r0: float
+    [optional] Starting value for trust region radius.
+  rMin: float
+    [optional] Lower trust region radius bounds.
+  rMax: float
+    [optional] Upper trust region radius bounds.
+  rTol: float
+    [optional] Relative tolerance by which the iteration adheres to the trust region radius.
+  lmLower: float ∈ (0,1)
+    [optional] A small number that avoids that the Levenberg-Marquardt parameter becomes
+    too small too quickly during iteration.
+  shrinkLower: float ∈ (0,shrinkUpper]
+    [optional] During a single iteration, the trust region radius may at most decrease by this factor.
+  shrinkUpper: float ∈ [shrinkLower,1)
+    [optional] During a single iteration, the trust region radius may at least decrease by this factor.
+  grow: float
+    [optional] During a single iteration, the trust region radius may increase by this factor.
+  expectGainMin: float
+    [optional] The iteration is expected to provide at least \`expectGainMin\` of the predicted improvement.
+    Otherwise the trust region is shrunk.
+  expectGainMax: float
+    [optional] The iteration is expected to provide at most \`expectGainMax\` of the predicted improvement.
+    Otherwise the trust region is increased.
+}
+
+Returns
+-------
+Iterator<[
+  p: float[nParam]
+    Current parameter values of the iteration.
+  mse: float
+    Mean squared error.
+  mse_grad: float[nParam]
+    Gradient of the mean squared error with respect to the parameters.
+  res: float[]
+    Residuals of the fit.
+  res_jac: float[]
+    Jaciobian of the residuals with respect to the parameters.
+]>
+
+References
+----------
+.. [1] https://en.wikipedia.org/wiki/Levenberg%E2%80%93Marquardt_algorithm
+
+Example
+-------
+>>> // Determine half-life of beer using dataset from:
+... // "Multivariate Analyses of Beer Foam Stand" by James J. Hackbart
+... const time = nd.array([[ 0,    15,    30,    45,    60,   90,   120,   150,   180,   210,   240,   270,   300   ]]).T,
+...     height = nd.array( [17.40, 15.10, 13.10, 11.60, 10.60, 8.70,  7.40,  6.35,  5.40,  4.50,  3.80,  3.30,  2.90] );
+... 
+... // Exponential decay function.
+... const fG = ([H0, c]) => ([t]) => [
+...    H0 * 2**(-t*c),
+...   [     2**(-t*c),                    // <- d(fG) / d(H0)
+...    H0 * 2**(-t*c) * Math.log(2) * -t] // <- d(fG) / d(c)
+... ];
+... 
+... for( const [[H0, c], mse, mse_grad] of nd.opt.fit_lm_gen(time, height, fG, /*p0=*/[1,1]) )
+...   if( nd.la.norm(mse_grad) <= 1e-6 ) {
+...     console.log({H0, half_life: 1/c});
+...     break;
+...   }
+  { H0: 16.386111806695105, half_life: 108.02447348677644 }
+`
+
 
   //
  // I/O

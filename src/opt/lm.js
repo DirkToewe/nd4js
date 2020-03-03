@@ -56,6 +56,8 @@ export function* lsq_lm_gen(
 
   if( !( 0 <= lmLower                ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.lmLower must be within [0,1).');
   if( !(      lmLower < 1            ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.lmLower must be within [0,1).');
+  if( !(            1 >  rTol        ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.rTol must be less than 1.');
+  if( !(            0 <  rTol        ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.rTol must be positive number.');
   if( !(            0 <  r0          ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.r0 must be positive number.');
   if( !(            0 <  rMin        ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.rMin must be positive number.');
   if( !(         rMin <= rMax        ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.rMin must not be greater than opt.rMax.');
@@ -132,7 +134,7 @@ export function* lsq_lm_gen(
       if( !(0 > dr) ) throw new Error('Assertion failed.');
 
       let λMin = -r / dr,
-          λMax = NORM.result / R, // <- FIXME something's wrong here
+          λMax = NORM.result / R,
           λ = 0;
 
 /*DEBUG*/      let nIter = -1;
