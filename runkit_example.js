@@ -10,7 +10,7 @@ console.log('A =\n' + a)
 const a2 = a.mapElems(x => x*2)
 console.log('2a = \n' + a2)
 
-const v = nd.tabulate([N,1], (i,j) => i+1)
+const v = nd.tabulate([3,1], (i,j) => i+1)
 console.log('v =\n' + v)
 
 const apv = nd.zip_elems([a,v], (x,y) => x+y)

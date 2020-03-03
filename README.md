@@ -3,7 +3,7 @@
 
 The goal of this library is to explore and improve the author's understanding of linear algebra, optimization and computational numerics in general. The author is therefore constantly working on the edge of his knowledge. Despite his best efforts, no guarantees can be made about performance, numeric accuracy, reproducability or anything at all. There will be bugs, underflows, overflows, NaNs, memory issues and the like. If You find a bug - and don't want to keep it - feel free file an issue or a PR.
 
-A function reference can be found [here](https://dirktoewe.github.io/ndjs/doc.html).
+A function reference can be found [here](https://dirktoewe.github.io/nd4js/doc.html).
 
   * [Installation](#installation)
   * [Building and Testing](#building-and-testing)
@@ -43,7 +43,7 @@ npm run build
 `nd4js` has some development dependencies, most notably [Babel](https://babeljs.io/) and [Webpack](https://webpack.js.org/) for bundling and [Jasmine](https://jasmine.github.io/) for testing. There are however no deployment dependencies as of yet.
 
 # Array Instantiation
-[nd.array](https://dirktoewe.github.io/ndjs/doc.html#nd.array) allows to create NDArray instances in a well-readable and intuitive way, using nested JavaScript Arrays.
+[nd.array](https://dirktoewe.github.io/nd4js/doc.html#nd.array) allows to create NDArray instances in a well-readable and intuitive way, using nested JavaScript Arrays.
 
 ```js
 const nd = require('nd4js')
@@ -55,7 +55,7 @@ const a = nd.array([
 ])
 ```
 
-An NDArray can also be created from its entries' indices using [nd.tabulate](https://dirktoewe.github.io/ndjs/doc.html#nd.tabulate).
+An NDArray can also be created from its entries' indices using [nd.tabulate](https://dirktoewe.github.io/nd4js/doc.html#nd.tabulate).
 
 *Input:*
 ```js
@@ -100,7 +100,7 @@ console.log( a(1,1) )
 4
 ```
 
-[nd.NDArray.set](https://dirktoewe.github.io/ndjs/doc.html#nd.NDArray.set) allows writing array entries.
+[nd.NDArray.set](https://dirktoewe.github.io/nd4js/doc.html#nd.NDArray.set) allows writing array entries.
 
 *Input:*
 ```js
@@ -120,9 +120,9 @@ console.log( a.toString() );
  [ 31, 32, 33 ]]
 ```
 
-If array elements are to be modified, [nd.NDArray.modify](https://dirktoewe.github.io/ndjs/doc.html#nd.NDArray.modify) is a concise
-alternative to using [nd.NDArray.get](https://dirktoewe.github.io/ndjs/doc.html#nd.NDArray.get) and
-[nd.NDArray.set](https://dirktoewe.github.io/ndjs/doc.html#nd.NDArray.set).
+If array elements are to be modified, [nd.NDArray.modify](https://dirktoewe.github.io/nd4js/doc.html#nd.NDArray.modify) is a concise
+alternative to using [nd.NDArray.get](https://dirktoewe.github.io/nd4js/doc.html#nd.NDArray.get) and
+[nd.NDArray.set](https://dirktoewe.github.io/nd4js/doc.html#nd.NDArray.set).
 
 *Input:*
 ```js
@@ -142,7 +142,7 @@ console.log( a.toString() );
 
 
 # Unary Operations (sin, cos, exp, ...)
-[nd.NDArray.mapElems](https://dirktoewe.github.io/ndjs/doc.html#nd.NDArray.mapElems) is used to apply unary operations on an NDArray.
+[nd.NDArray.mapElems](https://dirktoewe.github.io/nd4js/doc.html#nd.NDArray.mapElems) is used to apply unary operations on an NDArray.
 
 *Input:*
 ```js
@@ -161,7 +161,7 @@ console.log( b.toString() )
 ```
 
 # Binary Operations (+, -, *, /, ...)
-[nd.zip_elems](https://dirktoewe.github.io/ndjs/doc.html#nd.zip_elems) can be used to apply binary operations on two NDArrays.
+[nd.zip_elems](https://dirktoewe.github.io/nd4js/doc.html#nd.zip_elems) can be used to apply binary operations on two NDArrays.
 
 *Input:*
 ```js
@@ -187,7 +187,7 @@ console.log( c.toString() )
  [         7,          8,         33]]
 ```
 
-[nd.zip_elems](https://dirktoewe.github.io/ndjs/doc.html#nd.zip_elems) supports [NumPy-style broadcasting](https://docs.scipy.org/doc/numpy/user/basics.broadcasting.html).
+[nd.zip_elems](https://dirktoewe.github.io/nd4js/doc.html#nd.zip_elems) supports [NumPy-style broadcasting](https://docs.scipy.org/doc/numpy/user/basics.broadcasting.html).
 
 *Input:*
 ```js
@@ -210,7 +210,7 @@ console.log( c.toString() )
 ```
 
 # Ternary Operations (?:, ...)
-[nd.zip_elems](https://dirktoewe.github.io/ndjs/doc.html#nd.zip_elems) can also be used for any n-ary operation, such as ternary conditional operator in JavaScript.
+[nd.zip_elems](https://dirktoewe.github.io/nd4js/doc.html#nd.zip_elems) can also be used for any n-ary operation, such as ternary conditional operator in JavaScript.
 
 *Input:*
 ```js
@@ -236,8 +236,8 @@ console.log( c.toString() )
 ```
 
 # Linear Algebra
-`nd4js` now offers a fairly wide variety of Linear Algebra operations in the [nd.la](https://dirktoewe.github.io/ndjs/doc.html#nd.la) subpackage.
-[la.matmul](https://dirktoewe.github.io/ndjs/doc.html#nd.la.matmul) computes the matrix product of two or more matrices. The order of multiplication
+`nd4js` now offers a fairly wide variety of Linear Algebra operations in the [nd.la](https://dirktoewe.github.io/nd4js/doc.html#nd.la) subpackage.
+[la.matmul](https://dirktoewe.github.io/nd4js/doc.html#nd.la.matmul) computes the matrix product of two or more matrices. The order of multiplication
 is automatically optimized to minimize the number of floating point operations.
 
 *Input:*
@@ -257,27 +257,27 @@ console.log( nd.la.matmul(v.T, A, v) );
 ```
 
 Available operations and decompositions:
-  * [Linear Equation Systems](https://dirktoewe.github.io/ndjs/doc.html#nd.la.solve) (incl. [Lower](https://dirktoewe.github.io/ndjs/doc.html#nd.la.tril_solve) and [Upper](https://dirktoewe.github.io/ndjs/doc.html#nd.la.triu_solve) Triangular Systems).
-  * [Linear Least Squares](https://dirktoewe.github.io/ndjs/doc.html#nd.la.lstsq)
-  * [Eigen Solution](https://dirktoewe.github.io/ndjs/doc.html#nd.la.eigen)
-  * [Schur Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.schur_decomp)
-  * [Singular Value Decomposition (SVD)](https://dirktoewe.github.io/ndjs/doc.html#nd.la.svd_decomp)
-  * [QR Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.qr_decomp)
-  * [Rank-Revaling QR Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.rrqr_decomp)
-  * [URV Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.urv_decomp_full)
-  * [Cholesky Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.cholesky_decomp)
-  * [Hessenberg Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.hessenberg_decomp)
-  * [Bidiagonal Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.bidiag_decomp)
-  * [LU Decomposition](https://dirktoewe.github.io/ndjs/doc.html#nd.la.lu_decomp)
+  * [Linear Equation Systems](https://dirktoewe.github.io/nd4js/doc.html#nd.la.solve) (incl. [Lower](https://dirktoewe.github.io/nd4js/doc.html#nd.la.tril_solve) and [Upper](https://dirktoewe.github.io/nd4js/doc.html#nd.la.triu_solve) Triangular Systems).
+  * [Linear Least Squares](https://dirktoewe.github.io/nd4js/doc.html#nd.la.lstsq)
+  * [Eigen Solution](https://dirktoewe.github.io/nd4js/doc.html#nd.la.eigen)
+  * [Schur Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.schur_decomp)
+  * [Singular Value Decomposition (SVD)](https://dirktoewe.github.io/nd4js/doc.html#nd.la.svd_decomp)
+  * [QR Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.qr_decomp)
+  * [Rank-Revaling QR Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.rrqr_decomp)
+  * [URV Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.urv_decomp_full)
+  * [Cholesky Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.cholesky_decomp)
+  * [Hessenberg Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.hessenberg_decomp)
+  * [Bidiagonal Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.bidiag_decomp)
+  * [LU Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.lu_decomp)
 
 # Optimization
 
 `nd4js` offers the following linear and nonlinear optimization methods and solvers:
-  * [Parameter-Linear Curve Fitting (Linear Regression)](https://dirktoewe.github.io/ndjs/doc.html#nd.opt.fit_param_lin)
+  * [Parameter-Linear Curve Fitting (Linear Regression)](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.fit_param_lin)
   * [Trust Region Nonlinear Curve Fitting and Least Squares]
-    * [Levenberg-Marquardt](https://dirktoewe.github.io/ndjs/doc.html#nd.opt.lsq_lm_gen)
-    * [Dogleg Method](https://dirktoewe.github.io/ndjs/doc.html#nd.opt.lsq_dogleg_gen)
-  * [L-BFGS Optimizer](https://dirktoewe.github.io/ndjs/doc.html#nd.opt.min_lbfgs_gen)
-  * [Bisection Solver 1D](https://dirktoewe.github.io/ndjs/doc.html#nd.opt.root1d_bisect)
-  * [Golden Section Search Minimizer 1D](https://dirktoewe.github.io/ndjs/doc.html#nd.opt.min1d_gss)
+    * [Levenberg-Marquardt](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.lsq_lm_gen)
+    * [Dogleg Method](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.lsq_dogleg_gen)
+  * [L-BFGS Optimizer](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.min_lbfgs_gen)
+  * [Bisection Solver 1D](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.root1d_bisect)
+  * [Golden Section Search Minimizer 1D](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.min1d_gss)
 

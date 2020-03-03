@@ -25,8 +25,8 @@
       title= doc.createElement('title'),
       ul   = doc.createElement('ul'),
       h1   = doc.createElement('h1');
-    h1   .innerHTML = `ND.JS v${version} Documentation`
-    title.innerHTML = `ND.JS v${version} Documentation`
+    h1   .innerHTML = `ND4JS v${version} Documentation`
+    title.innerHTML = `ND4JS v${version} Documentation`
     meta.setAttribute('charset', 'utf-8')
     doc.lang = 'en'
     doc.head.appendChild(meta)

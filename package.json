@@ -8,10 +8,10 @@
     "build": "webpack && node add_license.js && node mkdoc.js && babel src --out-dir lib --config-file ./babel.config.js",
     "test": "karma start"
   },
-  "homepage": "https://github.com/DirkToewe/ndjs",
+  "homepage": "https://github.com/DirkToewe/nd4js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/DirkToewe/ndjs"
+    "url": "https://github.com/DirkToewe/nd4js"
   },
   "runkitExampleFilename": "./runkit_example.js",
   "dependencies": {
