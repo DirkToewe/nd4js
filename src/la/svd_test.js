@@ -568,10 +568,9 @@ describe('svd', () => {
 
       const ranks = svd_rank(sv);
 
-      expect(ranks.shape).toEqual(lead)
-      expect(RANKS.shape).toEqual(lead)
-      expect(ranks.dtype).toBe('int32')
-      expect(RANKS.dtype).toBe('int32')
+      expect(ranks.shape).toEqual(RANKS.shape);
+      expect(ranks.dtype).toBe('int32');
+      expect(RANKS.dtype).toBe('int32');
       expect(ranks).toBeAllCloseTo(RANKS, {rtol:0, atol:0});
     })
 
