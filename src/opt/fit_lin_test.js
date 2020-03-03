@@ -21,11 +21,11 @@ import {tabulate} from '../tabulate'
 
 import {norm} from '../la/norm'
 
-import {fit_param_lin} from './fit_param_lin'
+import {fit_lin} from './fit_lin'
 import {num_grad} from './num_grad'
 
 
-describe('fit_param_lin', () => {
+describe('fit_lin', () => {
   beforeEach( () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
@@ -46,6 +46,7 @@ describe('fit_param_lin', () => {
           x => Math.sin(x)
         ];
 
+        // FISHER-YATES SHUFFLE
         for( let i=funcs.length; i > 0; )
         {  const j=Math.random()*i-- | 0,
                 fi = funcs[i];
@@ -60,7 +61,7 @@ describe('fit_param_lin', () => {
         yield [funcs, coeffs];
       }
     }()
-  ).it(`fits random functions correctly.`, ([funcs, coeffs]) => {
+  ).it(`fits random univariate functions correctly.`, ([funcs, coeffs]) => {
     const N = Math.random()*1024 + 128 | 0;
 
     const x = tabulate([N], () => Math.random()*8 - 4),
@@ -74,8 +75,68 @@ describe('fit_param_lin', () => {
       [1e-8, funcs]
     ])
     {
-      const f = fit_param_lin(x,y, ...args),
+      const f = fit_lin(x,y, ...args),
             Y = x.mapElems( x => f(x) );
+
+      expect(f.coeffs).toBeAllCloseTo(coeffs);
+      expect(Y).toBeAllCloseTo(y);
+    }
+  })
+
+
+  forEachItemIn(
+    function*(){
+
+      for( let run=256; run-- > 0; )
+      {
+        let funcs = [
+          ([x,y]) => 1,
+          ([x,y]) => x,
+          ([x,y]) => x*y,
+          ([x,y]) =>   y,
+          ([x,y]) => Math.hypot(x,y),
+          ([x,y]) => Math.atan2(x,y),
+          ([x,y]) => Math.cos(x),
+          ([x,y]) => Math.sin(y),
+        ];
+
+        // FISHER-YATES SHUFFLE
+        for( let i=funcs.length; i > 0; )
+        {  const j=Math.random()*i-- | 0,
+                fi = funcs[i];
+                     funcs[i] = funcs[j];
+                                funcs[j] = fi;
+        }
+
+        const N = Math.random()*funcs.length + 1 | 0;
+
+        funcs = funcs.slice(0,N);
+        const coeffs = Float64Array.from(funcs, () => Math.random()*2 - 1);
+        yield [funcs, coeffs];
+      }
+    }()
+  ).it(`fits random bivariate functions correctly.`, ([funcs, coeffs]) => {
+    const N = Math.random()*512 + 128 | 0;
+
+    const x = tabulate([N,2], () => Math.random()*8 - 4),
+          y = [];
+
+    for( const {data: xy} of x )
+      y.push(
+        funcs.reduce((y,f,i) => y + coeffs[i]*f(xy), 0)
+      );
+
+    for( const args of [
+      [funcs],
+      [0, funcs],
+      [1e-8, funcs]
+    ])
+    {
+      const f = fit_lin(x,y, ...args),
+            Y = [];
+
+      for( const {data: xy} of x )
+        Y.push( f(xy) );
 
       expect(f.coeffs).toBeAllCloseTo(coeffs);
       expect(Y).toBeAllCloseTo(y);

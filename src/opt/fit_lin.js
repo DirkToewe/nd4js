@@ -21,7 +21,7 @@ import {asarray, NDArray} from '../nd_array'
 import {lstsq} from '../la/lstsq'
 
 
-export function fit_param_lin(x,y, regularization, funcs)
+export function fit_lin(x,y, regularization, funcs)
 {
   if(funcs == null) {  
      funcs = regularization;
@@ -30,7 +30,7 @@ export function fit_param_lin(x,y, regularization, funcs)
   else if( null == regularization )
     regularization = 0;
   else if( !(0 <= regularization && regularization < Infinity) )
-    throw new Error(`fit_param_lin(x,y, regularization, funcs): Invalid regularization: ${regularization}.`);
+    throw new Error(`fit_lin(x,y, regularization, funcs): Invalid regularization: ${regularization}.`);
 
   funcs = [...funcs];
 
@@ -38,7 +38,7 @@ export function fit_param_lin(x,y, regularization, funcs)
   y = asarray('float64', y);
 
   if( y.ndim !== 1 )
-    throw new Error('fit_param_lin(x,y, (regularization,) funcs): y.ndim must be 1.');
+    throw new Error('fit_lin(x,y, (regularization,) funcs): y.ndim must be 1.');
 
   const M = y.shape[0],
         N = funcs.length;
@@ -47,20 +47,23 @@ export function fit_param_lin(x,y, regularization, funcs)
 
   if( x.ndim !== 1 &&
       x.ndim !== 2 )
-    throw new Error('fit_param_lin(x,y, (regularization,) funcs): x.ndim must be 1 or 2.');
+    throw new Error('fit_lin(x,y, (regularization,) funcs): x.ndim must be 1 or 2.');
 
   if( x.shape[0] !== y.shape[0] )
-    throw new Error('fit_param_lin(x,y, (regularization,) funcs): x.shape[0] and y.shape[0] must equal.');
+    throw new Error('fit_lin(x,y, (regularization,) funcs): x.shape[0] and y.shape[0] must equal.');
 
   if( x.ndim === 1 )
     x = x.data;
   else {
+    const   x_shape = x.shape.slice(1),
+      [L] = x_shape;
+
     x = x.data.slice();
     Object.freeze(x.buffer);
     x = Array.from(
-      {length: x.shape[0]},
+      {length: M},
       (_,i) => Object.freeze(
-        new NDArray(x_shape, x.subarray(N*i,N*i+1))
+        new NDArray(x_shape, x.subarray( L*i, L*(i+1) ))
       )
     );
   }
