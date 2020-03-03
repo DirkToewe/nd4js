@@ -273,8 +273,8 @@ Available operations and decompositions:
 # Optimization
 
 `nd4js` offers the following linear and nonlinear optimization methods and solvers:
-  * [Parameter-Linear Curve Fitting (Linear Regression)](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.fit_param_lin)
-  * [Trust Region Nonlinear Curve Fitting and Least Squares]
+  * [Parameter-Linear Curve Fitting (Linear Regression)](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.fit_lin)
+  * Nonlinear Curve Fitting and Least Square Optimization:
     * [Levenberg-Marquardt](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.lsq_lm_gen)
     * [Dogleg Method](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.lsq_dogleg_gen)
   * [L-BFGS Optimizer](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.min_lbfgs_gen)
