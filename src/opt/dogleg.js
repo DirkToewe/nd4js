@@ -22,19 +22,19 @@ import {roots1d_polyquad} from './polyquad'
 import {TrustRegionSolverLSQ} from './_trust_region_solver'
 
 
-// TODO implemented double-dogleg method as well as described in
-// "An Improved Optimization Method for iSAM2"
-// Rana Talaei Shahir and Hamid D. Taghirad Senior Member, IEEE
-// Proceeding of the 2nd
-// RSI/ISM International Conference on Robotics and Mechatronics
-// October 15-17, 2014, Tehran, Iran
+// References
+// ----------
+// .. [1] "An Improved Optimization Method for iSAM2"
+//         Rana Talaei Shahir and Hamid D. Taghirad Senior Member, IEEE
+//         Proceeding of the 2nd RSI/ISM International Conference on Robotics and Mechatronics
+//         October 15-17, 2014, Tehran, Iran
+// .. [2] "THE LEVENBERG-MARQUARDT ALGORITHM: IMPLEMENTATION AND THEORY"
+//         Jorge J. Moré.
 
+// TODO implemented double-dogleg method as well as described in [1]
 // TODO implement dogbox method as well which allows for box-constrained optimization
 
-/** Solves a nonlinear least-squares problem using a
- *  trust-region variant Levenberg-Marquard algorithm
- *  as described in "THE LEVENBERG-MARQUARDT ALGORITHM:
- *  IMPLEMENTATION AND THEORY" by Jorge J. Moré.
+/** Solves a nonlinear least-squares problem using the dogleg method.
  */
 export function* lsq_dogleg_gen(
   fJ,//: (x0: float[nInputs]) => [f: float[nSamples], j: float[nSamples,nInputs]] - THE OPTIMIZATION FUNCTION AND ITS JACOBIAN
@@ -71,7 +71,7 @@ export function* lsq_dogleg_gen(
   if( !(expectGainMin < expectGainMax) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMin must be less than expectGainMax.');
   if( !(expectGainMax < 1            ) )    console.warn('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMax should be less than 1.');
 
-  let R = r0,
+  let R = r0, // <- TODO maybe there is a better starting value for R0 like r0*solver.scaledNorm(G) order something like that
       X = x0.data,
       W = new Float64Array(X.length),
      dX = new Float64Array(X.length);
@@ -127,6 +127,9 @@ export function* lsq_dogleg_gen(
       if( -gn*cp < R )
       { // CAUCHY POINT INSIDE TRUST RADIUS
         solver.computeMinGlobal(); // <- computes Gauss-Newton point
+
+        // TODO In [2], a method is described to adjust trust radius when global min is
+        //      inside trust region. Maybe it could be used in the Dogleg method as well.
 
         // let's find the travel t from cauchy point (cp) to gauss-newton point (gp) which intersects
         // with the trust region boundary. t=0 means cauchy point t=1 mean gauss-newton point.
@@ -201,6 +204,8 @@ export function* lsq_dogleg_gen(
          if( actual > predict*expectGainMax ) R = Math.min(rMax, R*grow);
     else if( actual < predict*expectGainMin )
     {
+      // OUR PREDICTION WAS TERRIBLE, REDUCE TRUST RADIUS
+      // (by fitting a quadratic polynomial through err_now, grad_now and err_next)
       let grad_now = 0;
       for( let i=N; i-- > 0; )
         grad_now += dX[i] * G[i];

@@ -22,6 +22,11 @@ import {FrobeniusNorm} from '../la/norm'
 
 import {TrustRegionSolverLSQ} from './_trust_region_solver'
 
+// References
+// ----------
+// .. [1] "THE LEVENBERG-MARQUARDT ALGORITHM: IMPLEMENTATION AND THEORY"
+//         Jorge J. Moré.
+
 
 /** Solves a nonlinear least-squares problem using a
  *  trust-region variant Levenberg-Marquard algorithm
@@ -37,10 +42,10 @@ export function* lsq_lm_gen(
     r0   = 1e-2,         // <-   START TRUST REGION RADIUS (meaning radius AFTER scaling)
     rMin = 1e-4,         // <- MINIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
     rMax = Infinity,     // <- MAXIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
-    rTol = 0.05,         // <-         TRUST REGION RADIUS TOLERANCE,
+    rTol = 0.1,         // <-         TRUST REGION RADIUS TOLERANCE,
     lmLower = 0.001,     // <- LOWER RELATIVE PER-STEP BOUND OF THE LEVENBERG-MARQUARDT PARAMETER ITERATION (USED TO AVOID EXCEEDINGLY SMALL LAMBDA PARAMETERS)
-    shrinkLower= 0.05,   // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT MOST
-    shrinkUpper= 0.95,   // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT LEAST
+    shrinkLower= 0.1,    // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT MOST
+    shrinkUpper= 0.5,    // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT LEAST
     grow = 1.5,          // <-    GROW TRUST REGION RADIUS BY THIS FACTOR
     expectGainMin = 0.25,// <- IF ACTUAL IMPROVEMENT RELATIVE TO PREDICTION IS WORSE  THAN THIS FACTOR, SHRINK TRUST REGION
     expectGainMax = 0.75 // <- IF ACTUAL IMPROVEMENT RELATIVE TO PREDICTION IS BETTER THAN THIS FACTOR, GROW   TRUST REGION
@@ -71,7 +76,7 @@ export function* lsq_lm_gen(
   if( !(expectGainMin < expectGainMax) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMin must be less than expectGainMax.');
   if( !(expectGainMax < 1            ) )    console.warn('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMax should be less than 1.');
 
-  let R = r0,
+  let R = r0, // <- TODO maybe there is a better starting value for R0 like r0*solver.scaledNorm(G) order something like that
       X = x0.data,
       W = new Float64Array(X.length);
 
@@ -174,6 +179,10 @@ export function* lsq_lm_gen(
 /*DEBUG*/      if( !(Math.abs(solver.scaledNorm(dX)-R) <= R*rTol) ) // <- check that solution is in radius
 /*DEBUG*/        throw new Error('Assertion failed.');
     }
+    else {
+      // TODO In [1] Algorithm (7.1) (d), a method is described to adjust trust radius
+      //      when global min is inside trust region. Might be worth implementing.
+    }
 
 /*DEBUG*/    if( !(solver.scaledNorm(dX) <= R*(1+rTol)) )
 /*DEBUG*/      throw new Error('Assertion failed.');
@@ -213,9 +222,11 @@ export function* lsq_lm_gen(
 
     const   predict = err_now - err_predict,
              actual = err_now - err_next;
-         if( actual > predict*expectGainMax ) R = Math.min(rMax, R*grow);
+         if( actual > predict*expectGainMax ) R = Math.min(rMax, R*grow); // PREDICTION GREAT -> INCREASE TRUST RADIUS TODO: Consider using [1] Algorithm (7.1) (d)
     else if( actual < predict*expectGainMin )
     {
+      // PREDICTION BAD -> REDUCE TRUST RADIUS
+      // (by fitting a quadratic polynomial through err_now, grad_now and err_next)
       let grad_now = 0;
       for( let i=N; i-- > 0; )
         grad_now += dX[i] * G[i];
