@@ -17,10 +17,13 @@
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
-import {rosenbrock, rosenbrock_grad} from './test_fn/rosenbrock'
-import {LineSearchNoProgressError} from './line_search/line_search_error'
-import {min_lbfgs_gen} from './lbfgs'
 import {NDArray} from '../nd_array'
+
+import {min_lbfgs_gen} from './lbfgs'
+
+import {LineSearchNoProgressError} from './line_search/line_search_error'
+
+import {rosenbrock, rosenbrock_grad} from './test_fn/rosenbrock'
 
 
 describe('lbfgs', () => {
@@ -39,7 +42,7 @@ describe('lbfgs', () => {
   ).it('min_lbfgs_gen works on rosenbrock', x0 => {
     let nCalls = 0
     const fg = x => {
-      expect(++nCalls).toBeLessThan(256)
+      expect(++nCalls).toBeLessThan(96)
       return [
         rosenbrock(x),
         rosenbrock_grad(x)
@@ -80,7 +83,6 @@ describe('lbfgs', () => {
       console.log('NO_PROGRESS')
     }
 
-//    console.log('nCalls, nIter:', nCalls, nIter)
     expect(x).toBeAllCloseTo(1)
     expect(f).toBeAllCloseTo(0)
     expect(g).toBeAllCloseTo(0)

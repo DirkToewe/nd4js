@@ -17,31 +17,51 @@
  */
 
 import {zip_elems} from '../../zip_elems'
-import {LineSearchError, LineSearchNoProgressError} from './line_search_error'
 import {asarray} from '../../nd_array'
 
+import {_min1d_interp_quad} from '../_opt_utils'
+//*DEBUG*/import {num_grad} from '../num_grad'
 
-export const strong_wolfe = ({c1=0.4, c2=0.8, c3=1.6}={}) => {
+import {LineSearchError, LineSearchNoProgressError} from './line_search_error'
+
+
+export const strong_wolfe = ({c1=0.01, c2=0.9, c3=2, minRed=0.2}={}) => {
   // SEE:
   //   "Numerical Optimization" 2n Edition,
   //   Jorge Nocedal Stephen J. Wright,
   //   Chapter 3. Line Search Methods, page 60.
 
+  c1    *= 1; // (1) Wolfe cond. 1: Sufficient decrease of objective.
+  c2    *= 1; // (2) Wolfe cond. 2: Sufficient decrease of projected gradient.
+  c3    *= 1; // (3) Growth factor for 1st phase of line search (bracketing).
+  minRed*= 1; // (4) Minimum reduction of search range during 2nd phase of line search (zoom).
+
   // CHECK 0 < c1 < c2 < 1 < c3
-  if( c1 <=  0 ) throw new Error('strong_wolfe({c1,c2,c3}): c1 must be positive.'  );
-  if( c1 >= c2 ) throw new Error('strong_wolfe({c1,c2,c3}): c1 must less than c2.' );
-  if(  1 <= c2 ) throw new Error('strong_wolfe({c1,c2,c3}): c2 must less than 1.'  );
-  if(  1 >= c3 ) throw new Error('strong_wolfe({c1,c2,c3}): c3 must larger than 1.');
+  if( !(c1 >  0) ) throw new Error('strong_wolfe(opt): opt.c1 must be positive.'  );
+  if( !(c1 < c2) ) throw new Error('strong_wolfe(opt): opt.c1 must less than opt.c2.' );
+  if( !(1  > c2) ) throw new Error('strong_wolfe(opt): opt.c2 must less than 1.'  );
+  if( !(1  < c3) ) throw new Error('strong_wolfe(opt): opt.c3 must larger than 1.');
+  if( !(minRed >= 0.0) ) throw new Error('Assertion failed.');
+  if( !(minRed <= 0.5) ) throw new Error('Assertion failed.');
+
+  const Λ = 1 / minRed,
+        λ = Λ - 1;
 
   return fg => (X0,f0,G0, negDir) => {
     X0 = asarray(X0)
     G0 = asarray(G0)
-    if(X0.ndim !== 1) throw new Error('strong_wolfe()(fg)(X0,f0,G0): X0.ndim must be 1.')
-    if(G0.ndim !== 1) throw new Error('strong_wolfe()(fg)(X0,f0,G0): G0.ndim must be 1.')
+    if    (X0.ndim !== 1) throw new Error('strong_wolfe()(fg)(X0,f0,G0): X0.ndim must be 1.')
+    if(    G0.ndim !== 1) throw new Error('strong_wolfe()(fg)(X0,f0,G0): G0.ndim must be 1.')
+    if(negDir.ndim !== 1) throw new Error('strong_wolfe()(fg)(X0,f0,G0): negDir.ndim must be 1.')
     if(X0.shape[0] !== G0.shape[0]) throw new Error('strong_wolfe()(fg)(X0,f0,G0): X0 and G0 must have the same shape.')
     if( isNaN(f0) ) throw new Error('strong_wolfe()(fg)(X0,f0,G0): f0 is NaN.')
 
     const dtype = [X0,G0].every(x => x.dtype==='float32') ? 'float32' : 'float64'
+
+//*DEBUG*/    const projGradTest = num_grad( α => {
+//*DEBUG*/      const X = zip_elems([X0,negDir], dtype, (x,nDir) => x - α*nDir);
+//*DEBUG*/      return fg(X)[0];
+//*DEBUG*/    });
 
     const projGrad = g => { // <- projected gradient
       let pg = 0
@@ -54,20 +74,28 @@ export const strong_wolfe = ({c1=0.4, c2=0.8, c3=1.6}={}) => {
 
     if( p0 >= 0 ) throw new Error('strong_wolfe: Initial projected gradient not negative.');
 
-    let αMin =  0, α = 1, αMax = Infinity,
-        fMin = f0;
+    let αMin =  0, α = 1,
+        fMin = f0,
+        pMin = p0,
+
+        αMax = Infinity,
+        fMax = NaN;
 
     // STEP 1: BRACKETING PHASE
     //   Find a range guaranteed to contain an α satisfying strong Wolfe.
-    bracketing: while(true)
+    bracketing: for(;;)
     {
       const X = zip_elems([X0,negDir], dtype, (x,nDir) => x - α*nDir),
            [f,G] = fg(X),
             p = projGrad(G);
 
+//*DEBUG*/      const q = projGradTest(α);
+//*DEBUG*/      if( !(Math.abs(p-q) <= Math.max(Math.abs(p),Math.abs(q),1)*1e-5) ) throw Error(`Assertion failed: ${p} !== ${q}`);
+
       if( f - f0 > c1*α*p0 || (0 < αMin && f >= fMin) )
       {
         αMax = α;
+        fMax = f;
         break bracketing;
       }
 
@@ -77,8 +105,11 @@ export const strong_wolfe = ({c1=0.4, c2=0.8, c3=1.6}={}) => {
       if( p >= 0 )
       {
         αMax = αMin;
+        fMax = fMin;
+
         αMin = α;
         fMin = f;
+        pMin = p;
         break bracketing;
       }
 
@@ -87,6 +118,7 @@ export const strong_wolfe = ({c1=0.4, c2=0.8, c3=1.6}={}) => {
 
       αMin = α; α *= c3;
       fMin = f;
+      pMin = p;
     }
 
     if( αMin === αMax ) throw new LineSearchError('strong_wolfe: bracketing failed.');
@@ -96,12 +128,32 @@ export const strong_wolfe = ({c1=0.4, c2=0.8, c3=1.6}={}) => {
       throw new LineSearchError(`strong_wolfe: bisection failed ${JSON.stringify({αMin, α, αMax})}.`);
     }
 
-    // STEP 2: BISECTION PHASE
+    // STEP 2: ZOOM PHASE
     //   Given a range that is guaranteed to contain a valid
     //   strong Wolfe α values, this method finds such a value.
-    while(true)
+    for( let run=1;; run++ )
     {
-      α = (αMin + αMax) / 2; // <- TODO: use quadratic polynomial to find new point
+//*DEBUG*/      const q = projGradTest(αMin);
+//*DEBUG*/      if( !(Math.abs(pMin-q) <= Math.max(Math.abs(pMin),Math.abs(q),1)*1e-5) ) throw Error(`Assertion failed: ${pMin} !== ${q}`);
+
+      if( 2===Λ )
+        α = (αMin + αMax) / 2;
+      else {
+        α = _min1d_interp_quad(
+          αMin,αMax,
+          fMin,fMax,
+          pMin
+        );
+
+        const αLo = (αMax + λ*αMin) / Λ,
+              αHi = (αMin + λ*αMax) / Λ;
+              
+//*DEBUG*/        if( !(Math.min(αMin,αMax) <= α) ) throw new Error('Assertion failed.');
+//*DEBUG*/        if( !(Math.max(αMin,αMax) >= α) ) throw new Error('Assertion failed.');
+
+             if( !(αLo <= α) ) α = αLo; // < handles NaN
+        else if( !(αHi >= α) ) α = αHi; // < handles NaN
+      }
 
       const X = zip_elems([X0,negDir], dtype, (x,nDir) => x - α*nDir),
            [f,G] = fg(X),
@@ -111,18 +163,22 @@ export const strong_wolfe = ({c1=0.4, c2=0.8, c3=1.6}={}) => {
         if( αMax === α )
           noProgress()
         αMax = α;
+        fMax = f;
       }
       else {
         if( Math.abs(p)  <= -c2*p0 )
           return [X,f,G];
 
-        if( p * (αMax - αMin)  >=  0 )
+        if( p * (αMax - αMin) >= 0 ) {
           αMax = αMin;
+          fMax = fMin;
+        }
 
         if( αMin === α )
           noProgress()
         αMin = α;
         fMin = f;
+        pMin = p;
       }
     }
   }
