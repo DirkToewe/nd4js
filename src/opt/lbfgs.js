@@ -111,12 +111,16 @@ export function* min_lbfgs_gen( fg, x0, {historySize=8, lineSearch=strong_wolfe(
 //    if( ! (f instanceof NDArray) ) throw new Error('Assertion failed.')
 //    if( ! (g instanceof NDArray) ) throw new Error('Assertion failed.')
     if( x.ndim !== 1 ) throw new Error('Assertion#4 failed.')
-    if( f.ndim !== 0 ) throw new Error('Assertion#5 failed.')
+    if( isNaN(f*1)   ) throw new Error('Assertion#5 failed.')
     if( g.ndim !== 1 ) throw new Error('Assertion#6 failed.')
     if( x.shape[0] !== L ) throw new Error('Assertion#7 failed.')
     if( g.shape[0] !== L ) throw new Error('Assertion#8 failed.')
 
-    yield [x,f,g].map( a => new NDArray(a.shape, a.data.slice()) )
+    yield [
+      new NDArray(shape, x.data.slice()),
+      f*1,
+      new NDArray(shape, g.data.slice())
+    ];
 
     try{
       step()

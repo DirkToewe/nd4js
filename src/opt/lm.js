@@ -39,10 +39,10 @@ export function* lsq_lm_gen(
   fJ,//: (x0: float[nInputs]) => [f: float[nSamples], j: float[nSamples,nInputs]] - THE OPTIMIZATION FUNCTION AND ITS JACOBIAN
   x0,//: float[nInputs] - THE START POINT OF THE OPTIMIZATION
   /*opt=*/{
-    r0   = 1e-2,         // <-   START TRUST REGION RADIUS (meaning radius AFTER scaling)
-    rMin = 1e-4,         // <- MINIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
-    rMax = Infinity,     // <- MAXIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
-    rTol = 0.1,         // <-         TRUST REGION RADIUS TOLERANCE,
+    r0   = 1.1,          // <-   START TRUST REGION RADIUS. r0=1 MEANS THE TRUST REGION CONTAINS THE CAUCHY POINT ON ITS RADIUS.
+    rMin = 1e-8,         // <- MINIMUM TRUST REGION RADIUS (meaning radius AFTER scaling) TODO should relative to norm(D) or something
+    rMax = Infinity,     // <- MAXIMUM TRUST REGION RADIUS (meaning radius AFTER scaling) TODO should relative to norm(D) or something
+    rTol = 0.05,         // <-         TRUST REGION RADIUS TOLERANCE,
     lmLower = 0.001,     // <- LOWER RELATIVE PER-STEP BOUND OF THE LEVENBERG-MARQUARDT PARAMETER ITERATION (USED TO AVOID EXCEEDINGLY SMALL LAMBDA PARAMETERS)
     shrinkLower= 0.1,    // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT MOST
     shrinkUpper= 0.5,    // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT LEAST
@@ -76,8 +76,7 @@ export function* lsq_lm_gen(
   if( !(expectGainMin < expectGainMax) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMin must be less than expectGainMax.');
   if( !(expectGainMax < 1            ) )    console.warn('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMax should be less than 1.');
 
-  let R = r0, // <- TODO maybe there is a better starting value for R0 like r0*solver.scaledNorm(G) order something like that
-      X = x0.data,
+  let X = x0.data,
       W = new Float64Array(X.length);
 
   const NORM = new FrobeniusNorm();
@@ -100,6 +99,10 @@ export function* lsq_lm_gen(
   let f = ff.data,
       J = JJ.data;
 
+  solver.update(ff,JJ);
+//  let R = r0; // <- TODO maybe there is a better starting value for R0 like r0*solver.scaledNorm(G) order something like that
+  let R = -r0 * solver.cauchyPointTravel() * solver.scaledNorm(G);
+
   let err_now = 0;
   for( let i=M; i-- > 0; ) {
     const      s = f[i];
@@ -108,8 +111,6 @@ export function* lsq_lm_gen(
 
   for(;;)
   {
-    solver.update(ff,JJ);
-
     yield [
       new NDArray(  X_shape, X.slice()),
       new NDArray(mse_shape, Float64Array.of(err_now / M) ),
@@ -220,9 +221,11 @@ export function* lsq_lm_gen(
       err_next += s*s;
     }
 
+    const rScale = () => solver.scaledNorm(G); // <- TODO: examine scaling alternatives
+
     const   predict = err_now - err_predict,
              actual = err_now - err_next;
-         if( actual > predict*expectGainMax ) R = Math.min(rMax, R*grow); // PREDICTION GREAT -> INCREASE TRUST RADIUS TODO: Consider using [1] Algorithm (7.1) (d)
+         if( actual > predict*expectGainMax ) R = Math.min(rMax*rScale(), R*grow); // PREDICTION GREAT -> INCREASE TRUST RADIUS TODO: Consider using [1] Algorithm (7.1) (d)
     else if( actual < predict*expectGainMin )
     {
       // PREDICTION BAD -> REDUCE TRUST RADIUS
@@ -262,7 +265,7 @@ export function* lsq_lm_gen(
 //*DEBUG*/      }
       if( !(shrinkLower <= shrink) ) shrink = shrinkLower;
       if( !(shrinkUpper >= shrink) ) shrink = shrinkUpper;
-      R = Math.max(rMin, R*shrink);
+      R = Math.max(rMin*rScale(), R*shrink);
     }
 
     // ONLY ACCEPT NEW X IF BETTER
@@ -272,9 +275,11 @@ export function* lsq_lm_gen(
       ff = _f;
       JJ = _J;
     }
+    // TODO IF WE DON'T ACCEPT NEW X, WE COULD REUSE OLD SOLVER STATE
 
     f = ff.data;
     J = JJ.data;
+    solver.update(ff,JJ);
   }
 }
 

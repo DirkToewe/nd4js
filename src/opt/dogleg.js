@@ -40,8 +40,8 @@ export function* lsq_dogleg_gen(
   fJ,//: (x0: float[nInputs]) => [f: float[nSamples], j: float[nSamples,nInputs]] - THE OPTIMIZATION FUNCTION AND ITS JACOBIAN
   x0,//: float[nInputs] - THE START POINT OF THE OPTIMIZATION
   /*opt=*/{
-    r0   = 1e-2,         // <-   START TRUST REGION RADIUS (meaning radius AFTER scaling)
-    rMin = 1e-4,         // <- MINIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
+    r0   = 1.1,          // <-   START TRUST REGION RADIUS (meaning radius AFTER scaling)
+    rMin = 1e-8,         // <- MINIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
     rMax = Infinity,     // <- MAXIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
     shrinkLower= 0.05,   // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT MOST
     shrinkUpper= 0.95,   // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT LEAST
@@ -71,7 +71,7 @@ export function* lsq_dogleg_gen(
   if( !(expectGainMin < expectGainMax) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMin must be less than expectGainMax.');
   if( !(expectGainMax < 1            ) )    console.warn('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMax should be less than 1.');
 
-  let R = r0, // <- TODO maybe there is a better starting value for R0 like r0*solver.scaledNorm(G) order something like that
+  let R = NaN,
       X = x0.data,
       W = new Float64Array(X.length),
      dX = new Float64Array(X.length);
@@ -100,7 +100,7 @@ export function* lsq_dogleg_gen(
     err_now += s*s;
   }
 
-  for(;;)
+  for( let iter=0;; iter++ )
   {
     solver.update(ff,JJ);
 
@@ -116,6 +116,9 @@ export function* lsq_dogleg_gen(
           cp = solver.cauchyPointTravel();
     if( !(cp <= 0) )
       throw new Error('Assertion failed.');
+
+    if( 0===iter )
+      R = r0 * -gn*cp; // <- init 
 
     { const t = Math.max(-R/gn, cp); // <- don't go beyond trust region radius
       for( let i=N; i-- > 0; )
@@ -199,12 +202,14 @@ export function* lsq_dogleg_gen(
       err_next += s*s;
     }
 
+    const rScale = () => solver.scaledNorm(G); // <- TODO: examine scaling alternatives
+
     const   predict = err_now - err_predict,
              actual = err_now - err_next;
-         if( actual > predict*expectGainMax ) R = Math.min(rMax, R*grow);
+         if( actual > predict*expectGainMax ) R = Math.min(rMax*rScale(), R*grow); // PREDICTION GREAT -> INCREASE TRUST RADIUS
     else if( actual < predict*expectGainMin )
     {
-      // OUR PREDICTION WAS TERRIBLE, REDUCE TRUST RADIUS
+      // PREDICTION BAD -> REDUCE TRUST RADIUS
       // (by fitting a quadratic polynomial through err_now, grad_now and err_next)
       let grad_now = 0;
       for( let i=N; i-- > 0; )
@@ -241,7 +246,7 @@ export function* lsq_dogleg_gen(
 //*DEBUG*/      }
       if( !(shrinkLower <= shrink) ) shrink = shrinkLower;
       if( !(shrinkUpper >= shrink) ) shrink = shrinkUpper;
-      R = Math.max(rMin, R*shrink);
+      R = Math.max(rMin*rScale(), R*shrink);
     }
 
     // ONLY ACCEPT NEW X IF BETTER
@@ -251,6 +256,7 @@ export function* lsq_dogleg_gen(
       ff = _f;
       JJ = _J;
     }
+    // TODO IF WE DON'T ACCEPT NEW X, WE COULD REUSE OLD SOLVER STATE
 
     f = ff.data;
     J = JJ.data;

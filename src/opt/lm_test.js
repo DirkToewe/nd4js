@@ -37,18 +37,31 @@ describe('levenberg-marquardt', () => {
   })
 
 
+  const samples = [];
+
+
   forEachItemIn(
     function*(){                     const n = 16;
       function*       range() { for( let i=n+1; i-- > 0; ) yield Math.PI*(1-2*(i/n)); }
       for( const x of range() )
       for( const y of range() ) { yield [x,y];
       for( const z of range() ) { yield [x,y,z]; }}
+
+      const avg = samples.reduce((x,y) => x+y) / samples.length,
+            std = Math.hypot( ...samples.map( x => (x-avg) / Math.sqrt(samples.length) ) );
+
+      console.log('Levenberg-Marquardt')
+      console.log('-------------------')
+      console.log('MIN:', samples.reduce((x,y) => Math.min(x,y)) );
+      console.log('MAX:', samples.reduce((x,y) => Math.max(x,y)) );
+      console.log('AVG:', avg );
+      console.log('STD:', std );
     }()
   ).it('lsq_lm_gen works on rosenbrock_lsq', x0 => {
 
     let nCalls = 0
     const fJ = x => {
-      expect(++nCalls).toBeLessThan(2048);
+      expect(++nCalls).toBeLessThan(1024);
       return [
         rosenbrock_lsq(x),
         rosenbrock_lsq_jac(x)
@@ -82,6 +95,8 @@ describe('levenberg-marquardt', () => {
         break;
       }
     }
+
+    samples.push(nCalls);
   })
 
 

@@ -40,6 +40,8 @@ describe('strong_wolfe', () => {
       for( let z = -S; z <= +S; z+=Δ ) { yield [w,x,y,z] }}}
     }()
   ).it('works on rosenbrock', x0 => {
+    x0 = Object.freeze(x0);
+
     let nCalls = 0
     const fg = x => {
       ++nCalls
@@ -63,7 +65,7 @@ describe('strong_wolfe', () => {
     }
 
     expect(x).toEqual(jasmine.any(NDArray))
-    expect(f).toEqual(jasmine.any(NDArray))
+    expect(f).toEqual(jasmine.any(Number))
     expect(g).toEqual(jasmine.any(NDArray))
 
     expect( rosenbrock_grad(x) ).toBeAllCloseTo(g, {atol:0, gtol:0})
@@ -71,7 +73,7 @@ describe('strong_wolfe', () => {
     expect(x.shape).toEqual( Int32Array.of(x0.length) )
     expect(g.shape).toEqual( Int32Array.of(x0.length) )
 
-    expect(nCalls).toBeLessThan(16)
+    expect(nCalls).toBeLessThan(12)
 
     const [p,p0] = [g,g0].map( g => {
       let pg = 0

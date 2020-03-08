@@ -31,13 +31,24 @@ describe('lbfgs', () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
 
-  forEachItemIn(
-    function*(){
-      const  S = 3.14, Δ = 0.42
+  const samples = [];
 
-      for( let w = -S; w <= +S; w+=Δ )
-      for( let x = -S; x <= +S; x+=Δ ) { yield [w,x]
-      for( let y = -S; y <= +S; y+=Δ ) { yield [w,x,y] }}
+  forEachItemIn(
+    function*(){                     const n = 16;
+      function*       range() { for( let i=n+1; i-- > 0; ) yield Math.PI*(1-2*(i/n)); }
+      for( const x of range() )
+      for( const y of range() ) { yield [x,y];
+      for( const z of range() ) { yield [x,y,z]; }}
+
+      const avg = samples.reduce((x,y) => x+y) / samples.length,
+            std = Math.hypot( ...samples.map( x => (x-avg) / Math.sqrt(samples.length) ) );
+
+      console.log('L-BFGS')
+      console.log('------')
+      console.log('MIN:', samples.reduce((x,y) => Math.min(x,y)) );
+      console.log('MAX:', samples.reduce((x,y) => Math.max(x,y)) );
+      console.log('AVG:', avg );
+      console.log('STD:', std );
     }()
   ).it('min_lbfgs_gen works on rosenbrock', x0 => {
     let nCalls = 0
@@ -58,11 +69,10 @@ describe('lbfgs', () => {
       for( [x,f,g] of min_lbfgs_gen(fg, x0, opt) )
       {
         expect(x).toEqual( jasmine.any(NDArray) )
-        expect(f).toEqual( jasmine.any(NDArray) )
+        expect(f).toEqual( jasmine.any(Number) )
         expect(g).toEqual( jasmine.any(NDArray) )
 
         expect(x.ndim).toBe(1)
-        expect(f.ndim).toBe(0)
         expect(g.ndim).toBe(1)
 
         expect(x.shape).toEqual( Int32Array.of(x0.length) )
@@ -72,7 +82,7 @@ describe('lbfgs', () => {
         expect(g).toBeAllCloseTo(rosenbrock_grad(x), {rtol:0, atol:0})
 
         const gNorm = Math.hypot(...g.data)
-        if( gNorm <= 1e-8 )
+        if(   gNorm <= 1e-8 )
           break
         expect(++nIter).toBeLessThan(128)
       }
@@ -82,6 +92,8 @@ describe('lbfgs', () => {
         throw err
       console.log('NO_PROGRESS')
     }
+
+    samples.push(nCalls);
 
     expect(x).toBeAllCloseTo(1)
     expect(f).toBeAllCloseTo(0)

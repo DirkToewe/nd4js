@@ -16,8 +16,7 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {zip_elems} from '../../zip_elems'
-import {asarray} from '../../nd_array'
+import {asarray, NDArray} from '../../nd_array'
 
 import {_min1d_interp_quad} from '../_opt_utils'
 //*DEBUG*/import {num_grad} from '../num_grad'
@@ -47,16 +46,38 @@ export const strong_wolfe = ({c1=0.01, c2=0.9, c3=2, minRed=0.2}={}) => {
   const Λ = 1 / minRed,
         λ = Λ - 1;
 
-  return fg => (X0,f0,G0, negDir) => {
-    X0 = asarray(X0)
-    G0 = asarray(G0)
-    if    (X0.ndim !== 1) throw new Error('strong_wolfe()(fg)(X0,f0,G0): X0.ndim must be 1.')
-    if(    G0.ndim !== 1) throw new Error('strong_wolfe()(fg)(X0,f0,G0): G0.ndim must be 1.')
-    if(negDir.ndim !== 1) throw new Error('strong_wolfe()(fg)(X0,f0,G0): negDir.ndim must be 1.')
-    if(X0.shape[0] !== G0.shape[0]) throw new Error('strong_wolfe()(fg)(X0,f0,G0): X0 and G0 must have the same shape.')
-    if( isNaN(f0) ) throw new Error('strong_wolfe()(fg)(X0,f0,G0): f0 is NaN.')
+  return fg_raw => (X0,f0,G0, negDir) => {
+    X0 = asarray(X0);
+    G0 = asarray(G0);
+    f0*= 1;
+
+    if( !(negDir instanceof NDArray) ) throw new Error('Assertion failed.');
+
+    const shape = negDir.shape;
+
+    if    (X0.ndim !== 1       ) throw new Error('strong_wolfe()(fg)(X0,f0,G0): X0.ndim must be 1.')
+    if(    G0.ndim !== 1       ) throw new Error('strong_wolfe()(fg)(X0,f0,G0): G0.ndim must be 1.')
+    if(negDir.ndim !== 1       ) throw new Error('strong_wolfe()(fg)(X0,f0,G0): negDir.ndim must be 1.')
+    if(X0.shape[0] !== shape[0]) throw new Error('strong_wolfe()(fg)(X0,f0,G0): negDir and X0 must have the same shape.')
+    if(G0.shape[0] !== shape[0]) throw new Error('strong_wolfe()(fg)(X0,f0,G0): negDir and G0 must have the same shape.')
+    if(  isNaN(f0)             ) throw new Error('strong_wolfe()(fg)(X0,f0,G0): f0 is NaN.')
 
     const dtype = [X0,G0].every(x => x.dtype==='float32') ? 'float32' : 'float64'
+
+    const fg = x => {
+      let [f,g] = fg_raw(x);
+
+      f *= 1;
+      g = asarray(g);
+
+      if( isNaN(f)              ) throw new Error('strong_wolfe()(fg)(X0,f0,G0): fg returned NaN.');
+      if(g.ndim     !== 1       ) throw new Error('strong_wolfe()(fg)(X0,f0,G0): fg returned gradient with invalid shape.');
+      if(g.shape[0] !== shape[0]) throw new Error('strong_wolfe()(fg)(X0,f0,G0): fg returned gradient with invalid shape.');
+
+      return [f,g];
+    };
+
+    negDir = negDir.data;
 
 //*DEBUG*/    const projGradTest = num_grad( α => {
 //*DEBUG*/      const X = zip_elems([X0,negDir], dtype, (x,nDir) => x - α*nDir);
@@ -65,8 +86,8 @@ export const strong_wolfe = ({c1=0.01, c2=0.9, c3=2, minRed=0.2}={}) => {
 
     const projGrad = g => { // <- projected gradient
       let pg = 0
-      for( let [i]=negDir.shape; i-- > 0; )
-        pg -= negDir.data[i] * g.data[i]
+      for( let i=negDir.length; i-- > 0; )
+        pg -= negDir[i] * g.data[i]
       return pg
     }
 
@@ -85,8 +106,8 @@ export const strong_wolfe = ({c1=0.01, c2=0.9, c3=2, minRed=0.2}={}) => {
     //   Find a range guaranteed to contain an α satisfying strong Wolfe.
     bracketing: for(;;)
     {
-      const X = zip_elems([X0,negDir], dtype, (x,nDir) => x - α*nDir),
-           [f,G] = fg(X),
+      const X = new NDArray( shape, X0.data.map((x,i) => x - α*negDir[i]) ),
+         [f,G]= fg(X),
             p = projGrad(G);
 
 //*DEBUG*/      const q = projGradTest(α);
@@ -155,7 +176,7 @@ export const strong_wolfe = ({c1=0.01, c2=0.9, c3=2, minRed=0.2}={}) => {
         else if( !(αHi >= α) ) α = αHi; // < handles NaN
       }
 
-      const X = zip_elems([X0,negDir], dtype, (x,nDir) => x - α*nDir),
+      const X = new NDArray( shape, X0.data.map((x,i) => x - α*negDir[i]) ),
            [f,G] = fg(X),
             p = projGrad(G);
 
