@@ -31,7 +31,7 @@ describe('lbfgs', () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
 
-  const samples = [];
+//*DEBUG*/  const samples = [];
 
   forEachItemIn(
     function*(){                     const n = 16;
@@ -40,15 +40,15 @@ describe('lbfgs', () => {
       for( const y of range() ) { yield [x,y];
       for( const z of range() ) { yield [x,y,z]; }}
 
-      const avg = samples.reduce((x,y) => x+y) / samples.length,
-            std = Math.hypot( ...samples.map( x => (x-avg) / Math.sqrt(samples.length) ) );
-
-      console.log('L-BFGS')
-      console.log('------')
-      console.log('MIN:', samples.reduce((x,y) => Math.min(x,y)) );
-      console.log('MAX:', samples.reduce((x,y) => Math.max(x,y)) );
-      console.log('AVG:', avg );
-      console.log('STD:', std );
+//*DEBUG*/      const avg = samples.reduce((x,y) => x+y) / samples.length,
+//*DEBUG*/            std = Math.hypot( ...samples.map( x => (x-avg) / Math.sqrt(samples.length) ) );
+//*DEBUG*/
+//*DEBUG*/      console.log('L-BFGS')
+//*DEBUG*/      console.log('------')
+//*DEBUG*/      console.log('MIN:', samples.reduce((x,y) => Math.min(x,y)) );
+//*DEBUG*/      console.log('MAX:', samples.reduce((x,y) => Math.max(x,y)) );
+//*DEBUG*/      console.log('AVG:', avg );
+//*DEBUG*/      console.log('STD:', std );
     }()
   ).it('min_lbfgs_gen works on rosenbrock', x0 => {
     let nCalls = 0
@@ -64,36 +64,29 @@ describe('lbfgs', () => {
       negDir0: g => g.mapElems('float64',g=>g/1024)
     }
 
-    let x,f,g, nIter = -1
-    try {
-      for( [x,f,g] of min_lbfgs_gen(fg, x0, opt) )
-      {
-        expect(x).toEqual( jasmine.any(NDArray) )
-        expect(f).toEqual( jasmine.any(Number) )
-        expect(g).toEqual( jasmine.any(NDArray) )
+    let   x,f,g, nIter = -1
+    for( [x,f,g] of min_lbfgs_gen(fg, x0, opt) )
+    {
+      expect(x).toEqual( jasmine.any(NDArray) )
+      expect(f).toEqual( jasmine.any(Number ) )
+      expect(g).toEqual( jasmine.any(NDArray) )
 
-        expect(x.ndim).toBe(1)
-        expect(g.ndim).toBe(1)
+      expect(x.ndim).toBe(1)
+      expect(g.ndim).toBe(1)
 
-        expect(x.shape).toEqual( Int32Array.of(x0.length) )
-        expect(g.shape).toEqual( Int32Array.of(x0.length) )
+      expect(x.shape).toEqual( Int32Array.of(x0.length) )
+      expect(g.shape).toEqual( Int32Array.of(x0.length) )
 
-        expect(f).toBeAllCloseTo(rosenbrock     (x), {rtol:0, atol:0})
-        expect(g).toBeAllCloseTo(rosenbrock_grad(x), {rtol:0, atol:0})
+      expect(f).toBeAllCloseTo(rosenbrock     (x), {rtol:0, atol:0})
+      expect(g).toBeAllCloseTo(rosenbrock_grad(x), {rtol:0, atol:0})
 
-        const gNorm = Math.hypot(...g.data)
-        if(   gNorm <= 1e-8 )
-          break
-        expect(++nIter).toBeLessThan(128)
-      }
-    }
-    catch(err) {
-      if( ! (err instanceof LineSearchNoProgressError) )
-        throw err
-      console.log('NO_PROGRESS')
+      const gNorm = Math.hypot(...g.data)
+      if(   gNorm <= 1e-8 )
+        break
+      expect(++nIter).toBeLessThan(128)
     }
 
-    samples.push(nCalls);
+//*DEBUG*/    samples.push(nCalls);
 
     expect(x).toBeAllCloseTo(1)
     expect(f).toBeAllCloseTo(0)

@@ -274,12 +274,12 @@ export function* lsq_lm_gen(
       [W,X] = [X,W];
       ff = _f;
       JJ = _J;
+      solver.update(ff,JJ);
     }
     // TODO IF WE DON'T ACCEPT NEW X, WE COULD REUSE OLD SOLVER STATE
 
     f = ff.data;
     J = JJ.data;
-    solver.update(ff,JJ);
   }
 }
 

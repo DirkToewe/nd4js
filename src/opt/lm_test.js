@@ -37,7 +37,7 @@ describe('levenberg-marquardt', () => {
   })
 
 
-  const samples = [];
+//*DEBUG*/  const samples = [];
 
 
   forEachItemIn(
@@ -47,15 +47,15 @@ describe('levenberg-marquardt', () => {
       for( const y of range() ) { yield [x,y];
       for( const z of range() ) { yield [x,y,z]; }}
 
-      const avg = samples.reduce((x,y) => x+y) / samples.length,
-            std = Math.hypot( ...samples.map( x => (x-avg) / Math.sqrt(samples.length) ) );
-
-      console.log('Levenberg-Marquardt')
-      console.log('-------------------')
-      console.log('MIN:', samples.reduce((x,y) => Math.min(x,y)) );
-      console.log('MAX:', samples.reduce((x,y) => Math.max(x,y)) );
-      console.log('AVG:', avg );
-      console.log('STD:', std );
+//*DEBUG*/      const avg = samples.reduce((x,y) => x+y) / samples.length,
+//*DEBUG*/            std = Math.hypot( ...samples.map( x => (x-avg) / Math.sqrt(samples.length) ) );
+//*DEBUG*/
+//*DEBUG*/      console.log('Levenberg-Marquardt')
+//*DEBUG*/      console.log('-------------------')
+//*DEBUG*/      console.log('MIN:', samples.reduce((x,y) => Math.min(x,y)) );
+//*DEBUG*/      console.log('MAX:', samples.reduce((x,y) => Math.max(x,y)) );
+//*DEBUG*/      console.log('AVG:', avg );
+//*DEBUG*/      console.log('STD:', std );
     }()
   ).it('lsq_lm_gen works on rosenbrock_lsq', x0 => {
 
@@ -96,7 +96,7 @@ describe('levenberg-marquardt', () => {
       }
     }
 
-    samples.push(nCalls);
+//*DEBUG*/    samples.push(nCalls);
   })
 
 

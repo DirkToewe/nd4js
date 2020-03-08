@@ -71,8 +71,7 @@ export function* lsq_dogleg_gen(
   if( !(expectGainMin < expectGainMax) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMin must be less than expectGainMax.');
   if( !(expectGainMax < 1            ) )    console.warn('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMax should be less than 1.');
 
-  let R = NaN,
-      X = x0.data,
+  let X = x0.data,
       W = new Float64Array(X.length),
      dX = new Float64Array(X.length);
 
@@ -94,15 +93,21 @@ export function* lsq_dogleg_gen(
   let f = ff.data,
       J = JJ.data;
 
+  solver.update(ff,JJ);
+  let gn = solver.scaledNorm(G),
+      cp = solver.cauchyPointTravel();
+
+  let R = r0 * -gn*cp;
+
   let err_now = 0;
   for( let i=M; i-- > 0; ) {
     const      s = f[i];
     err_now += s*s;
   }
 
-  for( let iter=0;; iter++ )
+  for(;;)
   {
-    solver.update(ff,JJ);
+/*DEBUG*/    if( !(cp <= 0) ) throw new Error('Assertion failed.');
 
     yield [
       new NDArray(  X_shape, X.slice()),
@@ -111,14 +116,6 @@ export function* lsq_dogleg_gen(
       new NDArray( ff.shape, ff.data.slice() ),
       new NDArray( JJ.shape, JJ.data.slice() )
     ];
-
-    const gn = solver.scaledNorm(G),
-          cp = solver.cauchyPointTravel();
-    if( !(cp <= 0) )
-      throw new Error('Assertion failed.');
-
-    if( 0===iter )
-      R = r0 * -gn*cp; // <- init 
 
     { const t = Math.max(-R/gn, cp); // <- don't go beyond trust region radius
       for( let i=N; i-- > 0; )
@@ -162,12 +159,10 @@ export function* lsq_dogleg_gen(
         if(1===t) break block;
       }
 
-/*DEBUG*/      if( !(Math.abs(solver.scaledNorm(dX)-R) <= 1e-6) ) // <- check that solution is in radius
-/*DEBUG*/        throw new Error('Assertion failed.');
+/*DEBUG*/      if( !(Math.abs(solver.scaledNorm(dX)-R) <= 1e-6) ) throw new Error('Assertion failed.');// <- check that solution is in radius
     }
 
-/*DEBUG*/    if( !(solver.scaledNorm(dX) <= R+1e-6 ) )
-/*DEBUG*/      throw new Error('Assertion failed.');
+/*DEBUG*/    if( !(solver.scaledNorm(dX) <= R+1e-6 ) ) throw new Error('Assertion failed.');
 
     let err_predict = 0;
     for( let i=M; i-- > 0; )
@@ -179,8 +174,7 @@ export function* lsq_dogleg_gen(
       err_predict += s*s;
     }
 
-/*DEBUG*/    if( !(err_predict <= err_now) )
-/*DEBUG*/      throw new Error('Assertion failed.');
+/*DEBUG*/    if( !(err_predict <= err_now) ) throw new Error('Assertion failed.');
 
     for( let i=N; i-- > 0; )
       W[i] = dX[i] + X[i];
@@ -202,7 +196,7 @@ export function* lsq_dogleg_gen(
       err_next += s*s;
     }
 
-    const rScale = () => solver.scaledNorm(G); // <- TODO: examine scaling alternatives
+    const rScale = () => gn; // <- TODO: examine scaling alternatives
 
     const   predict = err_now - err_predict,
              actual = err_now - err_next;
@@ -255,6 +249,9 @@ export function* lsq_dogleg_gen(
       [W,X] = [X,W];
       ff = _f;
       JJ = _J;
+      solver.update(ff,JJ);
+      gn = solver.scaledNorm(G);
+      cp = solver.cauchyPointTravel();
     }
     // TODO IF WE DON'T ACCEPT NEW X, WE COULD REUSE OLD SOLVER STATE
 

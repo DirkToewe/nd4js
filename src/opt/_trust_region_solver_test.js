@@ -52,7 +52,7 @@ describe('TrustRegionSolverLSQ', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=1024; run-- > 0; )
+      for( let run=512; run-- > 0; )
       { const N = randInt(1,64),
               M = randInt(N,64);
 
@@ -84,20 +84,24 @@ describe('TrustRegionSolverLSQ', () => {
       const neg_f = new NDArray(f_shape, f.data.map(x => -x));
 
       solver.update(neg_f,J);
-      solver.computeMinGlobal();
 
-      const x = new NDArray(X_shape, solver.X.slice()),
-           Jx = matmul2(J,x);
+      for( let i=2; i-- > 0; )
+      {
+        solver.computeMinGlobal();
 
-      // every least square solution satisfies the normal equaltion Aᵀ(Ax - y) = 0
-      expect( matmul2(J.T, zip_elems([Jx,f], (x,y) => x-y) ) ).toBeAllCloseTo(0);
+        const x = new NDArray(X_shape, solver.X.slice()),
+             Jx = matmul2(J,x);
+
+        // every least square solution satisfies the normal equaltion Aᵀ(Ax - y) = 0
+        expect( matmul2(J.T, zip_elems([Jx,f], (x,y) => x-y) ) ).toBeAllCloseTo(0);
+      }
     }
   })
 
 
   forEachItemIn(
     function*(){
-      for( let run=1024; run-- > 0; )
+      for( let run=768; run-- > 0; )
       { const N = randInt(1,64),
               M = randInt(1,64);
 
@@ -141,21 +145,27 @@ describe('TrustRegionSolverLSQ', () => {
 
       const neg_f = new NDArray(f_shape, f.data.map(x => -x));
 
-      solver.update(neg_f,J);    expect(solver.D).toBeAllCloseTo(D, {atol:0, rtol:Number.EPSILON*5});
-      solver.computeMinGlobal(); expect(solver.D).toBeAllCloseTo(D, {atol:0, rtol:Number.EPSILON*5});
+      solver.update(neg_f,J);
+      expect(solver.D).toBeAllCloseTo(D, {atol:0, rtol:Number.EPSILON*5});
 
-      const x = new NDArray(X_shape, solver.X.slice()),
-           Jx = matmul2(J,x);
+      for( let i=2; i-- > 0; )
+      {
+        solver.computeMinGlobal();
+        expect(solver.D).toBeAllCloseTo(D, {atol:0, rtol:Number.EPSILON*5});
 
-      // every least square solution satisfies the normal equaltion Aᵀ(Ax - y) = 0
-      expect( matmul2(J.T, zip_elems([Jx,f], 'float64', (x,y) => x-y) ) ).toBeAllCloseTo(0);
+        const x = new NDArray(X_shape, solver.X.slice()),
+             Jx = matmul2(J,x);
+
+        // every least square solution satisfies the normal equaltion Aᵀ(Ax - y) = 0
+        expect( matmul2(J.T, zip_elems([Jx,f], 'float64', (x,y) => x-y) ) ).toBeAllCloseTo(0);
+      }
     }
   })
 
 
   forEachItemIn(
     function*(){
-      for( let run=1024; run-- > 0; )
+      for( let run=384; run-- > 0; )
       { const M = randInt(1,64),
               N = randInt(M,64);
 
@@ -187,32 +197,35 @@ describe('TrustRegionSolverLSQ', () => {
       const neg_f = new NDArray(f_shape, f.data.map(x => -x));
 
       solver.update(neg_f,J);
-      solver.computeMinGlobal();
+      for( let i=2; i-- > 0; )
+      {
+        solver.computeMinGlobal();
 
-      const x = new NDArray(X_shape, solver.X.slice());
+        const x = new NDArray(X_shape, solver.X.slice());
 
-      // check that x is a solution
-      expect( matmul2(J,x) ).toBeAllCloseTo(f);
+        // check that x is a solution
+        expect( matmul2(J,x) ).toBeAllCloseTo(f);
 
-      const D = new NDArray(X_shape, solver.D);
+        const D = new NDArray(X_shape, solver.D);
 
-      const JD = zip_elems([J, D.T], 'float64', (j,d) => d===0 ? j : j/d),
-            Dx = zip_elems([x, D  ], 'float64', (x,d) => x*d);
+        const JD = zip_elems([J, D.T], 'float64', (j,d) => d===0 ? j : j/d),
+              Dx = zip_elems([x, D  ], 'float64', (x,d) => x*d);
 
-      expect( matmul2(JD,Dx) ).toBeAllCloseTo(f);
+        expect( matmul2(JD,Dx) ).toBeAllCloseTo(f);
 
-      // check that it's the minimum norm solution
-      // (taking into account diagonal scaling of the Trust-Region method)
-      // https://www.math.usm.edu/lambers/mat419/lecture15.pdf
-      const JJT = matmul2(JD,JD.T);
-      expect(Dx).toBeAllCloseTo(matmul2(JD.T, solve(JJT,f)), {rtol: 5e-4});
+        // check that it's the minimum norm solution
+        // (taking into account diagonal scaling of the Trust-Region method)
+        // https://www.math.usm.edu/lambers/mat419/lecture15.pdf
+        const JJT = matmul2(JD,JD.T);
+        expect(Dx).toBeAllCloseTo(matmul2(JD.T, solve(JJT,f)), {rtol: 5e-4});
+      }
     }
   })
 
 
   forEachItemIn(
     function*(){
-      for( let run=1024; run-- > 0; )
+      for( let run=256; run-- > 0; )
       { const N = randInt(1,48),
               M = randInt(1,48);
 
@@ -244,19 +257,22 @@ describe('TrustRegionSolverLSQ', () => {
       const neg_f = new NDArray(f_shape, f.data.map(x => -x));
 
       solver.update(neg_f,J);
-      solver.computeMinGlobal();
+      for( let i=2; i-- > 0; )
+      {
+        solver.computeMinGlobal();
 
-      const x = new NDArray(X_shape, solver.X.slice()),
-           Jx = matmul2(J,x);
+        const x = new NDArray(X_shape, solver.X.slice()),
+             Jx = matmul2(J,x);
 
-      // check that x is a solution
-      expect( matmul2(J.T, zip_elems([Jx,f], 'float64', (x,y) => x-y) ) ).toBeAllCloseTo(0);
+        // check that x is a solution
+        expect( matmul2(J.T, zip_elems([Jx,f], 'float64', (x,y) => x-y) ) ).toBeAllCloseTo(0);
 
-      const D = new NDArray(X_shape, solver.D),
-           JD = zip_elems([J, D.T], 'float64', (j,d) => d===0 ? j : j/d),
-            Dx= zip_elems([x, D  ], 'float64', (x,d) => x*d);
+        const D = new NDArray(X_shape, solver.D),
+             JD = zip_elems([J, D.T], 'float64', (j,d) => d===0 ? j : j/d),
+              Dx= zip_elems([x, D  ], 'float64', (x,d) => x*d);
 
-      expect(Dx).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(JD),f) );
+        expect(Dx).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(JD),f) );
+      }
     }
   })
 
@@ -268,7 +284,7 @@ describe('TrustRegionSolverLSQ', () => {
         for( let N=8; N > 1; N-- )
           yield [M,N];
 
-        for( let run=512; run-- > 0; )
+        for( let run=192; run-- > 0; )
         {
           const M = randInt(1,64),
                 N = randInt(1,64); // <- TODO remove after testing
@@ -305,19 +321,22 @@ describe('TrustRegionSolverLSQ', () => {
       const neg_f = new NDArray(f_shape, f.data.map(x => -x));
 
       solver.update(neg_f,J);
-      solver.computeMinGlobal();
+      for( let i=2; i-- > 0; )
+      {
+        solver.computeMinGlobal();
 
-      const x = new NDArray(X_shape, solver.X.slice()),
-           Jx = matmul2(J,x);
+        const x = new NDArray(X_shape, solver.X.slice()),
+             Jx = matmul2(J,x);
 
-      // check that x is a solution
-      expect( matmul2(J.T, zip_elems([Jx,f], 'float64', (x,y) => x-y) ) ).toBeAllCloseTo(0);
+        // check that x is a solution
+        expect( matmul2(J.T, zip_elems([Jx,f], 'float64', (x,y) => x-y) ) ).toBeAllCloseTo(0);
 
-      const D = new NDArray(X_shape, solver.D),
-           JD = zip_elems([J, D.T], 'float64', (j,d) => d===0 ? j : j/d),
-            Dx= zip_elems([x, D  ], 'float64', (x,d) => x*d);
+        const D = new NDArray(X_shape, solver.D),
+             JD = zip_elems([J, D.T], 'float64', (j,d) => d===0 ? j : j/d),
+              Dx= zip_elems([x, D  ], 'float64', (x,d) => x*d);
 
-      expect(Dx).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(JD),f) );
+        expect(Dx).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(JD),f) );
+      }
     }
   })
 
@@ -331,22 +350,25 @@ describe('TrustRegionSolverLSQ', () => {
     for( let i=4; i-- > 0; )
     {
       solver.update(f,J);
-      solver.computeMinGlobal();
-
-      expect( solver.scaledNorm(solver.X) ).toBeAllCloseTo(R);
-
-      for( let j=4; j-- > 0; )
+      for( let l=4; l-- > 0; )
       {
-        for( let k=2; k-- > 0; )
+        solver.computeMinGlobal();
+
+        expect( solver.scaledNorm(solver.X) ).toBeAllCloseTo(R);
+
+        for( let j=4; j-- > 0; )
         {
-          const [r,dr] = solver.computeMinRegularized(0);
+          for( let k=4; k-- > 0; )
+          {
+            const [r,dr] = solver.computeMinRegularized(0);
 
-          expect( r).toBeAllCloseTo( R);
-          expect(dr).toBeAllCloseTo(DR);
+            expect( r).toBeAllCloseTo( R);
+            expect(dr).toBeAllCloseTo(DR);
 
-          expect( solver.scaledNorm(solver.X) ).toBeAllCloseTo(R);
+            expect( solver.scaledNorm(solver.X) ).toBeAllCloseTo(R);
+          }
+          solver.computeMinRegularized( Math.random() );
         }
-        solver.computeMinRegularized( Math.random() );
       }
     }
   })
@@ -361,22 +383,25 @@ describe('TrustRegionSolverLSQ', () => {
     for( let i=4; i-- > 0; )
     {
       solver.update(f,J);
-      solver.computeMinGlobal();
-
-      expect( solver.scaledNorm(solver.X) ).toBeAllCloseTo(R);
-
-      for( let j=4; j-- > 0; )
+      for( let l=4; l-- > 0; )
       {
-        for( let k=2; k-- > 0; )
+        solver.computeMinGlobal();
+
+        expect( solver.scaledNorm(solver.X) ).toBeAllCloseTo(R);
+
+        for( let j=4; j-- > 0; )
         {
-          const [r,dr] = solver.computeMinRegularized(0);
+          for( let k=4; k-- > 0; )
+          {
+            const [r,dr] = solver.computeMinRegularized(0);
 
-          expect( r).toBeAllCloseTo( R);
-          expect(dr).toBeAllCloseTo(DR);
+            expect( r).toBeAllCloseTo( R);
+            expect(dr).toBeAllCloseTo(DR);
 
-          expect( solver.scaledNorm(solver.X) ).toBeAllCloseTo(R);
+            expect( solver.scaledNorm(solver.X) ).toBeAllCloseTo(R);
+          }
+          solver.computeMinRegularized( Math.random() );
         }
-        solver.computeMinRegularized( Math.random() );
       }
     }
   })
@@ -437,28 +462,38 @@ describe('TrustRegionSolverLSQ', () => {
     {
       const neg_f = new NDArray(f_shape, f.data.map(x => -x));
 
+      const X = svd_lstsq(...svd_jac_2sided(J), f);
+      Object.freeze(X.data.buffer);
+      Object.freeze(X);
+
       solver.update(neg_f,J);
-      solver.computeMinGlobal();
-
-      for( const λ of lambdas )
+      for( let l=2; l-- > 0; )
       {
-        const [r,dr] = solver.computeMinRegularized(λ),
-               λSqrt = Math.sqrt(λ);
+        solver.computeMinGlobal();
 
-        const x = new NDArray(X_shape, solver.X.slice()),
-             λD = diag_mat(solver.D).mapElems(d => d*λSqrt);
+        const x = new NDArray(X_shape, solver.X.slice());
 
-        const B = concat([J,λD]),
-              z = concat([f,tabulate([N,1], 'float64', () => 0)]);
+        expect(x).toBeAllCloseTo(X);
 
-//        const A = zip_elems([matmul2(J.T,J), λD], (j,d) => j + d*d),
-//              y = matmul2(J.T, f);
-//        expect( solve(A,y) ).toBeAllCloseTo( lstsq(B,z) );
-//        expect(x).toBeAllCloseTo( solve(A,y) );
+        for( const λ of lambdas )
+        {
+          const [r,dr] = solver.computeMinRegularized(λ),
+                 λSqrt = Math.sqrt(λ);
 
-        expect(x).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(B), z) );
+          const x = new NDArray(X_shape, solver.X.slice()),
+               λD = diag_mat(solver.D).mapElems(d => d*λSqrt),
+                B = concat([J,λD]),
+                z = concat([f,tabulate([N,1], 'float64', () => 0)]);
 
-        expect(dr).toBeAllCloseTo( g(λ), {rtol: 1e-3} );
+//          const A = zip_elems([matmul2(J.T,J), λD], (j,d) => j + d*d),
+//                y = matmul2(J.T, f);
+//          expect( solve(A,y) ).toBeAllCloseTo( lstsq(B,z) );
+//          expect(x).toBeAllCloseTo( solve(A,y) );
+
+          expect(x).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(B), z) );
+
+          expect(dr).toBeAllCloseTo( g(λ), {rtol: 1e-3} );
+        }
       }
     }
   })
@@ -467,7 +502,7 @@ describe('TrustRegionSolverLSQ', () => {
   forEachItemIn(
     function*(){
       function* shapes() {
-        for( let run=512; run-- > 0; ) {
+        for( let run=384; run-- > 0; ) {
           const M = randInt(1,16),
                 N = randInt(M,16);
           yield[M,N];
@@ -519,35 +554,46 @@ describe('TrustRegionSolverLSQ', () => {
       const neg_f = new NDArray(f_shape, f.data.map(x => -x));
 
       solver.update(neg_f,J);
-      solver.computeMinGlobal();
-
-      for( const λ of lambdas )
+      for( let l=2; l-- > 0; )
       {
-        const [r,dr] = solver.computeMinRegularized(λ),
-               λSqrt = Math.sqrt(λ);
-
-        if( isNaN( r) ) throw new Error('Assertion failed.');
-        if( isNaN(dr) ) throw new Error('Assertion failed.');
+        solver.computeMinGlobal();
 
         const x = new NDArray(X_shape, solver.X.slice()),
               D = new NDArray(X_shape, solver.D.slice()),
-              I = tabulate([N,N], (i,j) => (i===j)*λSqrt),
              JD = zip_elems([J,D.T], (j,d) => d===0 ? j : j/d),
-             dx = zip_elems([x,D  ], (x,d) => x*d);
-
-        const B = concat([JD,I]),
-              z = concat([f,tabulate([N,1], 'float64', () => 0)]);
-
-//        const A = zip_elems([matmul2(J.T,J), λD], (j,d) => j + d*d),
-//              y = matmul2(J.T, f);
-//        expect( solve(A,y) ).toBeAllCloseTo( lstsq(B,z) );
-//        expect(x).toBeAllCloseTo( solve(A,y) );
-
-        const DX = svd_lstsq(...svd_jac_2sided(B), z);
+             dx = zip_elems([x,D  ], (x,d) => x*d),
+             DX = svd_lstsq(...svd_jac_2sided(JD), f);
 
         expect(dx).toBeAllCloseTo(DX);
 
-        expect(dr).toBeAllCloseTo( g(λ), {rtol: 1e-3, atol: 1e-6} );
+        for( const λ of lambdas )
+        {
+          const [r,dr] = solver.computeMinRegularized(λ),
+                 λSqrt = Math.sqrt(λ);
+
+          if( isNaN( r) ) throw new Error('Assertion failed.');
+          if( isNaN(dr) ) throw new Error('Assertion failed.');
+
+          const x = new NDArray(X_shape, solver.X.slice()),
+                D = new NDArray(X_shape, solver.D.slice()),
+               JD = zip_elems([J,D.T], (j,d) => d===0 ? j : j/d),
+               dx = zip_elems([x,D  ], (x,d) => x*d),
+                I = tabulate([N,N], (i,j) => (i===j)*λSqrt);
+
+          const B = concat([JD,I]),
+                z = concat([f,tabulate([N,1], 'float64', () => 0)]);
+
+//          const A = zip_elems([matmul2(J.T,J), λD], (j,d) => j + d*d),
+//                y = matmul2(J.T, f);
+//          expect( solve(A,y) ).toBeAllCloseTo( lstsq(B,z) );
+//          expect(x).toBeAllCloseTo( solve(A,y) );
+
+          const DX = svd_lstsq(...svd_jac_2sided(B), z);
+
+          expect(dx).toBeAllCloseTo(DX);
+
+          expect(dr).toBeAllCloseTo( g(λ), {rtol: 1e-3, atol: 1e-6} );
+        }
       }
     }
   })
@@ -560,7 +606,7 @@ describe('TrustRegionSolverLSQ', () => {
         for( let M=N-1; M++ < 4; )
           yield [M,N];
 
-        for( let run=512; run-- > 0; ) {
+        for( let run=768; run-- > 0; ) {
           const N = randInt(1,16),
                 M = randInt(1,16);
           yield[M,N];
@@ -620,35 +666,46 @@ describe('TrustRegionSolverLSQ', () => {
       const neg_f = new NDArray(f_shape, f.data.map(x => -x));
 
       solver.update(neg_f,J);
-      solver.computeMinGlobal();
-
-      for( const λ of lambdas )
+      for( let l=2; l-- > 0; )
       {
-        const [r,dr] = solver.computeMinRegularized(λ),
-               λSqrt = Math.sqrt(λ);
-
-        if( isNaN( r) ) throw new Error('Assertion failed.');
-        if( isNaN(dr) ) throw new Error('Assertion failed.');
+        solver.computeMinGlobal();
 
         const x = new NDArray(X_shape, solver.X.slice()),
               D = new NDArray(X_shape, solver.D.slice()),
-              I = tabulate([N,N], (i,j) => (i===j)*λSqrt),
              JD = zip_elems([J,D.T], (j,d) => d===0 ? j : j/d),
-             dx = zip_elems([x,D  ], (x,d) => x*d);
-
-        const B = concat([JD,I]),
-              z = concat([f,tabulate([N,1], 'float64', () => 0)]);
-
-//        const A = zip_elems([matmul2(J.T,J), λD], (j,d) => j + d*d),
-//              y = matmul2(J.T, f);
-//        expect( solve(A,y) ).toBeAllCloseTo( lstsq(B,z) );
-//        expect(x).toBeAllCloseTo( solve(A,y) );
-
-        const DX = svd_lstsq(...svd_jac_2sided(B), z);
+             dx = zip_elems([x,D  ], (x,d) => x*d),
+             DX = svd_lstsq(...svd_jac_2sided(JD), f);
 
         expect(dx).toBeAllCloseTo(DX);
 
-        expect(dr).toBeAllCloseTo( g(λ), {rtol: 1e-3, atol: 1e-6} );
+        for( const λ of lambdas )
+        {
+          const [r,dr] = solver.computeMinRegularized(λ),
+                 λSqrt = Math.sqrt(λ);
+
+          if( isNaN( r) ) throw new Error('Assertion failed.');
+          if( isNaN(dr) ) throw new Error('Assertion failed.');
+
+          const x = new NDArray(X_shape, solver.X.slice()),
+                D = new NDArray(X_shape, solver.D.slice()),
+                I = tabulate([N,N], (i,j) => (i===j)*λSqrt),
+               JD = zip_elems([J,D.T], (j,d) => d===0 ? j : j/d),
+               dx = zip_elems([x,D  ], (x,d) => x*d);
+
+          const B = concat([JD,I]),
+                z = concat([f,tabulate([N,1], 'float64', () => 0)]);
+
+//          const A = zip_elems([matmul2(J.T,J), λD], (j,d) => j + d*d),
+//                y = matmul2(J.T, f);
+//          expect( solve(A,y) ).toBeAllCloseTo( lstsq(B,z) );
+//          expect(x).toBeAllCloseTo( solve(A,y) );
+
+          const DX = svd_lstsq(...svd_jac_2sided(B), z);
+
+          expect(dx).toBeAllCloseTo(DX);
+
+          expect(dr).toBeAllCloseTo( g(λ), {rtol: 1e-3, atol: 1e-6} );
+        }
       }
     }
   })
@@ -661,7 +718,7 @@ describe('TrustRegionSolverLSQ', () => {
         for( let M=N-1; M++ < 4; )
           yield [M,N];
 
-        for( let run=512; run-- > 0; ) {
+        for( let run=768; run-- > 0; ) {
           const N = randInt(1,16),
                 M = randInt(1,16);
           yield[M,N];
@@ -709,35 +766,46 @@ describe('TrustRegionSolverLSQ', () => {
       const neg_f = new NDArray(f_shape, f.data.map(x => -x));
 
       solver.update(neg_f,J);
-      solver.computeMinGlobal();
-
-      for( const λ of lambdas )
+      for( let l=2; l-- > 0; )
       {
-        const [r,dr] = solver.computeMinRegularized(λ),
-               λSqrt = Math.sqrt(λ);
-
-        if( ! isFinite( r) ) throw new Error('Assertion failed.');
-        if( ! isFinite(dr) ) throw new Error('Assertion failed.');
+        solver.computeMinGlobal();
 
         const x = new NDArray(X_shape, solver.X.slice()),
               D = new NDArray(X_shape, solver.D.slice()),
-              I = tabulate([N,N], (i,j) => (i===j)*λSqrt),
              JD = zip_elems([J,D.T], (j,d) => d===0 ? j : j/d),
-             dx = zip_elems([x,D  ], (x,d) => x*d);
-
-        const B = concat([JD,I]),
-              z = concat([f,tabulate([N,1], 'float64', () => 0)]);
-
-//        const A = zip_elems([matmul2(J.T,J), λD], (j,d) => j + d*d),
-//              y = matmul2(J.T, f);
-//        expect( solve(A,y) ).toBeAllCloseTo( lstsq(B,z) );
-//        expect(x).toBeAllCloseTo( solve(A,y) );
-
-        const DX = svd_lstsq(...svd_jac_2sided(B), z);
+             dx = zip_elems([x,D  ], (x,d) => x*d),
+             DX = svd_lstsq(...svd_jac_2sided(JD), f);
 
         expect(dx).toBeAllCloseTo(DX);
 
-        expect(dr).toBeAllCloseTo( g(λ), {rtol: 1e-3, atol: 1e-6} );
+        for( const λ of lambdas )
+        {
+          const [r,dr] = solver.computeMinRegularized(λ),
+                 λSqrt = Math.sqrt(λ);
+
+          if( ! isFinite( r) ) throw new Error('Assertion failed.');
+          if( ! isFinite(dr) ) throw new Error('Assertion failed.');
+
+          const x = new NDArray(X_shape, solver.X.slice()),
+                D = new NDArray(X_shape, solver.D.slice()),
+                I = tabulate([N,N], (i,j) => (i===j)*λSqrt),
+               JD = zip_elems([J,D.T], (j,d) => d===0 ? j : j/d),
+               dx = zip_elems([x,D  ], (x,d) => x*d);
+
+          const B = concat([JD,I]),
+                z = concat([f,tabulate([N,1], 'float64', () => 0)]);
+
+//          const A = zip_elems([matmul2(J.T,J), λD], (j,d) => j + d*d),
+//                y = matmul2(J.T, f);
+//          expect( solve(A,y) ).toBeAllCloseTo( lstsq(B,z) );
+//          expect(x).toBeAllCloseTo( solve(A,y) );
+
+          const DX = svd_lstsq(...svd_jac_2sided(B), z);
+
+          expect(dx).toBeAllCloseTo(DX);
+
+          expect(dr).toBeAllCloseTo( g(λ), {rtol: 1e-3, atol: 1e-6} );
+        }
       }
     }
   })

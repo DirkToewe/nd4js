@@ -36,7 +36,7 @@ describe('dogleg', () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
 
-  const samples = [];
+//*DEBUG*/  const samples = [];
 
   forEachItemIn(
     function*(){                     const n = 16;
@@ -45,15 +45,15 @@ describe('dogleg', () => {
       for( const y of range() ) { yield [x,y];
       for( const z of range() ) { yield [x,y,z]; }}
 
-      const avg = samples.reduce((x,y) => x+y) / samples.length,
-            std = Math.hypot( ...samples.map( x => (x-avg) / Math.sqrt(samples.length) ) );
-
-      console.log('Dogleg')
-      console.log('------')
-      console.log('MIN:', samples.reduce((x,y) => Math.min(x,y)) );
-      console.log('MAX:', samples.reduce((x,y) => Math.max(x,y)) );
-      console.log('AVG:', avg );
-      console.log('STD:', std );
+ //*DEBUG*/     const avg = samples.reduce((x,y) => x+y) / samples.length,
+ //*DEBUG*/           std = Math.hypot( ...samples.map( x => (x-avg) / Math.sqrt(samples.length) ) );
+ //*DEBUG*/
+ //*DEBUG*/     console.log('Dogleg')
+ //*DEBUG*/     console.log('------')
+ //*DEBUG*/     console.log('MIN:', samples.reduce((x,y) => Math.min(x,y)) );
+ //*DEBUG*/     console.log('MAX:', samples.reduce((x,y) => Math.max(x,y)) );
+ //*DEBUG*/     console.log('AVG:', avg );
+ //*DEBUG*/     console.log('STD:', std );
     }()
   ).it('lsq_dogleg_gen works on rosenbrock_lsq', x0 => {
 
@@ -94,7 +94,7 @@ describe('dogleg', () => {
       }
     }
 
-    samples.push(nCalls);
+//*DEBUG*/    samples.push(nCalls);
   })
 
 

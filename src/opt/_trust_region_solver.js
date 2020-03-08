@@ -57,7 +57,8 @@ export class TrustRegionSolverLSQ
     this.F = new Float64Array( M*1 );
     this.Y = new Float64Array( K*1 ); // <- (L+N)*1 should be enough ... right?
 
-    this.X = new Float64Array(N*1);
+    this.X = new Float64Array(N*1); // <- stores solution of current min. (global or regularized)
+    this.Z = new Float64Array(N*1); // <- backup for the global min.
 
     this.norm = new Float64Array(2*N); // <- couldn't Y be used instead?
 
@@ -163,73 +164,86 @@ export class TrustRegionSolverLSQ
 
   computeMinGlobal()
   {
-    if( this._state !== 1 ) throw new Error('TrustRegionSolverLSQ.prototype.computeMinGlobal(): can only be called once after every update(f,J) call.');
+    if( this._state !== 1 &&
+        this._state !== 2 &&
+        this._state !== 3 ) throw new Error('TrustRegionSolverLSQ.prototype.computeMinGlobal(): can only be called once after every update(f,J) call.');
+
+    const {M,N, P,Q, D, R,S,T, V, X,Z, F,Y, norm} = this;
+
+    if( this._state === 1 )
+    {
+      const L = Math.min(M,N);
+
+      // SOLVE GLOBAL MINIMUM
+      _rrqr_decomp_inplace(M,N,1, T,0, F,0, P,0, norm);
+
+      // backup the rrqr decomposition in R (for finding regularized minima)
+      for( let i=L*N; i-- > 0; )
+        R[i] = T[i];
+
+      const rank =
+      this.rank = _rrqr_rank(M,N, T,0, /*tmp=*/norm);
+
+      if( rank < N )
+      { // RANK DEFICIENT CASE -> USE COMPLETE ORTHOGONAL DECOMPOSITION
+
+        // factor in scaling
+        for( let i=L; i-- > 0; )
+        for( let j=N; j-- > 0; ) {
+          const         d = D[P[j]];
+          if(     0 !== d )
+            T[N*i+j] /= d;
+        }
+
+        // complete orthogonal decompositon
+        for( let i=N; i-- > 0; )
+          Q[i] = P[i];
+        V.fill(0.0);
+        _urv_decomp_full( rank,N, T,0, V,0, Q,0 );
+
+        // backup complete orthogonal T to S
+        for( let i=rank; i-- > 0; )
+        for( let j=rank; j-- > 0; )
+          S[L*i+j] = T[N*i+j];
+
+        // compute least squares solution
+        for( let i=rank; i-- > 0; )
+          Y[i] = -F[i];
+
+        _triu_solve(rank,L,1, S,0, Y,0); // Y = S \ Y
+
+        X.fill(0.0);
+        for( let k=rank; k-- > 0; )
+        for( let i=N   ; i-- > 0; )
+          X[i] += V[N*k+i] * Y[k]; // X = V.T @ Y
+
+        // factor out scaling
+        for( let i=N; i-- > 0; ) {
+          const     d = D[i];
+          if( 0 !== d )
+            X[i] /= d;
+        }
+      }
+      else
+      { // FULL RANK CASE -> SCALING NOT RELEVANT TO GLOBAL SOLUTION
+        for( let i=N; i-- > 0; )
+          Y[i] = -F[i];
+
+        _triu_solve(N,N,1, T,0, Y,0);
+
+        for( let i=N; i-- > 0; )
+          X[P[i]] = Y[i];
+      }
+
+      for( let i=N; i-- > 0; )
+        Z[i] = X[i]; // <- backup global min. to Z
+    }
+    else if( this._state === 3 ) {
+      for( let i=N; i-- > 0; )
+        X[i] = Z[i]; // <- read backup of gloabl min. from Z
+    }
+
     this._state = 2;
-
-    const {M,N, P,Q, D, R,S,T, V, X, F,Y, norm} = this;
-
-    const L = Math.min(M,N);
-
-    // SOLVE GLOBAL MINIMUM
-    _rrqr_decomp_inplace(M,N,1, T,0, F,0, P,0, norm);
-
-    // backup the rrqr decomposition in R (for finding regularized minima)
-    for( let i=L*N; i-- > 0; )
-      R[i] = T[i];
-
-    const rank =
-     this.rank = _rrqr_rank(M,N, T,0, /*tmp=*/norm);
-
-    if( rank < N )
-    { // RANK DEFICIENT CASE -> USE COMPLETE ORTHOGONAL DECOMPOSITION
-
-      // factor in scaling
-      for( let i=L; i-- > 0; )
-      for( let j=N; j-- > 0; ) {
-        const         d = D[P[j]];
-        if(     0 !== d )
-          T[N*i+j] /= d;
-      }
-
-      // complete orthogonal decompositon
-      for( let i=N; i-- > 0; )
-        Q[i] = P[i];
-      V.fill(0.0);
-      _urv_decomp_full( rank,N, T,0, V,0, Q,0 );
-
-      // backup complete orthogonal T to S
-      for( let i=rank; i-- > 0; )
-      for( let j=rank; j-- > 0; )
-        S[L*i+j] = T[N*i+j];
-
-      // compute least squares solution
-      for( let i=rank; i-- > 0; )
-        Y[i] = -F[i];
-
-      _triu_solve(rank,L,1, S,0, Y,0); // Y = S \ Y
-
-      X.fill(0.0);
-      for( let k=rank; k-- > 0; )
-      for( let i=N   ; i-- > 0; )
-        X[i] += V[N*k+i] * Y[k]; // X = V.T @ Y
-
-      // factor out scaling
-      for( let i=N; i-- > 0; ) {
-        const     d = D[i];
-        if( 0 !== d )
-          X[i] /= d;
-      }
-    }
-    else
-    { // FULL RANK CASE -> SCALING NOT RELEVANT TO GLOBAL SOLUTION
-      for( let i=N; i-- > 0; )
-        Y[i] = -F[i];
-
-      _triu_solve(N,N,1, T,0, Y,0);
-
-      for( let i=N; i-- > 0; )
-        X[P[i]] = Y[i];
-    }
   }
 
   // Regularized least squares (RLS) solver. Solves the follwing equation system:
@@ -271,28 +285,7 @@ export class TrustRegionSolverLSQ
     if( 0===λ && rnk < N )
     {
       // UNDER-DETERMINED/RANK-DEFICIENT CASE -> USE COMPLETE ORTHOGONAL DECOMPOSTION
-      if( this._state!==2 )
-      {   this._state = 2;
-        // GLOBAL MIN. NEEDS TO BE RECOMPUTED
-        
-        // compute least squares solution
-        for( let i=rnk; i-- > 0; )
-          Y[i] = -F[i];
-
-        _triu_solve(rnk,L,1, S,0, Y,0); // Y = S \ Y
-
-        X.fill(0.0);
-        for( let k=rnk; k-- > 0; )
-        for( let i= N ; i-- > 0; )
-          X[i] += V[N*k+i] * Y[k]; // X = V.T @ Y
-
-        // factor out scaling
-        for( let i=N; i-- > 0; ) {
-          const     d = D[i];
-          if( 0 !== d )
-            X[i] /= d;
-        }
-      }
+      this.computeMinGlobal();
 
       // COMPUTE DISTANCE
       const  r = this.scaledNorm(X); // <- the scaled length
@@ -372,9 +365,9 @@ export class TrustRegionSolverLSQ
     else if( rnk !== N )
       throw new Error('Assertion failed.');
 
-    if(  0!==λ || this._state!==2 ) // <- AVOID RECOMPUTING GLOBAL MIN.
-    { if(0===λ)   this._state = 2;
-
+    if( 0===λ )
+      this.computeMinGlobal();
+    else {
       _triu_solve(N,N,1, T,0, Y,0);
 
       for( let i=N; i-- > 0; )
