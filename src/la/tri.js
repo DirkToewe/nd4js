@@ -51,6 +51,12 @@ export function _tril_solve(M,N,O, L,L_off, X,X_off)
   L_off |= 0
   X_off |= 0
 
+  if( !(0 <= L_off) ) throw new Error('Assertion failed.');
+  if( !(0 <= X_off) ) throw new Error('Assertion failed.');
+
+  if( !(M*N <= L.length - L_off) ) throw new Error('Assertion failed.');
+  if( !(M*O <= X.length - X_off) ) throw new Error('Assertion failed.');
+
   // FORWARD SUBSTITUTION
   for( let i=0; i < M; i++ )
   {
@@ -60,6 +66,89 @@ export function _tril_solve(M,N,O, L,L_off, X,X_off)
 
     for( let j=0; j < O; j++ )
       X[X_off+O*i+j] /= L[L_off+N*i+i];
+  }
+}
+
+
+export function _triu_solve(M,N,O, U,U_off, X,X_off)
+{
+  if( !(M <= N) ) throw new Error('Assertion failed.');
+  M |= 0
+  N |= 0
+  O |= 0
+  U_off |= 0
+  X_off |= 0
+
+  if( !(0 <= U_off) ) throw new Error('Assertion failed.');
+  if( !(0 <= X_off) ) throw new Error('Assertion failed.');
+
+  if( !(M*N <= U.length - U_off) ) throw new Error('Assertion failed.');
+  if( !(M*O <= X.length - X_off) ) throw new Error('Assertion failed.');
+
+  // BACKWARD SUBSTITUTION
+  for( let i=M; i-- > 0; )
+  for( let j=O; j-- > 0; )
+  {
+    for( let k=M; --k > i; )
+      X[X_off + O*i+j] -= U[U_off + N*i+k] * X[X_off + O*k+j]
+
+    X[X_off + O*i+j] /= U[U_off + N*i+i];
+  }
+}
+
+
+export function _tril_t_solve(M,N,O, L,L_off, X,X_off)
+{
+  if( !(M <= N) ) throw new Error('Assertion failed.');
+  M |= 0
+  N |= 0
+  O |= 0
+  L_off |= 0
+  X_off |= 0
+
+  if( !(0 <= L_off) ) throw new Error('Assertion failed.');
+  if( !(0 <= X_off) ) throw new Error('Assertion failed.');
+
+  if( !(M*N <= L.length - L_off) ) throw new Error('Assertion failed.');
+  if( !(M*O <= X.length - X_off) ) throw new Error('Assertion failed.');
+
+  // BACKWARD SUBSTITUTION
+  for( let k=M; k-- > 0; )
+  {
+    for( let j=O; j-- > 0; )
+      X[X_off + O*k+j] /= L[L_off + N*k+k];
+
+    for( let i=k; i-- > 0; )
+    for( let j=O; j-- > 0; )
+      X[X_off + O*i+j] -= L[L_off + N*k+i] * X[X_off + O*k+j]
+  }
+}
+
+
+export function _triu_t_solve(M,N,O, U,U_off, X,X_off)
+{
+  if( !(M <= N) ) throw new Error('Assertion failed.');
+  M |= 0
+  N |= 0
+  O |= 0
+  U_off |= 0
+  X_off |= 0
+
+  if( !(0 <= U_off) ) throw new Error('Assertion failed.');
+  if( !(0 <= X_off) ) throw new Error('Assertion failed.');
+
+  if( !(M*N <= U.length - U_off) ) throw new Error('Assertion failed.');
+  if( !(M*O <= X.length - X_off) ) throw new Error('Assertion failed.');
+
+  // FORWARD SUBSTITUTION
+  for( let k=0; k < M; k++ )
+  {
+    for( let j=0; j < O; j++ )
+      X[X_off+O*k+j] /= U[U_off+N*k+k];
+
+    for( let i=k; ++i < M;     )
+    for( let j=0;   j < O; j++ )
+      X[X_off+O*i+j] -= U[U_off+N*k+i] * X[X_off+O*k+j];
   }
 }
 
@@ -131,33 +220,6 @@ export function tril_solve(L,Y)
   solv(0);
 
   return new NDArray(X_shape, X);
-}
-
-
-export function _triu_solve(M,N,O, U,U_off, X,X_off)
-{
-  if( !(M <= N) ) throw new Error('Assertion failed.');
-  M |= 0
-  N |= 0
-  O |= 0
-  U_off |= 0
-  X_off |= 0
-
-  if( !(0 <= U_off) ) throw new Error('Assertion failed.');
-  if( !(0 <= X_off) ) throw new Error('Assertion failed.');
-
-  if( !(M*N <= U.length - U_off) ) throw new Error('Assertion failed.');
-  if( !(M*O <= X.length - X_off) ) throw new Error('Assertion failed.');
-
-  // BACKWARD SUBSTITUTION
-  for( let i=M; i-- > 0; )
-  for( let j=O; j-- > 0; )
-  {
-    for( let k=M; --k > i; )
-      X[X_off + O*i+j] -= U[U_off + N*i+k] * X[X_off + O*k+j]
-
-    X[X_off + O*i+j] /= U[U_off + N*i+i];
-  }
 }
 
 

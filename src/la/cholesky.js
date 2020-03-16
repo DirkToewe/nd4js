@@ -16,9 +16,37 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {asarray, NDArray} from '../nd_array'
 import {ARRAY_TYPES} from '../dt'
-import {_tril_solve} from './tri'
+import {KahanSum} from '../kahan_sum'
+import {asarray, NDArray} from '../nd_array'
+
+import {_tril_solve,
+        _tril_t_solve} from './tri'
+
+
+export function _cholesky_decomp(M,N, L,L_off)
+{
+  if( ! (M <= N) ) throw new Error('Assertion failed.');
+
+  const kahan = new KahanSum();
+
+  // https://de.wikipedia.org/wiki/Cholesky-Zerlegung
+  for( let i=0; i<M; i++ )
+  for( let j=0; j<M; j++ )
+    if( i < j ) {
+      L[L_off+N*i+j] = 0;
+    } else {
+      kahan.set( L[L_off+N*i+j] );
+      for( let k=0; k<j; k++ )
+        kahan.add( - L[L_off+N*i+k] * L[L_off+N*j+k] );
+
+      if( i > j ) L[L_off+N*i+j] =           kahan.sum / L[L_off+N*j+j];
+      else {      L[L_off+N*i+i] = Math.sqrt(kahan.sum);
+        if( isNaN(L[L_off+N*i+i]) )
+          throw new Error('Matrix contains NaNs or is (near) singular.');
+      }
+    }
+}
 
 
 export function cholesky_decomp(S)
@@ -34,33 +62,12 @@ export function cholesky_decomp(S)
   if( N != M )
     throw new Error('Last two dimensions must be quadratic.')
 
-  for( let off=0; off < L.length; off += N*N )
-    // https://de.wikipedia.org/wiki/Cholesky-Zerlegung
-    for( let i=0; i<N; i++ )
-    for( let j=0; j<N; j++ )
-      if( i < j ) {
-        L[off+N*i+j] = 0;
-      } else {
-        let
-          sum = L[off+N*i+j],
-          cor = 0.0;
-        for( let k=0; k<j; k++ ) {
-          // https://en.wikipedia.org/wiki/Kahan_summation_algorithm
-          const
-            r = cor + L[off+N*i+k] * L[off+N*j+k],
-            s = sum - r;
-          cor = (s - sum) + r;
-          sum =  s;
-        }
-        if( i > j ) L[off+N*i+j] = sum / L[off+N*j+j];
-        else {      L[off+N*i+i] = Math.sqrt(sum);
-          if( isNaN(L[off+N*i+i]) )
-            throw new Error('Matrix contains NaNs or is (near) singular.');
-        }
-      }
+  for( let L_off=0; L_off < L.length; L_off += N*N )
+    _cholesky_decomp(N,N, L,L_off);
 
   return new NDArray(shape,L);
 }
+
 
 export function cholesky_solve(L,y)
 {
@@ -110,17 +117,8 @@ export function cholesky_solve(L,y)
       for( let i=0; i < y_stride; i++ )
         x_dat[x_off+i] = y_dat[y_off+i]
 
-      // FORWARD SUBSTITUTION
-      _tril_solve(I,I,J, L_dat,L_off, x_dat,x_off);
-
-      // BACKWARD SUBSTITUTION
-      for( let i=I; i-- > 0; )
-      for( let j=J; j-- > 0; )
-      {
-        x_dat[x_off+i*J+j] /= L_dat[L_off+N*i+i]
-        for( let k=i; k-- > 0; )
-          x_dat[x_off+k*J+j] -= L_dat[L_off+N*i+k] * x_dat[x_off+i*J+j]
-      }
+      _tril_solve  (I,I,J, L_dat,L_off, x_dat,x_off);
+      _tril_t_solve(I,I,J, L_dat,L_off, x_dat,x_off);
 
       L_off += L_stride;
       y_off += y_stride;

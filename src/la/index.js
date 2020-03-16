@@ -17,7 +17,8 @@
  */
 
 export * from './bidiag'
-export * from './cholesky'
+export {cholesky_decomp,
+        cholesky_solve} from './cholesky'
 export * from './diag'
 export * from './det'
 export * from './eigen'

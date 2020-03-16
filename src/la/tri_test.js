@@ -19,13 +19,87 @@
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {tabulate} from '../tabulate'
 import {matmul2} from './matmul'
-import {tril,triu, tril_solve, triu_solve} from './tri'
+import {tril, tril_solve, _tril_t_solve,
+        triu, triu_solve, _triu_t_solve} from './tri'
 
 
 describe('tri', () => {
   beforeEach( () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
+
+
+  forEachItemIn(
+    function*(){
+      function* shapes() {
+        for( let M = 1; M <= 48; M++ )
+        for( let N = M; N <= 48; N++ )
+        for( let O = 1; O <= 48; O++ ) yield [M,N,O];
+      }
+      for( const [M,N,O] of shapes() )
+      {
+        const L = tabulate([M,N], 'float64', (i,j) => {
+          return i===j ? Math.random()*1 + 0.5
+               : i < j && j < M ? 0
+               :         Math.random()*0.1 - 0.2;
+        });
+        const Y = tabulate([M,O], 'float64', () => Math.random()*8-4);
+        Object.freeze(L); Object.freeze(L.data.buffer);
+        Object.freeze(Y); Object.freeze(Y.data.buffer);
+        yield [L,Y];
+      }
+    }()
+  ).it('_tril_t_solve works on generated examples', ([L,Y]) => {
+    const [M,N] = L.shape,
+             O  = Y.shape[1];
+
+    expect(M).not.toBeGreaterThan(N);
+
+    const X = Y.mapElems();
+
+    _tril_t_solve(M,N,O, L.data,0, X.data,0);
+
+    const U = L.sliceElems([,,],[,M,]).T;
+
+    expect( matmul2(U,X) ).toBeAllCloseTo(Y);
+  })
+
+
+  forEachItemIn(
+    function*(){
+      function* shapes() {
+        for( let M = 1; M <= 48; M++ )
+        for( let N = M; N <= 48; N++ )
+        for( let O = 1; O <= 48; O++ ) yield [M,N,O];
+      }
+      for( const [M,N,O] of shapes() )
+      {
+        const U = tabulate([M,N], 'float64', (i,j) => {
+          return i===j ? Math.random()*1 + 0.5
+               : i > j ? 0
+               :         Math.random()*0.1 - 0.2;
+        });
+        const Y = tabulate([M,O], 'float64', () => Math.random()*8-4);
+        Object.freeze(U); Object.freeze(U.data.buffer);
+        Object.freeze(Y); Object.freeze(Y.data.buffer);
+        yield [U,Y];
+      }
+    }()
+  ).it('_triu_t_solve works on generated examples', ([U,Y]) => {
+    const [M,N] = U.shape,
+             O  = Y.shape[1];
+
+    expect(M).not.toBeGreaterThan(N);
+
+    const X = Y.mapElems();
+
+    _triu_t_solve(M,N,O, U.data,0, X.data,0);
+
+    const L = U.sliceElems([,,],[,M,]).T;
+
+    expect( matmul2(L,X) ).toBeAllCloseTo(Y);
+  })
+
 
   forEachItemIn(
     function*(){
@@ -54,6 +128,7 @@ describe('tri', () => {
     }
   })
 
+
   forEachItemIn(
     function*(){
       function* shapes() {
@@ -80,6 +155,7 @@ describe('tri', () => {
       expect(U_idx).toBe( i > j-k ? 0 : A(...idx) )
     }
   })
+
 
   forEachItemIn(
     function*(){
@@ -120,6 +196,7 @@ describe('tri', () => {
 
     expect(y).toBeAllCloseTo(Y)
   })
+
 
   forEachItemIn(
     function*(){

@@ -17,7 +17,9 @@
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
+import {NDArray} from '../nd_array'
 import {tabulate} from '../tabulate'
+
 import {matmul, matmul2} from './matmul'
 import {cholesky_decomp, cholesky_solve} from './cholesky'
 
@@ -27,19 +29,21 @@ describe('cholesky', () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
 
+
   forEachItemIn(
     function*(){
       const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
 
-      for( let run=1024; run-- > 0; )
+      for( let run=4096; run-- > 0; )
       {
-        const shape = Int32Array.from({ length: randInt(2,5) }, () => randInt(1,24) );
-        shape[shape.length-2] = shape[shape.length-1];
+        const shape = Int32Array.from({ length: randInt(2,6) }, () => randInt(1,8) );
+        shape[shape.length-2] =
+        shape[shape.length-1] = randInt(1,32);
         yield tabulate(shape,'float64',(...indices) => {
           const [i,j] = indices.slice(-2);
-          if( i==j ) return Math.random()*1 + 0.5;
+          if( i==j ) return Math.random()*1 + 0.4;
           if( i< j ) return 0;
-          return Math.random()*2e-1 - 1e-1;
+          return Math.random()*0.8 - 0.4;
         })
       }
     }()
@@ -53,6 +57,32 @@ describe('cholesky', () => {
     expect(l).toBeLowerTriangular()
     expect(l).toBeAllCloseTo(L)  
   })
+
+
+  forEachItemIn(
+    function*(){
+
+      for( let N=3; N < 1536; N = N*1.4 | 0 )
+      {
+        const A = new NDArray(
+            Int32Array.of(N,N),
+          Float64Array.from({length: N*N}, () => Math.random()*8 - 4)
+        );
+        const         LLT = matmul2(A,A.T)
+        Object.freeze(LLT.data.buffer)
+        Object.freeze(LLT)
+        yield         LLT
+      }
+    }()
+  ).it('cholesky_decomp works on random large examples', LLT => {
+    const l = cholesky_decomp(LLT),
+        llt = matmul2(l,l.T);
+
+    expect(l.shape).toEqual(LLT.shape);
+    expect(l).toBeLowerTriangular();
+    expect(llt).toBeAllCloseTo(LLT);  
+  })
+
 
   forEachItemIn(
     function*(){

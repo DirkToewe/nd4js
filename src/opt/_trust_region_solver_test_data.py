@@ -15,6 +15,8 @@ You should have received a copy of the GNU General Public License
 along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
 '''
 
+# This module generates test cases for `_trust_region_solver_test.js`.
+
 import numpy as np
 import tensorflow as tf
 import tensorflow.linalg as tfla
@@ -48,7 +50,11 @@ def solve_test_case( J, f ):
       return sess.run([r,dr], feed_dict=inputs)
 
 
-def generate_test_data():  
+def generate_test_data():
+  '''
+  Prints to console a JS generator function that yields a series of
+  test cases for TrustRegionSolverLSQ.prototype.computeMinGlobal(0).
+  '''
   np.random.seed(1337)
 
   overdet = []

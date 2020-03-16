@@ -25,10 +25,13 @@ import {_rrqr_rank,
         _rrqr_decomp_inplace,
         _norm_update,
         _norm} from '../la/rrqr'
-import {_triu_solve} from '../la/tri'
+import {_triu_solve,
+        _triu_t_solve} from '../la/tri'
 import {_urv_decomp_full} from '../la/urv'
 
 
+/** 
+ */
 export class TrustRegionSolverLSQ
 {
   constructor( M, N )
@@ -301,11 +304,7 @@ export class TrustRegionSolverLSQ
       for( let j= N ; j-- > 0; )
         Y[i] += X[j]*D[j]*V[N*i+j];
 
-      // FORWARD SUBSTITUTION
-      for( let i=0; i < rnk; i++ )
-      {                            Y[i] /= S[L*i+i];
-        for( let j=i; ++j < rnk; ) Y[j] -= S[L*i+j] * Y[i];
-      }
+      _triu_t_solve(rnk,L,1, S,0, Y,0);
 
       let dr = 0;
       for( let i=rnk; i-- > 0; ) {
@@ -388,11 +387,7 @@ export class TrustRegionSolverLSQ
       Y[i] = X[j]*D[j]*D[j];
     }
 
-    // FORWARD SUBSTITUTION
-    for( let i=0; i < N; i++ )
-    {                          Y[i] /= T[N*i+i];
-      for( let j=i; ++j < N; ) Y[j] -= T[N*i+j] * Y[i];
-    }
+    _triu_t_solve(N,N,1, T,0, Y,0);
 
     let dr = 0;
     for( let i=N; i-- > 0; ) {
