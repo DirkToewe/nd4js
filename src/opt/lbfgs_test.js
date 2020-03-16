@@ -31,7 +31,7 @@ describe('lbfgs', () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
 
-//*DEBUG*/  const samples = [];
+/*DEBUG*/  const samples = [];
 
   forEachItemIn(
     function*(){                     const n = 16;
@@ -40,15 +40,15 @@ describe('lbfgs', () => {
       for( const y of range() ) { yield [x,y];
       for( const z of range() ) { yield [x,y,z]; }}
 
-//*DEBUG*/      const avg = samples.reduce((x,y) => x+y) / samples.length,
-//*DEBUG*/            std = Math.hypot( ...samples.map( x => (x-avg) / Math.sqrt(samples.length) ) );
-//*DEBUG*/
-//*DEBUG*/      console.log('L-BFGS')
-//*DEBUG*/      console.log('------')
-//*DEBUG*/      console.log('MIN:', samples.reduce((x,y) => Math.min(x,y)) );
-//*DEBUG*/      console.log('MAX:', samples.reduce((x,y) => Math.max(x,y)) );
-//*DEBUG*/      console.log('AVG:', avg );
-//*DEBUG*/      console.log('STD:', std );
+/*DEBUG*/      const avg = samples.reduce((x,y) => x+y) / samples.length,
+/*DEBUG*/            std = Math.hypot( ...samples.map( x => (x-avg) / Math.sqrt(samples.length) ) );
+/*DEBUG*/
+/*DEBUG*/      console.log('L-BFGS')
+/*DEBUG*/      console.log('------')
+/*DEBUG*/      console.log('MIN:', samples.reduce((x,y) => Math.min(x,y)) );
+/*DEBUG*/      console.log('MAX:', samples.reduce((x,y) => Math.max(x,y)) );
+/*DEBUG*/      console.log('AVG:', avg );
+/*DEBUG*/      console.log('STD:', std );
     }()
   ).it('min_lbfgs_gen works on rosenbrock', x0 => {
     let nCalls = 0
@@ -60,12 +60,8 @@ describe('lbfgs', () => {
       ]
     }
 
-    const opt = {
-      negDir0: g => g.mapElems('float64',g=>g/1024)
-    }
-
     let   x,f,g, nIter = -1
-    for( [x,f,g] of min_lbfgs_gen(fg, x0, opt) )
+    for( [x,f,g] of min_lbfgs_gen(fg, x0) )
     {
       expect(x).toEqual( jasmine.any(NDArray) )
       expect(f).toEqual( jasmine.any(Number ) )
@@ -86,7 +82,7 @@ describe('lbfgs', () => {
       expect(++nIter).toBeLessThan(128)
     }
 
-//*DEBUG*/    samples.push(nCalls);
+/*DEBUG*/    samples.push(nCalls);
 
     expect(x).toBeAllCloseTo(1)
     expect(f).toBeAllCloseTo(0)

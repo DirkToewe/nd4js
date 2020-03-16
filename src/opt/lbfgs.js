@@ -21,6 +21,11 @@ import {array, NDArray} from '../nd_array'
 import {LineSearchNoProgressError} from './line_search/line_search_error'
 
 
+// TODO: add scaling as described in:
+//  "On the Limited Memory BFGS Method for Large Scale Optimization."
+//   by Dong C. Liu and Jorge Nocedal
+
+
 function dot( u, v )
 {
   if(  u.length !== v.length ) throw new Error()
@@ -30,7 +35,16 @@ function dot( u, v )
   return result
 }
 
-export function* min_lbfgs_gen( fg, x0, {historySize=8, lineSearch=strong_wolfe(), negDir0 = g=>g} = {} )
+
+export function* min_lbfgs_gen(
+  fg,
+  x0,
+  {
+    historySize=8,
+    lineSearch=strong_wolfe(),
+    negDir0 = G => G.mapElems('float64',g=>g/1024)
+  } = {}
+)
 {
   let x = array('float64', x0);
                            x0 = undefined;
@@ -83,7 +97,8 @@ export function* min_lbfgs_gen( fg, x0, {historySize=8, lineSearch=strong_wolfe(
     g = g.data
     const dg = Float64Array.from(G.data, (Gi,i) => Gi - g[i]),
           dx = Float64Array.from(X.data, (Xi,i) => Xi - x[i])
-          
+
+    if( !(0 < dot(dx,dg)) ) throw new LineSearchNoProgressError();
 
     dG  .push(    dg    )
     dGdX.push(dot(dg,dx))
@@ -117,8 +132,7 @@ export function* min_lbfgs_gen( fg, x0, {historySize=8, lineSearch=strong_wolfe(
     if( g.shape[0] !== L ) throw new Error('Assertion#8 failed.')
 
     yield [
-      new NDArray(shape, x.data.slice()),
-      f*1,
+      new NDArray(shape, x.data.slice()), f*1,
       new NDArray(shape, g.data.slice())
     ];
 
