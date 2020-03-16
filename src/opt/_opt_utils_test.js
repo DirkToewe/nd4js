@@ -17,7 +17,51 @@
  */
 
 import {CUSTOM_MATCHERS, forEachItemIn} from '../jasmine_utils'
-import {_min1d_interp_quad} from './_opt_utils'
+import {_min1d_interp_quad,
+        _heap_sort } from './_opt_utils'
+
+
+describe('_heap_sort', () => {
+  beforeEach( () => {
+    jasmine.addMatchers(CUSTOM_MATCHERS)
+  })
+
+  for( const [suffix, ...args] of [
+    [''],
+    [' with comparator', (x,y) => y-x]
+  ])
+    forEachItemIn(
+      function*(){
+        for( const ArrayType of [Int32Array,Float64Array] )
+          for( let length=0; length++ < 512; ) {
+            const         items = ArrayType.from({length}, () => Math.random()*8192 - 4096);
+            Object.freeze(items.buffer);
+            yield         items;
+          }
+      }()
+    ).it('works on random examples' + suffix, unsorted => {
+      const items = unsorted.slice(),
+            order = unsorted.slice();
+
+      Object.freeze(order.buffer);
+      expect(items.buffer).not.toBe(order.buffer);
+
+      if( args.length > 0 )
+        order.sort(args[0]);
+      else
+        order.sort( (x,y) => x-y );
+
+      const seq = _heap_sort( items, ...args.map( f => (x,y) => f(x,y) <= 0 ) );
+
+      let n=0;
+      for( const x of seq ) {
+        expect(x).toEqual(items[n++]);
+        expect( items.subarray(0,n) ).toEqual( order.subarray(0,n) );
+      }
+
+      expect(items).toEqual(order);
+    });
+})
 
 
 describe('_min1d_interp_quad', () => {
