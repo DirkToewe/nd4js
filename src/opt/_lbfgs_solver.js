@@ -19,6 +19,8 @@
 import {_cholesky_decomp} from '../la/cholesky'
 import {_tril_solve} from '../la/tri'
 
+import {_heap_sort} from './_opt_utils'
+
 // References
 // ----------
 // .. [1] "REPRESENTATIONS OF QUASI-NEWTON MATRICES AND THEIR USE IN LIMITED MEMORY METHODS"
@@ -30,6 +32,21 @@ import {_tril_solve} from '../la/tri'
 //         by Richard H. Byrd, Peihuang Lu, Jorge Nocedal and Ciyou Zhu
 //         Technical Report NAM-08; Revised: May 1994
 //         http://users.iems.northwestern.edu/~nocedal/PDFfiles/limited.pdf
+
+
+/** Computes the dot product of two arrays.
+ */
+const dot = (u,v) => {
+  if( u.length%1 !== 0       ) throw new Error('Assertion failed.');
+  if( v.length%1 !== 0       ) throw new Error('Assertion failed.');
+  if( u.length   !== v.length) throw new Error('Assertion failed.');
+
+  let uv = 0;
+  for( let i=u.length; i-- > 0; )
+    uv += u[i]*v[i];
+
+  return uv;
+};
 
 
 export class LBFGSSolver
@@ -57,6 +74,11 @@ export class LBFGSSolver
     this.D   = new Float64Array(M);
 
     this.J   = new Float64Array(M*M);
+
+    this.travels = new Float64Array(N);
+    this.Bdx = new Float64Array(2*M);
+    this.Bg  = new Float64Array(2*M);
+    this.Bei = new Float64Array(2*M);
   }
 
 
@@ -274,4 +296,118 @@ export class LBFGSSolver
     for( let i=  m; i-- > 0; ) result += hu[i] * hv[i];
     return                     result +  uv;
   }
+
+
+  compute_cauchyGeneralized( G, X, bounds, indices )
+  {
+    const {m,N, Bg,Bdx,Bei, travels} = this;
+
+    if(      G.length !==  N) throw new Error('Assertion failed.');
+    if(      X.length !==  N) throw new Error('Assertion failed.');
+//    if(     dX.length !==  N) throw new Error('Assertion failed.');
+    if( bounds.length !==2*N) throw new Error('Assertion failed.');
+    if(indices.length !==  N) throw new Error('Assertion failed.');
+
+/*DEBUG*/    if( ! indices.slice().sort((i,j) => i-j).every((i,I) => i===I) )
+/*DEBUG*/      throw new Error('Assertion failed.');
+
+    for( let i=N; i-- > 0; ) {
+      if( !(X[i] >= bounds[2*i+0]) ) throw new Error('Assertion failed.');
+      if( !(X[i] <= bounds[2*i+1]) ) throw new Error('Assertion failed.');
+    }
+
+    for( let i=N; i-- > 0; )
+      if( 0===G[i] )
+        travels[i] = Infinity;
+      else {
+        const                           end = bounds[2*i + (G[i] < 0)];
+                   travels[i] = (X[i] - end) / G[i];
+        if( !(0 <= travels[i]) )
+          throw new Error('Assertion failed: ' + travels[i]);
+      }
+
+    let   t = 0,
+      n_fix = 0;
+
+    this.compute_bv(G, Bg);
+    Bdx.fill(0.0, 0,2*m);
+
+    let fp  = dot(G,G),
+        fpp = this.compute_ubbv(Bg, fp, Bg);
+
+    // Make sure zero gradient entries are the very last
+    // TODO: entries with travels[i]===0 could be skipped before _heap_sort()
+    const order = _heap_sort(indices, (i,j) => 0 !== G[j] && travels[i] < travels[j]);
+
+    loop:for( const i of order )
+    {
+      if( 0 === G[i] ) {
+        for( let j=n_fix; j < N; j++ ) {
+          const                            k = indices[j];
+          if( !(Number.MAX_VALUE < travels[k]) ) throw new Error('Assertion failed.');
+          if(              0 !== G[travels[k]] ) throw new Error('Assertion failed.');
+        }
+        break loop;
+      }
+
+      const end = bounds[2*i + (G[i] < 0)],
+             dt = travels[i] - t;
+
+      if( ! (0 <= dt) )
+        throw new Error('Assertion failed.');
+
+      if( 0===dt ) { // <- TODO: entries with travels[i]===0 could be skipped before this loop and _heap_sort()
+        X[i] = end;
+        G[i] = 0;
+        t = travels[i];
+        ++n_fix;
+        continue loop;
+      }
+
+      if( !(0 <= fpp) ) throw new Error('Assertion failed.'); // <- B is supposed to be positive definite
+
+      const cp = fp / fpp;
+
+      if( cp < dt ) {
+        t += Math.max(0,cp);
+        break loop;
+      }
+
+      t = travels[i];
+
+      for( let j=2*m; j-- > 0; )
+        Bdx[j] -= dt * Bg[j];
+
+      this.compute_be(i, Bei);
+
+      const eBx = this.compute_ubbv(Bei,-t*G[i], Bdx),
+            eBe = this.compute_ubbv(Bei,  1    , Bei),
+            eBg = this.compute_ubbv(Bei,   G[i], Bg );
+
+      fp  -=  dt * fpp  +  G[i] * (G[i] + eBx);
+      fpp -=  G[i] * (2*eBg - eBe*G[i]);
+
+      for( let j=2*m; j-- > 0; )
+        Bg[j] -= G[i] * Bei[j];
+
+      X[i] = end;
+      G[i] = 0;
+      ++n_fix;
+    }
+
+    for( let  j=n_fix; j < N; j++ )
+    { const   i = indices[j];
+            X[i] -= t*G[i];
+      if( !(X[i] >= bounds[2*i+0]) ) { if( !(X[i] > bounds[2*i+0]-1e-8) ) throw new Error('Assertion failed.'); X[i] = bounds[2*i+0]; }
+      if( !(X[i] <= bounds[2*i+1]) ) { if( !(X[i] < bounds[2*i+1]+1e-8) ) throw new Error('Assertion failed.'); X[i] = bounds[2*i+1]; }
+    }
+
+    return n_fix;
+  }
+
+
+//  compute_subspace_Hv( v, Hv, n_fix, indices )
+//  {
+//    ???
+//  }
 }
