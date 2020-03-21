@@ -40,6 +40,36 @@ export function _rand_int(from,until)
 //}
 
 
+export function _shuffle( array, from, until )
+{
+  if( array.length%1 !== 0 )
+    throw new Error('Assertion failed.');
+
+  if( null == from ) from = 0;
+  if( null == until) until= array.length;
+
+  if(0!==from %1        ) throw new Error('Assertion failed.');
+  if(0!==        until%1) throw new Error('Assertion failed.');
+  if( ! (from <= until) ) throw new Error('Assertion failed.');
+
+  // https://en.wikipedia.org/wiki/Fisher-Yates_shuffle
+  for( let i=from; i < until-1; i++ )
+  { const j = _rand_int(i,until),
+         aj = array[j];
+              array[j] = array[i];
+                         array[i] = aj;
+  }
+}
+
+
+export function _shuffled( array, from, until )
+{
+   array = array.slice();
+  _shuffle(array,from,until);
+  return   array;
+}
+
+
 export function _rand_rows0(...shape)
 {
   if( !(2 <= shape.length) ) throw new Error('Assertion failed.');
