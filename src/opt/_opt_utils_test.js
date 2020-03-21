@@ -58,6 +58,7 @@ describe('_heap_sort', () => {
         expect(x).toEqual(items[n++]);
         expect( items.subarray(0,n) ).toEqual( order.subarray(0,n) );
       }
+      expect(n).toBe(unsorted.length);
 
       expect(items).toEqual(order);
     });

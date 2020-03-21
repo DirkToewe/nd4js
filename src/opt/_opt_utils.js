@@ -97,7 +97,7 @@ export function* _heap_sort( items, isLess = (x,y) => x < y )
     siftDown(j);
 
   // EXTRACT MINIMA
-  while( i < len-1 ) {
+  while( i < len ) {
     swap(i,  len-1); yield items[i++];
     siftDown(len-1);
   }
