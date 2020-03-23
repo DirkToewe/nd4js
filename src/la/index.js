@@ -24,6 +24,8 @@ export * from './det'
 export * from './eigen'
 export * from './eye'
 export {hessenberg_decomp} from './hessenberg'
+export {ldl_decomp,
+        ldl_solve} from './ldl'
 export * from './lstsq'
 export * from './lu'
 export * from './matmul'

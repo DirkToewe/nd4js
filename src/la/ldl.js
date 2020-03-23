@@ -20,59 +20,119 @@ import {ARRAY_TYPES} from '../dt'
 import {KahanSum} from '../kahan_sum'
 import {asarray, NDArray} from '../nd_array'
 
-import {_tril_solve,
-        _tril_t_solve} from './tri'
+
+// THE FOLLOWING IMPLEMENTATION HAS BETTER CACHE ALIGNMENT BUT REQUIRES AN EXTRA ARRAY OF LENGTH M-1
+//export function _ldl_decomp(M,N, LD,LD_off, V)
+//{
+//  if( ! (M   <= N       ) ) throw new Error('Assertion failed.');
+//  if( ! (M-1 <= V.length) ) throw new Error('Assertion failed.');
+//
+//  // https://arxiv.org/abs/1111.4144
+//  for( let j=0; j < M; j++ )
+//  {
+//    for( let k=0; k < j; k++ )
+//      V[k] = LD[LD_off + N*j+k] * LD[LD_off + N*k+k];
+//
+//    for( let i=j; i < M; i++ )
+//    {
+//      for( let k=0; k < j; k++ )
+//        LD[LD_off + N*i+j] -= LD[LD_off + N*i+k] * V[k];
+//
+//      if( j < i )
+//        LD[LD_off + N*i+j] /= LD[LD_off + N*j+j];
+//    }
+//  }
+//}
 
 
-export function _cholesky_decomp(M,N, L,L_off)
+export function _ldl_decomp(M,N, LD,LD_off)
 {
   if( ! (M <= N) ) throw new Error('Assertion failed.');
 
-  const kahan = new KahanSum();
-
-  // https://de.wikipedia.org/wiki/Cholesky-Zerlegung
-  for( let i=0; i< M; i++ )
-  for( let j=0; j<=i; j++ )
+  // https://arxiv.org/abs/1111.4144
+  for( let j=0; j < M; j++ )
   {
-    kahan.set( L[L_off+N*i+j] );
-    for( let k=0; k<j; k++ )
-      kahan.add( - L[L_off+N*i+k] * L[L_off+N*j+k] );
+    for( let k=0; k < j; k++ )
+    {
+      const V_k = LD[LD_off + N*j+k] * LD[LD_off + N*k+k];
 
-    if( i > j ) L[L_off+N*i+j] =           kahan.sum / L[L_off+N*j+j];
-    else {      L[L_off+N*i+i] = Math.sqrt(kahan.sum);
-      if( isNaN(L[L_off+N*i+i]) )
-        throw new Error('Matrix contains NaNs or is (near) singular.');
+      for( let i=j; i < M; i++ )
+        LD[LD_off + N*i+j] -= LD[LD_off + N*i+k] * V_k;
     }
+
+    for( let i=j; i++ < M; i )
+      LD[LD_off + N*i+j] /= LD[LD_off + N*j+j];
   }
 }
 
 
-export function cholesky_decomp(S)
+export function ldl_decomp(S)
 {
   S = asarray(S);
   const
-    dtype = S.dtype === 'float32' ? 'float32' : 'float64',
+    DTypeArray = ARRAY_TYPES[S.dtype === 'float32' ? 'float32' : 'float64'],
     shape = S.shape,
     [N,M] =   shape.slice(-2);
   S = S.data;
-  const L = new ARRAY_TYPES[dtype](S.length);
 
-  if( N != M )
+  if( N !== M )
     throw new Error('Last two dimensions must be quadratic.')
 
-  for( let L_off=0; L_off < L.length; L_off += N*N )
+  const LD = new DTypeArray(S.length);
+
+
+  for( let LD_off=0; LD_off < LD.length; LD_off += N*N )
   {
     for( let i=0; i < N; i++ )
     for( let j=0; j <=i; j++ )
-      L[L_off + N*i+j] = S[L_off + N*i+j];
-    _cholesky_decomp(N,N, L,L_off);
+      LD[LD_off + N*i+j] = S[LD_off + N*i+j];
+
+    _ldl_decomp(N,N, LD,LD_off);
   }
 
-  return new NDArray(shape,L);
+  return new NDArray(shape,LD);
 }
 
 
-export function cholesky_solve(L,y)
+export function _ldl_solve(M,N,O, L,L_off, X,X_off)
+{
+  if( 0 !== L.length%1 ) throw new Error('Assertion failed.');
+  if( 0 !== X.length%1 ) throw new Error('Assertion failed.');
+  if( 0 !== L_off%1 ) throw new Error('Assertion failed.');
+  if( 0 !== X_off%1 ) throw new Error('Assertion failed.');
+  if( 0 !== M%1 ) throw new Error('Assertion failed.');
+  if( 0 !== N%1 ) throw new Error('Assertion failed.');
+  if( 0 !== O%1 ) throw new Error('Assertion failed.');
+
+  if( L.length - L_off < M*N ) throw new Error('Assertion failed.');
+  if( X.length - X_off < M*O ) throw new Error('Assertion failed.');
+
+  if( !(0 < M) ) throw new Error('Assertion failed.');
+  if( !(0 < N) ) throw new Error('Assertion failed.');
+  if( !(0 < O) ) throw new Error('Assertion failed.');
+
+  if( !(M <= N) ) throw new Error('Assertion failed.');
+
+  // FORWARD SUBSTITUTION
+  for( let i=0; i < M; i++ )
+  for( let k=0; k < i; k++ )
+  for( let j=0; j < O; j++ )
+    X[X_off+O*i+j] -= L[L_off+N*i+k] * X[X_off+O*k+j];
+
+  // SCALING
+  for( let i=0; i < M; i++ )
+  for( let j=0; j < O; j++ )
+    X[X_off + O*i+j] /= L[L_off + N*i+i];
+
+  // BACKWARD SUBSTITUTION
+  for( let k=M; k-- > 0; )
+  for( let i=k; i-- > 0; )
+  for( let j=O; j-- > 0; )
+    X[X_off + O*i+j] -= L[L_off + N*k+i] * X[X_off + O*k+j]
+}
+
+
+export function ldl_solve(L,y)
 {
   L = asarray(L);
   y = asarray(y);
@@ -116,12 +176,11 @@ export function cholesky_solve(L,y)
       L_stride = N*N;
       y_stride = N*J;
 
-      // COPYING y
+      // COPY y
       for( let i=0; i < y_stride; i++ )
-        x_dat[x_off+i] = y_dat[y_off+i]
+        x_dat[x_off+i] = y_dat[y_off+i];
 
-      _tril_solve  (I,I,J, L_dat,L_off, x_dat,x_off);
-      _tril_t_solve(I,I,J, L_dat,L_off, x_dat,x_off);
+      _ldl_solve(N,N,J, L_dat,L_off, x_dat,x_off);
 
       L_off += L_stride;
       y_off += y_stride;

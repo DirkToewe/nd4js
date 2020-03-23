@@ -34,6 +34,45 @@ describe('cholesky', () => {
     function*(){
       const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
 
+      for( let run=1024; run-- > 0; )
+      {
+        let ndim = randInt(2,6),
+          shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
+        shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
+
+        for( let d=ndim; d > 0; d-- )
+        for( let i=randInt(0,2); i-- > 0; ) {
+          const    shape = shapes[randInt(0,2)],
+               j = shape.length - d
+          if(0<=j) shape[j] = 1
+        }
+
+        const M = randInt(1,24); shapes[0].push(M,M)
+        const N = randInt(1,24); shapes[1].push(M,N)
+
+        const y = tabulate(shapes[1],'float64', () => Math.random()*2-1),
+              L = tabulate(shapes[0],'float64', (...indices) => {
+                const [i,j] = indices.slice(-2);
+                return i===j ? Math.random()*1.6 + 0.4
+                     : i < j ? 0
+                     :         Math.random()*1.2 - 0.6;
+              })
+
+        yield [L,y]
+      }
+    }()
+  ).it('cholesky_solve works on random examples', ([L,y]) => {
+    const x = cholesky_solve(L,y),
+          Y = matmul(L,L.T,x)
+
+    expect(Y).toBeAllCloseTo(y)
+  });
+
+
+  forEachItemIn(
+    function*(){
+      const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
+
       for( let run=4096; run-- > 0; )
       {
         const shape = Int32Array.from({ length: randInt(2,6) }, () => randInt(1,8) );
@@ -41,9 +80,9 @@ describe('cholesky', () => {
         shape[shape.length-1] = randInt(1,32);
         yield tabulate(shape,'float64',(...indices) => {
           const [i,j] = indices.slice(-2);
-          if( i==j ) return Math.random()*1 + 0.4;
-          if( i< j ) return 0;
-          return Math.random()*0.8 - 0.4;
+          if( i < j ) return 0;
+          if( i===j ) return Math.random()*1.5 + 0.5;
+                      return Math.random()*2.2 - 1.1;
         })
       }
     }()
@@ -56,7 +95,7 @@ describe('cholesky', () => {
     expect(l.shape).toEqual(L.shape)
     expect(l).toBeLowerTriangular()
     expect(l).toBeAllCloseTo(L)  
-  })
+  });
 
 
   forEachItemIn(
@@ -81,44 +120,5 @@ describe('cholesky', () => {
     expect(l.shape).toEqual(LLT.shape);
     expect(l).toBeLowerTriangular();
     expect(llt).toBeAllCloseTo(LLT);  
-  })
-
-
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
-
-      for( let run=1024; run-- > 0; )
-      {
-        let ndim = randInt(2,6),
-          shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
-        shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
-
-        for( let d=ndim; d > 0; d-- )
-        for( let i=randInt(0,2); i-- > 0; ) {
-          const    shape = shapes[randInt(0,2)],
-               j = shape.length - d
-          if(0<=j) shape[j] = 1
-        }
-
-        const M = randInt(1,24); shapes[0].push(M,M)
-        const N = randInt(1,24); shapes[1].push(M,N)
-
-        const y = tabulate(shapes[1],'float64', () => Math.random()*2-1),
-              L = tabulate(shapes[0],'float64', (...indices) => {
-                const [i,j] = indices.slice(-2);
-                return i===j ? Math.random()*1 + 0.5
-                     : i < j ? 0
-                     :         Math.random()*2e-1 - 1e-1;
-              })
-
-        yield [L,y]
-      }
-    }()
-  ).it('cholesky_solve works on random examples', ([L,y]) => {
-    const x = cholesky_solve(L,y),
-          Y = matmul(L,L.T,x)
-
-    expect(Y).toBeAllCloseTo(y)
-  })
+  });
 })
