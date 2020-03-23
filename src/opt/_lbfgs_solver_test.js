@@ -822,7 +822,7 @@ describe('LBFGSSolverRef', () => {
     
         const {H,B} = lbfgs;
     
-        const atol = Number.EPSILON * (1<<15) * norm(H) * norm(B);
+        const atol = Number.EPSILON * (1<<16) * norm(H) * norm(B);
         expect( matmul2(B,H) ).toBeAllCloseTo(I, {atol});
         expect( matmul2(H,B) ).toBeAllCloseTo(I, {atol});
     

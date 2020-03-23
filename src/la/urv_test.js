@@ -164,7 +164,7 @@ describe('urv', () => {
     expect( matmul2(V,V.T) ).toBeAllCloseTo(I);
     expect( matmul2(V.T,V) ).toBeAllCloseTo(I);
 
-    expect( matmul(U,R,V) ).toBeAllCloseTo(A, {atol: 1e-6});
+    expect( matmul(U,R,V) ).toBeAllCloseTo(A, {atol: 1e-5});
   })
 
 
