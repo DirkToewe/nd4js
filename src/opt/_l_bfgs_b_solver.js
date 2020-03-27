@@ -17,6 +17,8 @@
  */
 
 import {_cholesky_decomp} from '../la/cholesky'
+import {_ldl_decomp,
+        _ldl_solve} from '../la/ldl'
 import {_tril_solve} from '../la/tri'
 
 import {_heap_sort} from './_opt_utils'
@@ -33,6 +35,13 @@ import {_heap_sort} from './_opt_utils'
 //         Technical Report NAM-08; Revised: May 1994
 //         http://users.iems.northwestern.edu/~nocedal/PDFfiles/limited.pdf
 
+// Compares to [2], the following symbols have been renamed in the source:
+//
+//   Y -> dG
+//   S -> dX
+//
+// dG is the delta in gradients between iterations. dX is the delta in X.
+// The names dG and dX therefore seemed to be more intuitive.
 
 /** Computes the dot product of two arrays.
  */
@@ -49,7 +58,7 @@ const dot = (u,v) => {
 };
 
 
-export class LBFGSSolver
+export class L_BFGS_B_Solver
 {
   constructor( M, N )
   {
@@ -79,6 +88,8 @@ export class LBFGSSolver
     this.Bdx = new Float64Array(2*M);
     this.Bg  = new Float64Array(2*M);
     this.Bei = new Float64Array(2*M);
+
+    this.M_WAAW = new Float64Array(4*M*M);
   }
 
 
@@ -120,9 +131,8 @@ export class LBFGSSolver
 
   update( dx, dg )
   {
-    const {M,N, dX,
-                dG, dXdX,
-                    dXdG,
+    const {M,N, dX, dXdX,
+                dG, dXdG,
                     dGdG, D} = this;
 
     if( N !== dx.length ) throw new Error('Assertion failed.');
@@ -406,8 +416,169 @@ export class LBFGSSolver
   }
 
 
-//  compute_subspace_Hv( v, Hv, n_fix, indices )
-//  {
-//    ???
-//  }
+  compute_subspace_Hv( v, Hv, indices,n_fix )
+  {
+    // For more information, see [2].
+    // The goal is to solve the following subspace_problem:
+    //        _
+    // Hv = Z⋅B⋅Zᵀ⋅v
+    //       
+    // Where v and Hv are the input and output parameters of
+    // of compute_subspace_Hv (see above).
+    // _
+    // B is the subspace Hessian (approximation):
+    // _
+    // B = Zᵀ⋅B⋅Z
+    //                _
+    // The inverse of B can be written as:
+    // _                     _           _       _
+    // B⁻¹ = I/scale + Zᵀ⋅W⋅(M⁻¹ + scale⋅Wᵀ⋅A⋅Aᵀ⋅W)⋅Wᵀ⋅Z
+    //
+    //       ┏                                  ┓
+    //       ┃                ┊                 ┃
+    //       ┃                ┊                 ┃
+    //       ┃-(D+dGᵀdG/scale)┊       -Rᵀ       ┃
+    //       ┃                ┊                 ┃
+    //       ┃                ┊                 ┃
+    // _     ┃                ┊                 ┃
+    // M⁻¹ = ┃┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┼┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┃
+    //       ┃                ┊                 ┃
+    //       ┃                ┊                 ┃
+    //       ┃                ┊                 ┃
+    //       ┃       -R       ┊        0        ┃
+    //       ┃                ┊                 ┃
+    //       ┃                ┊                 ┃
+    //       ┗                                  ┛
+    //
+    // R = triu(dXᵀdG)
+    // D = diag(dXᵀdG)
+    //
+    const {m,M,N, dX, dXdG,
+                  dG, dGdG, M_WAAW, Bei: u, scale} = this;
+
+    if(      v.length !== N ) throw new Error('Assertion failed.');
+    if(     Hv.length !== N ) throw new Error('Assertion failed.');
+    if(indices.length !== N ) throw new Error('Assertion failed.');
+    if( n_fix%1 !== 0 ) throw new Error('Assertion failed.');
+    if( !(n_fix >= 0) ) throw new Error('Assertion failed.');
+    if( !(n_fix <= N) ) throw new Error('Assertion failed.');
+
+/*DEBUG*/    if( ! indices.slice().sort((i,j) => i-j).every((i,I) => i===I) )
+/*DEBUG*/      throw new Error('Assertion failed.');
+
+/*DEBUG*/    for( let i=0; i < n_fix; i++ )
+/*DEBUG*/      if( v[indices[i]] !== 0 ) throw new Error('Assertion failed.');
+
+    //
+    // RIGHT PART
+    //
+    for( let i=0; i < m; i++ )
+    { let sum = 0;
+      for( let k=n_fix; k < N; k++ )
+      { const                j = indices[k];
+        sum += dG[N*i+j] * v[j];
+      }
+      u[i] = sum / scale;
+    }
+
+    for( let i=0; i < m; i++ )
+    { let sum = 0;
+      for( let k=n_fix; k < N; k++ )
+      { const                j = indices[k];
+        sum += dX[N*i+j] * v[j];
+      }
+      u[m+i] = sum;
+    }
+
+    //              _
+    // MIDDLE PART (M PART)
+    //
+    if( 0 < n_fix )
+    {
+      // UPPER LEFT BLOCK
+      for( let i=0; i < m; i++ )
+      for( let j=0; j <=i; j++ )
+      { let sum = 0;
+        for( let l=0; l < n_fix; l++ )
+        { const         k = indices[l];
+          sum += dG[N*i+k] * dG[N*j+k];
+        }
+        M_WAAW[2*m*i+j] = sum;
+      }
+      
+      // LOWER LEFT BLOCK
+      for( let i=0; i < m; i++ )
+      for( let j=0; j < m; j++ )
+      { let sum = 0;
+        for( let l=0; l < n_fix; l++ )
+        { const         k = indices[l];
+          sum += dX[N*i+k] * dG[N*j+k];
+        }
+        M_WAAW[2*m*(m+i) + j] = sum;
+      }
+      
+      // LOWER RIGHT BLOCK
+      for( let i=0; i < m; i++ )
+      for( let j=0; j <=i; j++ )
+      { let sum = 0;
+        for( let l=0; l < n_fix; l++ )
+        { const         k = indices[l];
+          sum += dX[N*i+k] * dX[N*j+k];
+        }
+        M_WAAW[2*m*(m+i)+(m+j)] = sum * scale;
+      }
+    }
+    else {
+      for( let i=0; i < m*2; i++ )
+      for( let j=0; j <=i  ; j++ )
+        M_WAAW[2*m*i+j] = 0;
+    }
+
+    // UPPER LEFT BLOCK
+    for( let i=0; i < m; i++ )
+    for( let j=0; j <=i; j++ ) {
+      M_WAAW[2*m*i+j] -= dGdG[M*i+j];
+      M_WAAW[2*m*i+j] /= scale
+    }
+
+    for( let i=0; i < m; i++ )
+      M_WAAW[2*m*i+i] -= dXdG[M*i+i];
+
+    // LOWER LEFT BLOCK
+    for( let i=0; i < m; i++ )
+    for( let j=i; j < m; j++ )
+      M_WAAW[2*m*(m+i) + j] -= dXdG[M*i+j];
+
+    // FIXME: It remains to be seen whether or not LDL is accurate enough.
+    //        If it isn't, we have to switch to PLDLP (Bunch-Kaufman).
+    _ldl_decomp(2*m,2*m,   M_WAAW,0);
+    _ldl_solve (2*m,2*m,1, M_WAAW,0, u,0);
+
+    //
+    // LEFT PART
+    //
+    Hv.fill(0.0, 0,N);
+
+    for( let j=0    ; j < m; j++ )
+    for( let k=n_fix; k < N; k++ )
+    { const           i = indices[k];
+      Hv[i] += dG[N*j+i] * u[j];
+    }
+
+    for( let k=n_fix; k < N; k++ )
+    { const i = indices[k];
+         Hv[i] /= scale;
+    }
+
+    for( let j=0    ; j < m; j++ )
+    for( let k=n_fix; k < N; k++ )
+    { const           i = indices[k];
+      Hv[i] += dX[N*j+i] * u[m+j];
+    }
+
+    for( let k=n_fix; k < N; k++ )
+    { const      i = indices[k];
+      Hv[i] += v[i] / scale;
+    }
+  }
 }
