@@ -31,6 +31,11 @@ export * from './lu'
 export * from './matmul'
 export {norm} from './norm'
 export * from './permute'
+export {pldlp_decomp,
+        pldlp_solve,
+        pldlp_l,
+        pldlp_d,
+        pldlp_p} from './pldlp'
 export * from './qr'
 export * from './rand_ortho'
 export * from './rank'
@@ -42,7 +47,7 @@ export { rrqr_decomp,
 export {srrqr_decomp_full} from './srrqr'
 export        * from './schur'
 export        * from './singular_matrix_solve_error'
-export        * from './solve'
+export {solve}  from './solve'
 export        * from './svd'
 export {svd_dc} from './svd_dc'
 export        * from './svd_jac_2sided'

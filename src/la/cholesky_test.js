@@ -34,9 +34,9 @@ describe('cholesky', () => {
     function*(){
       const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
 
-      for( let run=1024; run-- > 0; )
+      for( let run=6144; run-- > 0; )
       {
-        let ndim = randInt(2,6),
+        let ndim = randInt(0,4),
           shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
         shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
 

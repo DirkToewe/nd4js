@@ -60,7 +60,7 @@ export function _ldl_decomp(M,N, LD,LD_off)
         LD[LD_off + N*i+j] -= LD[LD_off + N*i+k] * V_k;
     }
 
-    for( let i=j; i++ < M; i )
+    for( let i=j; ++i < M; )
       LD[LD_off + N*i+j] /= LD[LD_off + N*j+j];
   }
 }
@@ -94,17 +94,17 @@ export function ldl_decomp(S)
 }
 
 
-export function _ldl_solve(M,N,O, L,L_off, X,X_off)
+export function _ldl_solve(M,N,O, LD,LD_off, X,X_off)
 {
-  if( 0 !== L.length%1 ) throw new Error('Assertion failed.');
+  if( 0 !==LD.length%1 ) throw new Error('Assertion failed.');
   if( 0 !== X.length%1 ) throw new Error('Assertion failed.');
-  if( 0 !== L_off%1 ) throw new Error('Assertion failed.');
+  if( 0 !==LD_off%1 ) throw new Error('Assertion failed.');
   if( 0 !== X_off%1 ) throw new Error('Assertion failed.');
   if( 0 !== M%1 ) throw new Error('Assertion failed.');
   if( 0 !== N%1 ) throw new Error('Assertion failed.');
   if( 0 !== O%1 ) throw new Error('Assertion failed.');
 
-  if( L.length - L_off < M*N ) throw new Error('Assertion failed.');
+  if(LD.length -LD_off < M*N ) throw new Error('Assertion failed.');
   if( X.length - X_off < M*O ) throw new Error('Assertion failed.');
 
   if( !(0 < M) ) throw new Error('Assertion failed.');
@@ -114,45 +114,45 @@ export function _ldl_solve(M,N,O, L,L_off, X,X_off)
   if( !(M <= N) ) throw new Error('Assertion failed.');
 
   // FORWARD SUBSTITUTION
-  for( let i=0; i < M; i++ )
+  for( let i=1; i < M; i++ )
   for( let k=0; k < i; k++ )
   for( let j=0; j < O; j++ )
-    X[X_off+O*i+j] -= L[L_off+N*i+k] * X[X_off+O*k+j];
+    X[X_off+O*i+j] -= LD[LD_off+N*i+k] * X[X_off+O*k+j];
 
   // SCALING
   for( let i=0; i < M; i++ )
   for( let j=0; j < O; j++ )
-    X[X_off + O*i+j] /= L[L_off + N*i+i];
+    X[X_off + O*i+j] /= LD[LD_off + N*i+i];
 
   // BACKWARD SUBSTITUTION
-  for( let k=M; k-- > 0; )
+  for( let k=M; k-- > 1; )
   for( let i=k; i-- > 0; )
   for( let j=O; j-- > 0; )
-    X[X_off + O*i+j] -= L[L_off + N*k+i] * X[X_off + O*k+j]
+    X[X_off + O*i+j] -= LD[LD_off + N*k+i] * X[X_off + O*k+j]
 }
 
 
-export function ldl_solve(L,y)
+export function ldl_solve(LD,y)
 {
-  L = asarray(L);
-  y = asarray(y);
-  if( L.ndim < 2 ) throw new Error('L must be at least 2D.');
-  if( y.ndim < 2 ) throw new Error('y must be at least 2D.');
+  LD= asarray(LD);
+  y = asarray(y );
+  if(LD.ndim < 2 ) throw new Error('ldl_solve(LD,y): LD must be at least 2D.');
+  if( y.ndim < 2 ) throw new Error('ldl_solve(LD,y): y must be at least 2D.');
 
   const
-    [N,M] = L.shape.slice(-2),
-    [I,J] = y.shape.slice(-2);
-  if( N != M ) throw new Error('Last two dimensions of L must be quadratic.')
-  if( I != M ) throw new Error("L and y don't match.");
+    [N,M] = LD.shape.slice(-2),
+    [I,J] =  y.shape.slice(-2);
+  if( N != M ) throw new Error('ldl_solve(LD,y): Last two dimensions of LD must be quadratic.')
+  if( I != M ) throw new Error("ldl_solve(LD,y): LD and y don't match.");
 
   const
-    ndim = Math.max(L.ndim, y.ndim),
+    ndim = Math.max(LD.ndim, y.ndim),
     shape = Int32Array.from({ length: ndim }, () => 1 );
   shape[ndim-2] = I;
   shape[ndim-1] = J;
 
   // FIND COMMON (BROADCASTED) SHAPE
-  for( let arr of [L,y] )
+  for( let arr of [LD,y] )
     for( let i=ndim-2, j=arr.ndim-2; i-- > 0 && j-- > 0; )
       if( 1 === shape[i] )
         shape[i] = arr.shape[j];
@@ -161,41 +161,41 @@ export function ldl_solve(L,y)
 
   // GENERATE RESULT DATA
   const
-    dtype = L.dtype === 'float32'
-         && y.dtype === 'float32' ? 'float32' : 'float64',
+    dtype = LD.dtype === 'float32'
+          && y.dtype === 'float32' ? 'float32' : 'float64',
     x_dat = new ARRAY_TYPES[dtype]( shape.reduce((a,b) => a*b, 1) ),
-    L_dat = L.data,
-    y_dat = y.data;
+   LD_dat = LD.data,
+    y_dat =  y.data;
   let
-    L_off = 0, L_stride = 1,
-    y_off = 0, y_stride = 1,
+   LD_off = 0, LD_stride = 1,
+    y_off = 0,  y_stride = 1,
     x_off = 0;
 
   function solv(d) {
     if( d === ndim-2 ) {
-      L_stride = N*N;
-      y_stride = N*J;
+      LD_stride = N*N;
+       y_stride = N*J;
 
       // COPY y
       for( let i=0; i < y_stride; i++ )
         x_dat[x_off+i] = y_dat[y_off+i];
 
-      _ldl_solve(N,N,J, L_dat,L_off, x_dat,x_off);
+      _ldl_solve(N,N,J, LD_dat,LD_off, x_dat,x_off);
 
-      L_off += L_stride;
-      y_off += y_stride;
-      x_off += y_stride;
+      LD_off += LD_stride;
+       y_off += y_stride;
+       x_off += y_stride;
 
       return;
     }
     for( let l=shape[d]; ; l-- ) {
       solv(d+1);
       if( l == 1 ) break;
-      if( ! (L.shape[ d - ndim + L.ndim ] > 1) ) L_off -= L_stride;
-      if( ! (y.shape[ d - ndim + y.ndim ] > 1) ) y_off -= y_stride;
+      if( ! (LD.shape[ d - ndim + LD.ndim ] > 1) ) LD_off -= LD_stride;
+      if( ! ( y.shape[ d - ndim +  y.ndim ] > 1) )  y_off -=  y_stride;
     }
-    L_stride *= L.shape[ d - ndim + L.ndim ] || 1;
-    y_stride *= y.shape[ d - ndim + y.ndim ] || 1;
+    LD_stride *= LD.shape[ d - ndim + LD.ndim ] || 1;
+     y_stride *=  y.shape[ d - ndim +  y.ndim ] || 1;
   }
   solv(0);
 

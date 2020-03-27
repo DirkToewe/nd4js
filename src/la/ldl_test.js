@@ -19,11 +19,13 @@
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {NDArray} from '../nd_array'
 import {tabulate} from '../tabulate'
+import {zip_elems} from '../zip_elems'
 
 import {diag,
         diag_mat} from './diag'
-import {ldl_decomp, ldl_solve} from './ldl'
-import {matmul, matmul2} from './matmul'
+import {ldl_decomp,
+        ldl_solve} from './ldl'
+import {matmul} from './matmul'
 
 
 describe('LDLᵀ Decomposition', () => {
@@ -36,9 +38,9 @@ describe('LDLᵀ Decomposition', () => {
     function*(){
       const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
 
-      for( let run=512; run-- > 0; )
+      for( let run=4096; run-- > 0; )
       {
-        let ndim = randInt(2,6),
+        let ndim = randInt(0,4),
           shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
         shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
 
@@ -135,7 +137,7 @@ describe('LDLᵀ Decomposition', () => {
             Int32Array.of(N,N),
           Float64Array.from({length: N*N}, () => Math.random()*8 - 4)
         );
-        const         LDLT = matmul2(A,A.T)
+        const         LDLT = zip_elems([A,A.T], 'float64', (a,at) => (a+at)/2);
         Object.freeze(LDLT.data.buffer)
         Object.freeze(LDLT)
         yield         LDLT
