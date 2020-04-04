@@ -16,6 +16,9 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
+import {asarray} from '../nd_array'
+
+
 export class FrobeniusNorm
 {
   constructor() {
@@ -60,6 +63,8 @@ export class FrobeniusNorm
 
 export function norm( A, ord='fro', axis=undefined )
 {
+  A = asarray(A);
+
   let norm;
   switch(ord) {
     case 'fro': norm = new FrobeniusNorm(); break;

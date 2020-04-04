@@ -170,7 +170,7 @@ describe('(s)rrqr', () => {
       const [Q,R,P] = rrqr_deco(QR),
                x    = rrqr_solve(Q,R,P, y)
     
-      expect( matmul2(QR,x) ).toBeAllCloseTo(y)
+      expect( matmul2(QR,x) ).toBeAllCloseTo(y, {atol: 1e-7})
     })
 
 
@@ -329,7 +329,7 @@ describe('(s)rrqr', () => {
               Ax   = matmul2(A,x)
 
       // every least square solution satisfies the normal equaltion Aᵀ(Ax - y) = 0
-      expect( matmul2(A.T, zip_elems([Ax,y], (Ax,y) => Ax-y) ) ).toBeAllCloseTo(0);
+      expect( matmul2(A.T, zip_elems([Ax,y], (Ax,y) => Ax-y) ) ).toBeAllCloseTo(0, {atol: 1e-7});
 
       expect(R).toBeUpperTriangular({tol: rrqr_name.startsWith('srrqr_') * 1e-8});
     })

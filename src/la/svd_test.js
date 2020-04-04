@@ -490,8 +490,8 @@ describe('svd', () => {
 
       const a = matmul(U,D,V);
 
-      const U_TOL = eps(A.dtype) * M*4,
-            V_TOL = eps(A.dtype) * N*4;
+      const U_TOL = eps(A.dtype) * M*8,
+            V_TOL = eps(A.dtype) * N*8;
 
       if( M >= N ) {
         const I = eye(N)
