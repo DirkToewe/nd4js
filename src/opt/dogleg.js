@@ -18,6 +18,9 @@
 
 import {array, asarray, NDArray} from '../nd_array'
 
+import {nextUp} from "../dt/float64_utils";
+
+import {OptimizationNoProgressError} from "./optimization_error";
 import {roots1d_polyquad} from './polyquad'
 import {TrustRegionSolverLSQ} from './_trust_region_solver'
 
@@ -40,14 +43,15 @@ export function* lsq_dogleg_gen(
   fJ,//: (x0: float[nInputs]) => [f: float[nSamples], j: float[nSamples,nInputs]] - THE OPTIMIZATION FUNCTION AND ITS JACOBIAN
   x0,//: float[nInputs] - THE START POINT OF THE OPTIMIZATION
   /*opt=*/{
-    r0   = 1.1,          // <-   START TRUST REGION RADIUS (meaning radius AFTER scaling)
-    rMin = 1e-8,         // <- MINIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
-    rMax = Infinity,     // <- MAXIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
-    shrinkLower= 0.05,   // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT MOST
-    shrinkUpper= 0.95,   // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT LEAST
-    grow = 1.5,          // <-    GROW TRUST REGION RADIUS BY THIS FACTOR
-    expectGainMin = 0.25,// <- IF ACTUAL IMPROVEMENT RELATIVE TO PREDICTION IS WORSE  THAN THIS FACTOR, SHRINK TRUST REGION
-    expectGainMax = 0.75 // <- IF ACTUAL IMPROVEMENT RELATIVE TO PREDICTION IS BETTER THAN THIS FACTOR, GROW   TRUST REGION
+    r0   = 1.1,               // <-   START TRUST REGION RADIUS (meaning radius AFTER scaling)
+    rMin = 0,                 // <- MINIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
+    rMax = Infinity,          // <- MAXIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
+    shrinkLower= 0.05,        // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT MOST
+    shrinkUpper= 0.95,        // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT LEAST
+    grow = 1.4142135623730951,// <-    GROW TRUST REGION RADIUS BY THIS FACTOR
+    expectGainMin = 0.25,     // <- IF ACTUAL IMPROVEMENT RELATIVE TO PREDICTION IS WORSE  THAN THIS FACTOR, SHRINK TRUST REGION
+    expectGainMax = 0.75,     // <- IF ACTUAL IMPROVEMENT RELATIVE TO PREDICTION IS BETTER THAN THIS FACTOR, GROW   TRUST REGION
+    stuckLimit = 32           // <- MAX. NUMBER OF CONSECUTIVE ITERATIONS WITHOUT PROGRESS
   } = {}
 )
 {
@@ -59,7 +63,7 @@ export function* lsq_dogleg_gen(
     throw new Error('lsq_dogleg_gen(fJ, x0): fJ must be Function.');
 
   if( !(            0 <  r0          ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.r0 must be positive number.');
-  if( !(            0 <  rMin        ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.rMin must be positive number.');
+  if( !(            0 <= rMin        ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.rMin must be non-negative.');
   if( !(         rMin <= rMax        ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.rMin must not be greater than opt.rMax.');
   if( !(         rMin <= r0          ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.r0 must not be less than opt.rMin.');
   if( !(         rMax >= r0          ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.r0 must not be greater than opt.rMax.');
@@ -70,6 +74,8 @@ export function* lsq_dogleg_gen(
   if( !(            0 < expectGainMin) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMin must be positive number.');
   if( !(expectGainMin < expectGainMax) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMin must be less than expectGainMax.');
   if( !(expectGainMax < 1            ) )    console.warn('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMax should be less than 1.');
+  if(   0!== stuckLimit%1              ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.stuckLimit must be an integer.');
+  if( !(0 <= stuckLimit              ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.stuckLimit must not be negative.');
 
   let X = x0.data,
       W = new Float64Array(X.length),
@@ -105,17 +111,20 @@ export function* lsq_dogleg_gen(
     err_now += s*s;
   }
 
+  let stuckometer = 0; // <- indicates how stuck we are, i.e. counts the number of consecutive operations without progress
+
   for(;;)
   {
 /*DEBUG*/    if( !(cp <= 0) ) throw new Error('Assertion failed.');
 
-    yield [
-      new NDArray(  X_shape, X.slice()),
-      new NDArray(mse_shape, Float64Array.of(err_now / M) ),
-      new NDArray(  X_shape, G.map(g => g*2/M) ),
-      new NDArray( ff.shape, ff.data.slice() ),
-      new NDArray( JJ.shape, JJ.data.slice() )
-    ];
+    if( stuckometer === 0 )
+      yield [
+        new NDArray(  X_shape, X.slice()),
+        new NDArray(mse_shape, Float64Array.of(err_now / M) ),
+        new NDArray(  X_shape, G.map(g => g*2/M) ),
+        new NDArray( ff.shape, ff.data.slice() ),
+        new NDArray( JJ.shape, JJ.data.slice() )
+      ];
 
     { const t = Math.max(-R/gn, cp); // <- don't go beyond trust region radius
       for( let i=N; i-- > 0; )
@@ -159,25 +168,28 @@ export function* lsq_dogleg_gen(
         if(1===t) break block;
       }
 
-/*DEBUG*/      if( !(Math.abs(solver.scaledNorm(dX)-R) <= 1e-6) ) throw new Error('Assertion failed.');// <- check that solution is in radius
+/*DEBUG*/      if( ! ( solver.scaledNorm(dX) <= R*(1+1e-6) ) ) throw new Error(`Assertion failed: ${solver.scaledNorm(dX)} <= ${R}.`);// <- check that solution is in radius
     }
 
-/*DEBUG*/    if( !(solver.scaledNorm(dX) <= R+1e-6 ) ) throw new Error('Assertion failed.');
+/*DEBUG*/    if( ! ( solver.scaledNorm(dX) <= R*(1+1e-6) ) ) throw new Error('Assertion failed.');
+
+    let same_x = true;
+    for( let i=N; i-- > 0; ) {
+      W[i] = dX[i] + X[i];
+      same_x &= (W[i] === X[i]);
+    }
 
     let err_predict = 0;
     for( let i=M; i-- > 0; )
     {
       let s = 0;
       for( let j=N; j-- > 0; )
-        s += J[N*i+j] * dX[j];
+        s += J[N*i+j] * (W[j] - X[j]);
       s += f[i];
       err_predict += s*s;
     }
 
-/*DEBUG*/    if( !(err_predict <= err_now) ) throw new Error('Assertion failed.');
-
-    for( let i=N; i-- > 0; )
-      W[i] = dX[i] + X[i];
+//*DEBUG*/    if( !(err_predict <= err_now) ) throw new Error('Assertion failed.');
 
     let [_f,_J] = fJ( new NDArray(X_shape, W.slice()) );
     _f = array(_f);
@@ -200,7 +212,7 @@ export function* lsq_dogleg_gen(
 
     const   predict = err_now - err_predict,
              actual = err_now - err_next;
-         if( actual > predict*expectGainMax ) R = Math.min(rMax*rScale(), R*grow); // PREDICTION GREAT -> INCREASE TRUST RADIUS
+         if( actual > predict*expectGainMax || same_x ) R = Math.min(rMax*rScale(), Math.max(nextUp(R), R*grow) ); // PREDICTION GREAT -> INCREASE TRUST RADIUS
     else if( actual < predict*expectGainMin )
     {
       // PREDICTION BAD -> REDUCE TRUST RADIUS
@@ -240,7 +252,10 @@ export function* lsq_dogleg_gen(
 //*DEBUG*/      }
       if( !(shrinkLower <= shrink) ) shrink = shrinkLower;
       if( !(shrinkUpper >= shrink) ) shrink = shrinkUpper;
-      R = Math.max(rMin*rScale(), R*shrink);
+      const r = Math.max(rMin*rScale(), R*shrink);
+      if( r === R && !(err_now > err_next) )
+        throw new OptimizationNoProgressError();
+      R = r;
     }
 
     // ONLY ACCEPT NEW X IF BETTER
@@ -252,7 +267,11 @@ export function* lsq_dogleg_gen(
       solver.update(ff,JJ);
       gn = solver.scaledNorm(G);
       cp = solver.cauchyPointTravel();
+      stuckometer = 0;
     }
+    else if( ++stuckometer > stuckLimit )
+      throw new OptimizationNoProgressError();
+
     // TODO IF WE DON'T ACCEPT NEW X, WE COULD REUSE OLD SOLVER STATE
 
     f = ff.data;

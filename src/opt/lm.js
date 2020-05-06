@@ -18,8 +18,11 @@
 
 import {array, asarray, NDArray} from '../nd_array'
 
+import {nextUp} from "../dt/float64_utils";
+
 import {FrobeniusNorm} from '../la/norm'
 
+import {OptimizationNoProgressError} from "./optimization_error";
 import {TrustRegionSolverLSQ} from './_trust_region_solver'
 
 // References
@@ -39,16 +42,17 @@ export function* lsq_lm_gen(
   fJ,//: (x0: float[nInputs]) => [f: float[nSamples], j: float[nSamples,nInputs]] - THE OPTIMIZATION FUNCTION AND ITS JACOBIAN
   x0,//: float[nInputs] - THE START POINT OF THE OPTIMIZATION
   /*opt=*/{
-    r0   = 1.1,          // <-   START TRUST REGION RADIUS. r0=1 MEANS THE TRUST REGION CONTAINS THE CAUCHY POINT ON ITS RADIUS.
-    rMin = 1e-8,         // <- MINIMUM TRUST REGION RADIUS (meaning radius AFTER scaling) TODO should relative to norm(D) or something
-    rMax = Infinity,     // <- MAXIMUM TRUST REGION RADIUS (meaning radius AFTER scaling) TODO should relative to norm(D) or something
-    rTol = 0.05,         // <-         TRUST REGION RADIUS TOLERANCE,
-    lmLower = 0.001,     // <- LOWER RELATIVE PER-STEP BOUND OF THE LEVENBERG-MARQUARDT PARAMETER ITERATION (USED TO AVOID EXCEEDINGLY SMALL LAMBDA PARAMETERS)
-    shrinkLower= 0.1,    // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT MOST
-    shrinkUpper= 0.5,    // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT LEAST
-    grow = 1.5,          // <-    GROW TRUST REGION RADIUS BY THIS FACTOR
-    expectGainMin = 0.25,// <- IF ACTUAL IMPROVEMENT RELATIVE TO PREDICTION IS WORSE  THAN THIS FACTOR, SHRINK TRUST REGION
-    expectGainMax = 0.75 // <- IF ACTUAL IMPROVEMENT RELATIVE TO PREDICTION IS BETTER THAN THIS FACTOR, GROW   TRUST REGION
+    r0   = 1.1,               // <-   START TRUST REGION RADIUS. r0=1 MEANS THE TRUST REGION CONTAINS THE CAUCHY POINT ON ITS RADIUS.
+    rMin = 0,                 // <- MINIMUM TRUST REGION RADIUS (meaning radius AFTER scaling) TODO should relative to norm(D) or something
+    rMax = Infinity,          // <- MAXIMUM TRUST REGION RADIUS (meaning radius AFTER scaling) TODO should relative to norm(D) or something
+    rTol = 0.05,              // <-         TRUST REGION RADIUS TOLERANCE,
+    lmLower = 0.001,          // <- LOWER RELATIVE PER-STEP BOUND OF THE LEVENBERG-MARQUARDT PARAMETER ITERATION (USED TO AVOID EXCEEDINGLY SMALL LAMBDA PARAMETERS)
+    shrinkLower= 0.05,        // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT MOST
+    shrinkUpper= 0.95,        // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT LEAST
+    grow = 1.4142135623730951,// <-    GROW TRUST REGION RADIUS BY THIS FACTOR
+    expectGainMin = 0.25,     // <- IF ACTUAL IMPROVEMENT RELATIVE TO PREDICTION IS WORSE  THAN THIS FACTOR, SHRINK TRUST REGION
+    expectGainMax = 0.75,     // <- IF ACTUAL IMPROVEMENT RELATIVE TO PREDICTION IS BETTER THAN THIS FACTOR, GROW   TRUST REGION
+    stuckLimit = 64           // <- MAX. NUMBER OF CONSECUTIVE ITERATIONS WITHOUT PROGRESS
   } = {}
 )
 {
@@ -59,22 +63,24 @@ export function* lsq_lm_gen(
   if( !(fJ instanceof Function) )
     throw new Error('lsq_dogleg_gen(fJ, x0): fJ must be Function.');
 
-  if( !( 0 <= lmLower                ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.lmLower must be within [0,1).');
-  if( !(      lmLower < 1            ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.lmLower must be within [0,1).');
-  if( !(            1 >  rTol        ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.rTol must be less than 1.');
-  if( !(            0 <  rTol        ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.rTol must be positive number.');
-  if( !(            0 <  r0          ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.r0 must be positive number.');
-  if( !(            0 <  rMin        ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.rMin must be positive number.');
-  if( !(         rMin <= rMax        ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.rMin must not be greater than opt.rMax.');
-  if( !(         rMin <= r0          ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.r0 must not be less than opt.rMin.');
-  if( !(         rMax >= r0          ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.r0 must not be greater than opt.rMax.');
-  if( !(            0 <  shrinkLower ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.shrinkLower must be positive number.');
-  if( !(  shrinkLower <= shrinkUpper ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.shrinkLower must not be greater than opt.shrinkUpper.');
-  if( !(  shrinkUpper < 1            ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.shrinkUpper must be less than 1.');
-  if( !(            1 < grow         ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.grow must be number greater than 1.');
-  if( !(            0 < expectGainMin) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMin must be positive number.');
-  if( !(expectGainMin < expectGainMax) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMin must be less than expectGainMax.');
-  if( !(expectGainMax < 1            ) )    console.warn('lsq_dogleg_gen(fJ, x0, opt): opt.expectGainMax should be less than 1.');
+  if( !( 0 <= lmLower                ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.lmLower must be within [0,1).');
+  if( !(      lmLower < 1            ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.lmLower must be within [0,1).');
+  if( !(            1 >  rTol        ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.rTol must be less than 1.');
+  if( !(            0 <  rTol        ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.rTol must be positive number.');
+  if( !(            0 <  r0          ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.r0 must be positive number.');
+  if( !(            0 <= rMin        ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.rMin must be non-negative.');
+  if( !(         rMin <= rMax        ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.rMin must not be greater than opt.rMax.');
+  if( !(         rMin <= r0          ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.r0 must not be less than opt.rMin.');
+  if( !(         rMax >= r0          ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.r0 must not be greater than opt.rMax.');
+  if( !(            0 <  shrinkLower ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.shrinkLower must be positive number.');
+  if( !(  shrinkLower <= shrinkUpper ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.shrinkLower must not be greater than opt.shrinkUpper.');
+  if( !(  shrinkUpper < 1            ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.shrinkUpper must be less than 1.');
+  if( !(            1 < grow         ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.grow must be number greater than 1.');
+  if( !(            0 < expectGainMin) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.expectGainMin must be positive number.');
+  if( !(expectGainMin < expectGainMax) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.expectGainMin must be less than expectGainMax.');
+  if( !(expectGainMax < 1            ) )    console.warn('lsq_lm_gen(fJ, x0, opt): opt.expectGainMax should be less than 1.');
+  if(   0!== stuckLimit%1              ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.stuckLimit must be an integer.');
+  if( !(0 <= stuckLimit              ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.stuckLimit must not be negative.');
 
   let X = x0.data,
       W = new Float64Array(X.length);
@@ -109,15 +115,18 @@ export function* lsq_lm_gen(
     err_now += s*s;
   }
 
+  let stuckometer = 0; // <- indicates how stuck we are, i.e. counts the number of consecutive operations without progress
+
   for(;;)
   {
-    yield [
-      new NDArray(  X_shape, X.slice()),
-      new NDArray(mse_shape, Float64Array.of(err_now / M) ),
-      new NDArray(  X_shape, G.map(g => g*2/M) ),
-      new NDArray( ff.shape, ff.data.slice() ),
-      new NDArray( JJ.shape, JJ.data.slice() )
-    ];
+    if( stuckometer === 0 )
+      yield [
+        new NDArray(  X_shape, X.slice()),
+        new NDArray(mse_shape, Float64Array.of(err_now / M) ),
+        new NDArray(  X_shape, G.map(g => g*2/M) ),
+        new NDArray( ff.shape, ff.data.slice() ),
+        new NDArray( JJ.shape, JJ.data.slice() )
+      ];
 
     solver.computeMinGlobal();
 
@@ -188,21 +197,23 @@ export function* lsq_lm_gen(
 /*DEBUG*/    if( !(solver.scaledNorm(dX) <= R*(1+rTol)) )
 /*DEBUG*/      throw new Error('Assertion failed.');
 
+    let same_x = true;
+    for( let i=N; i-- > 0; ) {
+      W[i] = dX[i] + X[i];
+      same_x &= (W[i] === X[i]);
+    }
+
     let err_predict = 0;
     for( let i=M; i-- > 0; )
     {
       let s = 0;
       for( let j=N; j-- > 0; )
-        s += J[N*i+j] * dX[j];
+        s += J[N*i+j] * (W[j] - X[j]);
       s += f[i];
       err_predict += s*s;
     }
 
-/*DEBUG*/    if( !(err_predict <= err_now) )
-/*DEBUG*/      throw new Error('Assertion failed.');
-
-    for( let i=N; i-- > 0; )
-      W[i] = dX[i] + X[i];
+//*DEBUG*/    if( !(err_predict <= err_now) ) throw new Error('Assertion failed.');
 
     let [_f,_J] = fJ( new NDArray(X_shape, W.slice()) );
     _f = array(_f);
@@ -225,7 +236,7 @@ export function* lsq_lm_gen(
 
     const   predict = err_now - err_predict,
              actual = err_now - err_next;
-         if( actual > predict*expectGainMax ) R = Math.min(rMax*rScale(), R*grow); // PREDICTION GREAT -> INCREASE TRUST RADIUS TODO: Consider using [1] Algorithm (7.1) (d)
+         if( actual > predict*expectGainMax || same_x ) R = Math.min(rMax*rScale(), Math.max(nextUp(R), R*grow) ); // PREDICTION GREAT -> INCREASE TRUST RADIUS TODO: Consider using [1] Algorithm (7.1) (d)
     else if( actual < predict*expectGainMin )
     {
       // PREDICTION BAD -> REDUCE TRUST RADIUS
@@ -265,7 +276,10 @@ export function* lsq_lm_gen(
 //*DEBUG*/      }
       if( !(shrinkLower <= shrink) ) shrink = shrinkLower;
       if( !(shrinkUpper >= shrink) ) shrink = shrinkUpper;
-      R = Math.max(rMin*rScale(), R*shrink);
+      const r = Math.max(rMin*rScale(), R*shrink);
+      if( r === R && !(err_now > err_next) )
+        throw new OptimizationNoProgressError();
+      R = r;
     }
 
     // ONLY ACCEPT NEW X IF BETTER
@@ -275,7 +289,10 @@ export function* lsq_lm_gen(
       ff = _f;
       JJ = _J;
       solver.update(ff,JJ);
+      stuckometer = 0;
     }
+    else if( ++stuckometer > stuckLimit )
+      throw new OptimizationNoProgressError();
     // TODO IF WE DON'T ACCEPT NEW X, WE COULD REUSE OLD SOLVER STATE
 
     f = ff.data;
