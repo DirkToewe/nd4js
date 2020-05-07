@@ -52,39 +52,74 @@ const toBeBand = (label, lower, upper) => (util, customEq) => ({
   }
 })
 
+function toBeAll(act,exp, predicate, str)
+{
+  act = asarray(act)
+  exp = asarray(exp)
+  if( Object.is(act,exp) )
+    console.warn('Actual and expected are identical.')
+
+  const ndim = Math.max(
+    act.ndim,
+    exp.ndim
+  )
+
+  const shape = Array.from({length: ndim}, () => 1)
+  for( let a = act.ndim,
+           e = exp.ndim,
+           i =     ndim; i-- > 0; )
+  {
+    const as = act.shape[--a] || 1,
+          es = exp.shape[--e] || 1
+         if( as === 1 ) shape[i] = es
+    else if( es !== 1 && es !== as )
+      return {
+        pass: false,
+        message: `Expected shape [${act.shape}] to be broadcast-compatible to [${exp.shape}].`
+      }
+    else shape[i] = as
+  }
+
+  let flatAct=0, strideAct,
+      flatExp=0, strideExp;
+
+  function visit(d)
+  {
+    if( ndim === d ) {
+      if( ! predicate( act.data[flatAct], exp.data[flatExp] ) )
+        throw `A:\n${act}\n` +
+              `B:\n${exp}\n` +
+              `Expected A to ${str} B, but:\n` +
+              `A(${unravel(flatAct,act.shape)}) = ${act.data[flatAct]}\n` +
+              `B(${unravel(flatExp,exp.shape)}) = ${exp.data[flatExp]}`;
+      flatAct += strideAct = 1
+      flatExp += strideExp = 1
+      return
+    }
+    for( let i=0;; )
+    {
+      visit(d+1)
+      if( ++i === shape[d] ) break
+      if( ! (act.shape[d - ndim + act.ndim] > 1) ) flatAct -= strideAct
+      if( ! (exp.shape[d - ndim + exp.ndim] > 1) ) flatExp -= strideExp
+    }
+    strideAct *= (act.shape[d - ndim + act.ndim] || 1)
+    strideExp *= (exp.shape[d - ndim + exp.ndim] || 1)
+  }
+
+  try {
+    visit(0)
+    return { pass: true }
+  }
+  catch(message) {
+    return { pass: false, message }
+  }
+}
+
 export const CUSTOM_MATCHERS = {
   toBeAllCloseTo: (util, customEq) => ({
     compare(act, exp, { rtol=1e-5, atol=1e-8 } = {})
     {
-      act = asarray(act)
-      exp = asarray(exp)
-      if( Object.is(act,exp) )
-        console.warn('Actual and expected are identical.')
-
-      const ndim = Math.max(
-        act.ndim,
-        exp.ndim
-      )
-
-      const shape = Array.from({length: ndim}, () => 1)
-      for( let a = act.ndim,
-               e = exp.ndim,
-               i =     ndim; i-- > 0; )
-      {
-        const as = act.shape[--a] || 1,
-              es = exp.shape[--e] || 1
-             if( as === 1 ) shape[i] = es
-        else if( es !== 1 && es !== as )
-          return {
-            pass: false,
-            message: `Expected shape [${act.shape}] to be broadcast-compatible to [${exp.shape}].`
-          }
-        else shape[i] = as
-      }
-
-      let flatAct=0, strideAct,
-          flatExp=0, strideExp
-
       const is_close = (x,y) => {
         const tol = atol + rtol * math.max(
           math.abs(x),
@@ -93,33 +128,22 @@ export const CUSTOM_MATCHERS = {
         return math.abs( math.sub(x,y) ) <= tol
       }
 
-      function visit(d)
-      {
-        if( ndim === d ) {
-          if( ! is_close( act.data[flatAct], exp.data[flatExp] ) )
-            throw `actual:\n${act}\nexpected:\n${exp}\nactual(${unravel(flatAct,act.shape)}) = ${act.data[flatAct]} ≉ ${exp.data[flatExp]} = expected(${unravel(flatExp,exp.shape)})`
-          flatAct += strideAct = 1
-          flatExp += strideExp = 1
-          return
-        }
-        for( let i=0;; )
-        {
-          visit(d+1)
-          if( ++i === shape[d] ) break
-          if( ! (act.shape[d - ndim + act.ndim] > 1) ) flatAct -= strideAct
-          if( ! (exp.shape[d - ndim + exp.ndim] > 1) ) flatExp -= strideExp
-        }
-        strideAct *= (act.shape[d - ndim + act.ndim] || 1)
-        strideExp *= (exp.shape[d - ndim + exp.ndim] || 1)
+      return toBeAll(act,exp, is_close, 'be all close to');
+    }
+  }),
+
+  toBeAllLessOrClose: (util, customEq) => ({
+    compare(act, exp, { rtol=1e-5, atol=1e-8 } = {})
+    {
+      const clothless = (x,y) => {
+        const tol = atol + rtol * math.max(
+          math.abs(x),
+          math.abs(y)
+        );
+        return x - y <= tol
       }
 
-      try {
-        visit(0)
-        return { pass: true }
-      }
-      catch(message) {
-        return { pass: false, message }
-      }
+      return toBeAll(act,exp, clothless, 'be all less than or close to');
     }
   }),
 
@@ -226,31 +250,34 @@ export const forEachItemIn = items => ({
       }, 0)
     }), timeout)
 
-    spec.addExpectationResult = (passed, data, isError) => {
-      if( passed )
-        return
-      try {
-        if( !passed )
-        {
-          function msg( msg )
-          {
-            let str = toStr(item)
-            if( /\n/.test(str) )
-              str = '\n' + str
-            return `For item[${i}] = ${str}:\n${msg}`
-          }
 
-          if( 'message' in data ) data      .message = msg(data      .message)
-          else                    data.error.message = msg(data.error.message)
+    if( spec !== undefined )
+      spec.addExpectationResult = (passed, data, isError) => {
+        if( passed )
+          return
+        try {
+          if( !passed )
+          {
+            function msg( msg )
+            {
+              let str = toStr(item)
+              if( /\n/.test(str) )
+                str = '\n' + str
+              return `For item[${i}] = ${str}:\n${msg}`
+            }
+
+            if( 'message' in data ) data      .message = msg(data      .message)
+            else                    data.error.message = msg(data.error.message)
+          }
         }
-      }
-      catch(err) {
-        console.error(err)
-      }
-      finally {
-        Object.getPrototypeOf(spec).addExpectationResult.call(spec, passed, data, isError)
-      }
-    };
+        catch(err) {
+          console.error(err)
+        }
+        finally {
+          Object.getPrototypeOf(spec).addExpectationResult.call(spec, passed, data, isError)
+        }
+      };
+
 
     return spec;
   }
