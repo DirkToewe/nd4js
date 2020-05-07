@@ -30,5 +30,6 @@ import * as io  from './io'
 import * as la  from './la'
 import * as opt from './opt'
 import * as integrate from './integrate'
+import * as iter from './iter'
 
-export {dt,io,la,opt,integrate}
+export {dt,io,la,opt,integrate,iter}

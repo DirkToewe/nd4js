@@ -41,7 +41,7 @@ export function array(dtype, content)
     {
       const len = content.length;
       if( (typeof len) !== 'number' || ! (len % 1 === 0) || len === 0 )
-        throw 'Illegal argument(s).';
+        throw new Error('Illegal argument(s).');
       yield len
       yield* shape(content[0])
     }
