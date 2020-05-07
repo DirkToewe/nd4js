@@ -16,6 +16,7 @@
  * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
+
 export function _min1d_interp_quad( x1, x2, f1, f2, g1 )
 {
   x1*=1; if( ! isFinite(x1) ) throw new Error('Assertion failed.');
@@ -58,13 +59,14 @@ export function _min1d_interp_quad( x1, x2, f1, f2, g1 )
         w1 = dFdX + w2;
   const xMin = (x1*w1 + x2*w2) / (dFdX - g1);
 
-/*DEBUG*/  const sign = Math.sign(g1) * Math.sign(x1-xMin);
-/*DEBUG*/  if( !(0 <= sign) ) throw new Error('Assertion failed.');
+//*DEBUG*/  const sign = Math.sign(g1) * (x1-xMin);
+//*DEBUG*/  if( !(0 <= sign) ) throw new Error('Assertion failed: ' + JSON.stringify({x1, x2, f1, f2, g1, xMin, dFdX, w1, w2}));
 
   return xMin;
 }
 
-export function* _heap_sort( items, isLess = (x,y) => x < y )
+
+export function* _heap_sort( items, isLess = (x,y) => x < y ) // <- TODO: move to src/_array_utils.js
 {
   if(  items.length%1 !== 0 ) throw new Error('Assertion failed.');
   if(!(items.length   >=  0)) throw new Error('Assertion failed.');
@@ -96,9 +98,9 @@ export function* _heap_sort( items, isLess = (x,y) => x < y )
   for( let j = parent(0); j < len; j++ )
     siftDown(j);
 
-  // EXTRACT MINIMA
+  // EXTRACT MINIMA FROM HEAP
   while( i < len ) {
     swap(i,  len-1); yield items[i++];
-    siftDown(len-1);
+    siftDown(len-1); // <- reinstate heap property
   }
 }

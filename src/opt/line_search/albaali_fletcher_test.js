@@ -16,8 +16,8 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
+import {albaali_fletcher} from './albaali_fletcher'
 import {generic_test_line_search} from './_generic_test_line_search'
-import {strong_wolfe as _strong_wolfe} from './strong_wolfe'
 
-const strong_wolfe = (...args) => _strong_wolfe(...args);
-generic_test_line_search(strong_wolfe);
+
+generic_test_line_search(albaali_fletcher);

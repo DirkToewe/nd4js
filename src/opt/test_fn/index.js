@@ -16,4 +16,11 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
+export * from './beale'
+export * from './brown_badscale'
+export * from './freudenstein_roth'
+export * from './helical_valley'
+export * from './jennrich_sampson'
+export * from './powell_badscale'
+export * from './rastrigin'
 export * from './rosenbrock'

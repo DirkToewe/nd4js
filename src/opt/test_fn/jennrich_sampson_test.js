@@ -16,11 +16,9 @@
  * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {generic_test_fit_gen} from "./_generic_test_fit";
-import {generic_test_lsq_gen} from "./_generic_test_lsq";
-import {fit_lm_gen,
-        lsq_lm_gen} from "./lm";
+import { generic_test_test_fn } from './_generic_test_test_fn'
+import { JennrichSampson } from './jennrich_sampson'
 
 
-generic_test_fit_gen(fit_lm_gen);
-generic_test_lsq_gen(lsq_lm_gen);
+generic_test_test_fn( new JennrichSampson(10), [[-0.5, +0.5],
+                                                [-0.5, +0.5]] );

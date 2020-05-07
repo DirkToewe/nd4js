@@ -57,7 +57,7 @@ export function roots1d_polyquad( a, b, c )
   c  = Math.sqrt(Math.abs(a)) * Math.sign(b);
   b /= 2*c;
 
-  const TOL = Number.EPSILON;
+  const TOL = Number.EPSILON*2;
 
   let x1,x2;
   if( 0 < a ) {

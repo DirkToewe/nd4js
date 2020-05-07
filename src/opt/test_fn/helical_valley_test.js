@@ -16,11 +16,24 @@
  * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {generic_test_fit_gen} from "./_generic_test_fit";
-import {generic_test_lsq_gen} from "./_generic_test_lsq";
-import {fit_lm_gen,
-        lsq_lm_gen} from "./lm";
+import {generic_test_test_fn} from './_generic_test_test_fn'
+import {helical_valley} from './helical_valley'
 
 
-generic_test_fit_gen(fit_lm_gen);
-generic_test_lsq_gen(lsq_lm_gen);
+const E = Number.EPSILON**0.25; // <- margin to avoid bad numerical gradients
+
+
+const test_ranges = {
+  'x1 > 0': [ [+E,+4], [-4,+4], [-4,+4] ],
+  'x2 > 0': [ [-4,+4], [+E,+4], [-4,+4] ],
+  'x1 < 0': [ [-4,-E], [-4,+4], [-4,+4] ]
+};
+
+
+for( const [test,range] of Object.entries(test_ranges) )
+{
+  const fn = x => helical_valley(x);
+  Object.assign(fn, helical_valley);
+  Object.defineProperty(fn, 'name', {value: `${helical_valley.name} (${test})`, writable: false})
+  generic_test_test_fn(fn, range);
+}

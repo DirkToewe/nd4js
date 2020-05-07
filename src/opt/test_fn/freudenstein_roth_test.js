@@ -17,34 +17,49 @@
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../../jasmine_utils'
-import {array} from '../../nd_array'
+import {cartesian_prod, linspace} from '../../iter'
 
 import {generic_test_test_fn} from './_generic_test_test_fn'
-import {Rosenbrock} from './rosenbrock'
+import {freudenstein_roth} from './freudenstein_roth'
 
 
-describe('rosenbrock2d', () => {
+describe(`${freudenstein_roth.name}`, () => {
   beforeEach( () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
 
-  const rosenbrock2d = new Rosenbrock(2);
+
+  forEachItemIn(
+    cartesian_prod(
+      linspace(-16, +16, 513),
+      linspace(-16, +16, 513)
+    )
+  ).it('works for generated examples', ([x,y]) => {
+    const f = freudenstein_roth([x,y]),
+          f1 = -13 + x + ((5-y)*y - 2)*y,
+          f2 = -29 + x + ((1+y)*y -14)*y;
+
+    expect(f).toBeAllCloseTo(f1*f1 + f2*f2);
+  })
+
 
   forEachItemIn(
     function*(){
-      const  S = 3.14, Δ = 0.042
-
-      for( let x = -S; x <= +S; x+=Δ )
-      for( let y = -S; y <= +S; y+=Δ )
-        yield [x,y]
+      for( let run=0; run++ < 173*1337; )
+        yield [
+          Math.random()*64 - 32,
+          Math.random()*64 - 32
+        ];
     }()
-  ).it('works for generated examples', ([x,y]) => {
-    const f = rosenbrock2d( array([x,y]) ),
-          F = ( 10*(y-x*x) )**2 + (1-x)**2;
+  ).it('works for random examples', ([x,y]) => {
+    const f = freudenstein_roth([x,y]),
+          f1 = -13 + x + ((5-y)*y - 2)*y,
+          f2 = -29 + x + ((1+y)*y -14)*y;
 
-    expect(f).toBeAllCloseTo(F);
+    expect(f).toBeAllCloseTo(f1*f1 + f2*f2);
   })
 })
 
-for( const length of [2,3] )
-  generic_test_test_fn( new Rosenbrock(length), Array.from({length}, () => [-8,+8]) );
+
+generic_test_test_fn(freudenstein_roth, [[-12,+12],
+                                         [-12,+12]])

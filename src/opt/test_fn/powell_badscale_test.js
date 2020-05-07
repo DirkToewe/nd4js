@@ -16,35 +16,51 @@
  * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
+
 import {forEachItemIn, CUSTOM_MATCHERS} from '../../jasmine_utils'
-import {array} from '../../nd_array'
+import {cartesian_prod, linspace} from '../../iter'
 
 import {generic_test_test_fn} from './_generic_test_test_fn'
-import {Rosenbrock} from './rosenbrock'
+import {powell_badscale} from './powell_badscale'
 
 
-describe('rosenbrock2d', () => {
+describe(`test_fn.${powell_badscale.name}`, () => {
   beforeEach( () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
 
-  const rosenbrock2d = new Rosenbrock(2);
+
+  forEachItemIn(
+    cartesian_prod(
+      linspace(-24, +24, 513),
+      linspace(-24, +24, 513)
+    )
+  ).it('works for generated examples', ([x,y]) => {
+    const f = powell_badscale([x,y]),
+          f1 = 1e4*x*y - 1,
+          f2 = Math.exp(-x) + Math.exp(-y) - 1.0001;
+
+    expect(f).toBeAllCloseTo(f1*f1 + f2*f2);
+  })
+
 
   forEachItemIn(
     function*(){
-      const  S = 3.14, Δ = 0.042
-
-      for( let x = -S; x <= +S; x+=Δ )
-      for( let y = -S; y <= +S; y+=Δ )
-        yield [x,y]
+      for( let run=0; run++ < 173*1337; )
+        yield [
+          Math.random()*64 - 32,
+          Math.random()*64 - 32
+        ];
     }()
   ).it('works for generated examples', ([x,y]) => {
-    const f = rosenbrock2d( array([x,y]) ),
-          F = ( 10*(y-x*x) )**2 + (1-x)**2;
+    const f = powell_badscale([x,y]),
+          f1 = 1e4*x*y - 1,
+          f2 = Math.exp(-x) + Math.exp(-y) - 1.0001;
 
-    expect(f).toBeAllCloseTo(F);
+    expect(f).toBeAllCloseTo(f1*f1 + f2*f2);
   })
 })
 
-for( const length of [2,3] )
-  generic_test_test_fn( new Rosenbrock(length), Array.from({length}, () => [-8,+8]) );
+
+generic_test_test_fn(powell_badscale, [[-8,+8],
+                                       [-8,+8]]);
