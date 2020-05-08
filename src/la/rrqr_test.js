@@ -245,7 +245,7 @@ describe('(s)rrqr', () => {
               Ax   = matmul2(A,x)
 
       // every least square solution satisfies the normal equaltion Aᵀ(Ax - y) = 0
-      expect( matmul2(A.T, zip_elems([Ax,y], math.sub) ) ).toBeAllCloseTo(0)
+      expect( matmul2(A.T, zip_elems([Ax,y], math.sub) ) ).toBeAllCloseTo(0, {atol: 1e-7})
     })
 
 

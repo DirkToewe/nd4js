@@ -931,7 +931,7 @@ describe('L_BFGS_SolverRef', () => {
     
         const tol = {
           rtol: 0,
-          atol: Number.EPSILON * (1<<17) * norm(H) * norm(B)
+          atol: Number.EPSILON * (1<<18) * norm(H) * norm(B)
         };
         expect( matmul2(B,H) ).toBeAllCloseTo(I, tol);
         expect( matmul2(H,B) ).toBeAllCloseTo(I, tol);

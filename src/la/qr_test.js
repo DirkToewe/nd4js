@@ -100,7 +100,7 @@ describe('qr', () => {
     expect( R.shape ).toEqual( Int32Array.of(...QR.shape.slice(0,-2), L, N) )
 
     expect(R).toBeUpperTriangular()
-    expect(qr).toBeAllCloseTo(QR)
+    expect(qr).toBeAllCloseTo(QR, {atol: 1e-7})
 
     const I = eye(L)
     Object.freeze(I.data.buffer)

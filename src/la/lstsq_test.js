@@ -88,7 +88,7 @@ describe('lstsq', () => {
   ).it('solves random square examples', ([A,y]) => {
     const x = lstsq(A,y)
   
-    expect( matmul2(A,x) ).toBeAllCloseTo(y)
+    expect( matmul2(A,x) ).toBeAllCloseTo(y, {atol: 1e-7})
   })
 
 
