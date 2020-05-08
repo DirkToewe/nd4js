@@ -23,6 +23,7 @@ import {tabulate} from "../tabulate";
 import {norm} from "../la/norm";
 
 import {num_grad} from "./num_grad";
+import { OptimizationNoProgressError } from './optimization_error';
 
 
 export function generic_test_fit_gen( fit_gen )
@@ -110,18 +111,25 @@ export function generic_test_fit_gen( fit_gen )
           param,
           res;
   
-      for( [param, mse, grad, res] of fit_gen(
-        x,y, fg, tabulate([N], () => Math.random()*4 - 2)
-      ))
+      try
       {
-        expect(++nIter).toBeLessThan(64);
-  
-        expect(mse ).toBeAllCloseTo( computeErr (param) );
-        expect(grad).toBeAllCloseTo( computeGrad(param), {rtol: 1e-3} );
-        expect(res ).toBeAllCloseTo( computeRes (param) );
-  
-        if( norm(grad) <= Math.sqrt(M)*1e-12 )
-          break;
+        for( [param, mse, grad, res] of fit_gen(
+          x,y, fg, tabulate([N], () => Math.random()*4 - 2)
+        ))
+        {
+          expect(++nIter).toBeLessThan(64);
+    
+          expect(mse ).toBeAllCloseTo( computeErr (param) );
+          expect(grad).toBeAllCloseTo( computeGrad(param), {rtol: 1e-3} );
+          expect(res ).toBeAllCloseTo( computeRes (param) );
+    
+          if( norm(grad) <= Math.sqrt(M)*1e-12 )
+            break;
+        }
+      }
+      catch(    onpe ) {
+        if( ! ( onpe instanceof OptimizationNoProgressError ) )
+          throw onpe;
       }
   
       expect(param).toBeAllCloseTo(coeffs);
@@ -207,19 +215,26 @@ export function generic_test_fit_gen( fit_gen )
           grad,
           param,
           res;
-  
-      for( [param, mse, grad, res] of fit_gen(
-        x,y, fg, tabulate([N], () => Math.random()*4 - 2)
-      ))
+
+      try
       {
-        expect(++nIter).toBeLessThan(512);
-  
-        expect(mse ).toBeAllCloseTo( computeErr (param) );
-        expect(grad).toBeAllCloseTo( computeGrad(param), {rtol: 1e-3} );
-        expect(res ).toBeAllCloseTo( computeRes (param) );
-  
-        if( norm(grad) <= Math.sqrt(M)*1e-12 )
-          break;
+        for( [param, mse, grad, res] of fit_gen(
+          x,y, fg, tabulate([N], () => Math.random()*4 - 2)
+        ))
+        {
+          expect(++nIter).toBeLessThan(512);
+    
+          expect(mse ).toBeAllCloseTo( computeErr (param) );
+          expect(grad).toBeAllCloseTo( computeGrad(param), {rtol: 1e-3} );
+          expect(res ).toBeAllCloseTo( computeRes (param) );
+    
+          if( norm(grad) <= Math.sqrt(M)*1e-12 )
+            break;
+        } 
+      }
+      catch(    onpe ) {
+        if( ! ( onpe instanceof OptimizationNoProgressError ) )
+          throw onpe;
       }
   
       const par =  param.data.slice().sort( (x,y) => x-y ),
@@ -305,22 +320,30 @@ export function generic_test_fit_gen( fit_gen )
           param,
           res;
   
-      for( [param, mse, grad, res] of fit_gen(
-        x,y, fg, coeffs.mapElems( x => x + Math.random()*4 - 2 )
-      ))
+      try
       {
-        expect(++nIter).toBeLessThan(1024);
-  
-        if( ! isFinite(mse) )
-          console.log({coeffs, param, mse, grad})
-  
-        expect(mse ).toBeAllCloseTo( computeErr (param) );
-        expect(grad).toBeAllCloseTo( computeGrad(param), {rtol: 1e-3, atol:1e-5} );
-        expect(res ).toBeAllCloseTo( computeRes (param) );
-  
-        if( norm(grad) <= Math.sqrt(M)*1e-12 )
-          break;
+        for( [param, mse, grad, res] of fit_gen(
+          x,y, fg, coeffs.mapElems( x => x + Math.random()*4 - 2 )
+        ))
+        {
+          expect(++nIter).toBeLessThan(1024);
+    
+          if( ! isFinite(mse) )
+            console.log({coeffs, param, mse, grad})
+    
+          expect(mse ).toBeAllCloseTo( computeErr (param) );
+          expect(grad).toBeAllCloseTo( computeGrad(param), {rtol: 1e-3, atol:1e-5} );
+          expect(res ).toBeAllCloseTo( computeRes (param) );
+    
+          if( norm(grad) <= Math.sqrt(M)*1e-12 )
+            break;
+        }
       }
+      catch(    onpe ) {
+        if( ! ( onpe instanceof OptimizationNoProgressError ) )
+          throw onpe;
+      }
+
       expect(param).toBeAllCloseTo(coeffs);
     })
   })

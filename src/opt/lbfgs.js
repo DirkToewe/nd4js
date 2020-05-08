@@ -18,7 +18,7 @@
 
 import {strong_wolfe} from './line_search/strong_wolfe'
 import {array, NDArray} from '../nd_array'
-import {LineSearchNoProgressError} from './line_search/line_search_error'
+import {LineSearchNoProgressError, LineSearchError} from './line_search/line_search_error'
 
 
 // TODO: add scaling as described in:
@@ -140,7 +140,7 @@ export function* min_lbfgs_gen(
       step()
     }
     catch(err) {
-      if( err instanceof LineSearchNoProgressError ) {
+      if( err instanceof LineSearchError ) {
         // single attempt to restart
           dX = [],
         dGdX = [],

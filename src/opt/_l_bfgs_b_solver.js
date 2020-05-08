@@ -456,6 +456,7 @@ export class L_BFGS_B_Solver
     const {m,M,N, dX, dXdG,
                   dG, dGdG, M_WAAW, Bei: u, scale} = this;
 
+    if( !(indices instanceof Int32Array) ) throw new Error('Assertion failed.');
     if(      v.length !== N ) throw new Error('Assertion failed.');
     if(     Hv.length !== N ) throw new Error('Assertion failed.');
     if(indices.length !== N ) throw new Error('Assertion failed.');
@@ -469,24 +470,23 @@ export class L_BFGS_B_Solver
 /*DEBUG*/    for( let i=0; i < n_fix; i++ )
 /*DEBUG*/      if( v[indices[i]] !== 0 ) throw new Error('Assertion failed.');
 
+    // indices of the inactive bound constraints
+    const free_indices = indices.subarray(n_fix);
+
     //
     // RIGHT PART
     //
     for( let i=0; i < m; i++ )
     { let sum = 0;
-      for( let k=n_fix; k < N; k++ )
-      { const                j = indices[k];
+      for( const j of free_indices )
         sum += dG[N*i+j] * v[j];
-      }
       u[i] = sum / scale;
     }
 
     for( let i=0; i < m; i++ )
     { let sum = 0;
-      for( let k=n_fix; k < N; k++ )
-      { const                j = indices[k];
+      for( const j of free_indices )
         sum += dX[N*i+j] * v[j];
-      }
       u[m+i] = sum;
     }
 
@@ -495,14 +495,15 @@ export class L_BFGS_B_Solver
     //
     if( 0 < n_fix )
     {
+      // indices of the active bound constraints
+      const fix_indices = indices.subarray(0,n_fix);
+
       // UPPER LEFT BLOCK
       for( let i=0; i < m; i++ )
       for( let j=0; j <=i; j++ )
       { let sum = 0;
-        for( let l=0; l < n_fix; l++ )
-        { const         k = indices[l];
+        for( const k of fix_indices )
           sum += dG[N*i+k] * dG[N*j+k];
-        }
         M_WAAW[2*m*i+j] = sum;
       }
       
@@ -510,10 +511,8 @@ export class L_BFGS_B_Solver
       for( let i=0; i < m; i++ )
       for( let j=0; j < m; j++ )
       { let sum = 0;
-        for( let l=0; l < n_fix; l++ )
-        { const         k = indices[l];
+        for( const k of fix_indices )
           sum += dX[N*i+k] * dG[N*j+k];
-        }
         M_WAAW[2*m*(m+i) + j] = sum;
       }
       
@@ -521,10 +520,8 @@ export class L_BFGS_B_Solver
       for( let i=0; i < m; i++ )
       for( let j=0; j <=i; j++ )
       { let sum = 0;
-        for( let l=0; l < n_fix; l++ )
-        { const         k = indices[l];
+        for( const k of fix_indices )
           sum += dX[N*i+k] * dX[N*j+k];
-        }
         M_WAAW[2*m*(m+i)+(m+j)] = sum * scale;
       }
     }
@@ -557,28 +554,21 @@ export class L_BFGS_B_Solver
     //
     // LEFT PART
     //
-    Hv.fill(0.0, 0,N);
+    for( const i of free_indices )
+      Hv[i] = 0;
 
-    for( let j=0    ; j < m; j++ )
-    for( let k=n_fix; k < N; k++ )
-    { const           i = indices[k];
+    for( let j=0; j < m; j++ )
+    for( const i of free_indices )
       Hv[i] += dG[N*j+i] * u[j];
-    }
 
-    for( let k=n_fix; k < N; k++ )
-    { const i = indices[k];
-         Hv[i] /= scale;
-    }
+    for( const i of free_indices )
+      Hv[i] /= scale;
 
-    for( let j=0    ; j < m; j++ )
-    for( let k=n_fix; k < N; k++ )
-    { const           i = indices[k];
+    for( let j=0; j < m; j++ )
+    for( const i of free_indices )
       Hv[i] += dX[N*j+i] * u[m+j];
-    }
 
-    for( let k=n_fix; k < N; k++ )
-    { const      i = indices[k];
+    for( const i of free_indices )
       Hv[i] += v[i] / scale;
-    }
   }
 }

@@ -21,6 +21,9 @@ import {cartesian_prod,
         linspace,
         range} from "../iter";
 import {NDArray} from '../nd_array';
+
+import {KDTree} from "../spatial/kd_tree";
+
 import {LineSearchNoProgressError} from "./line_search/line_search_error";
 
 import {beale}             from './test_fn/beale';
@@ -48,19 +51,13 @@ export function generic_test_min_gen_with_test_fn( minimize_gen, test_fn, x_rang
   }
 
 
-  const closest_min = x =>
-  {
-    let best_dist = Infinity,
-        best_min;
-    for( const y of test_fn.minima ) {
-      const    dist = Math.hypot( ...x.data.map( (x,i) => x-y[i] ) )
-      if( best_dist > dist ) {
-          best_dist = dist;
-          best_min = y;
-      }
-    }
-    return best_min;
-  }
+  const kdTree = new KDTree(test_fn.minima);
+
+
+  const closest_min = x => {
+    const [nearest] = kdTree.nearest_gen(x.data);
+    return nearest;
+  };
 
 
   const test_body = x0 =>
@@ -114,7 +111,7 @@ export function generic_test_min_gen_with_test_fn( minimize_gen, test_fn, x_rang
 
   forEachItemIn(
     function(){
-      const N = Math.round( 2**(12/test_fn.nIn) );
+      const N = Math.ceil( 2**(10/test_fn.nIn) );
 
       return cartesian_prod(
         ...x_range.map( r => linspace(...r,N) )
@@ -125,7 +122,7 @@ export function generic_test_min_gen_with_test_fn( minimize_gen, test_fn, x_rang
 
   forEachItemIn(
     function*(){
-      for( let run=0; run++ < 3*1337; )
+      for( let run=0; run++ < 1337; )
         yield x_range.map( ([lo,hi]) => {
           const s = Math.random();
           return lo*(1-s) + s*hi;
@@ -138,6 +135,7 @@ export function generic_test_min_gen_with_test_fn( minimize_gen, test_fn, x_rang
 export function generic_test_min_gen( minimize_gen )
 {
   describe(`${minimize_gen.name} [generic tests]`, () => {
+
     beforeEach( () => {
       jasmine.addMatchers(CUSTOM_MATCHERS)
     })
@@ -161,7 +159,6 @@ export function generic_test_min_gen( minimize_gen )
     generic_test_min_gen_with_test_fn( minimize_gen, powell_badscale, [[-9.4, +9.6], // <- avoids starting at x1=x2 which leads to a saddle point
                                                                        [-9.6, +9.4]] );
 */
-
     for( const length of range(1,4) )
       generic_test_min_gen_with_test_fn(
         minimize_gen, new Rastrigin(length), Array.from({length}, () => [-Math.PI*11,+Math.PI*11])
@@ -171,5 +168,6 @@ export function generic_test_min_gen( minimize_gen )
       generic_test_min_gen_with_test_fn(
         minimize_gen, new Rosenbrock(length), Array.from({length}, () => [-Math.PI*3,+Math.PI*3])
       );
+
   })
 }

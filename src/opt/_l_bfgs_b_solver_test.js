@@ -483,9 +483,14 @@ describe('L_BFGS_B_Solver', () => {
         const X = new Float64Array(N);
         tst.compute_subspace_Hv(matmul2(Z,y).data, X, indices,0);
 
-        expect(X).toBeAllCloseTo( matmul2(Z,x).reshape(-1), {rtol: 1e-5, atol: 1e-6});
+        const Zx = matmul2(Z,x).reshape(-1),
+             tol = {
+               rtol: 0,
+               atol: 1e-4 * Math.max(norm(X), norm(x))
+             };
+        expect(X).toBeAllCloseTo(Zx, tol);
 
-        if( ++i >= 96 ) break;
+        if( ++i >= 64 ) break;
       }
     })
 
@@ -531,9 +536,14 @@ describe('L_BFGS_B_Solver', () => {
         const X = new Float64Array(N);
         tst.compute_subspace_Hv(matmul2(Z,y).data, X, indices,n_fix);
 
-        expect(X).toBeAllCloseTo( matmul2(Z,x).reshape(-1), {rtol: 1e-5, atol: 1e-6});
+        const Zx = matmul2(Z,x).reshape(-1),
+             tol = {
+               rtol: 0,
+               atol: 1e-4 * Math.max(norm(X), norm(x))
+             };
+        expect(X).toBeAllCloseTo(Zx, tol);
 
-        if( ++i >= 96 ) break;
+        if( ++i >= 64 ) break;
       }
     })
 
@@ -919,9 +929,12 @@ describe('L_BFGS_SolverRef', () => {
     
         const {H,B} = lbfgs;
     
-        const atol = Number.EPSILON * (1<<16) * norm(H) * norm(B);
-        expect( matmul2(B,H) ).toBeAllCloseTo(I, {atol});
-        expect( matmul2(H,B) ).toBeAllCloseTo(I, {atol});
+        const tol = {
+          rtol: 0,
+          atol: Number.EPSILON * (1<<17) * norm(H) * norm(B)
+        };
+        expect( matmul2(B,H) ).toBeAllCloseTo(I, tol);
+        expect( matmul2(H,B) ).toBeAllCloseTo(I, tol);
     
         if( ++i >= 64 ) break;
       }

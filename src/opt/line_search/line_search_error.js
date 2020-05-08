@@ -23,3 +23,7 @@ export class LineSearchError extends Error
 export class LineSearchNoProgressError extends LineSearchError
 {
 }
+
+export class LineSearchBoundReachedError extends LineSearchError
+{
+}

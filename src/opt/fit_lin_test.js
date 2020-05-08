@@ -18,6 +18,7 @@
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {tabulate} from '../tabulate'
+import {_shuffle} from "../_test_data_generators";
 
 import {norm} from '../la/norm'
 
@@ -45,14 +46,7 @@ describe('fit_lin', () => {
           x => Math.sign(x)*Math.sqrt(Math.abs(x)),
           x => Math.sin(x)
         ];
-
-        // FISHER-YATES SHUFFLE
-        for( let i=funcs.length; i > 0; )
-        {  const j=Math.random()*i-- | 0,
-                fi = funcs[i];
-                     funcs[i] = funcs[j];
-                                funcs[j] = fi;
-        }
+        _shuffle(funcs);
 
         const N = Math.random()*funcs.length + 1 | 0;
 
@@ -99,14 +93,7 @@ describe('fit_lin', () => {
           ([x,y]) => Math.cos(x),
           ([x,y]) => Math.sin(y),
         ];
-
-        // FISHER-YATES SHUFFLE
-        for( let i=funcs.length; i > 0; )
-        {  const j=Math.random()*i-- | 0,
-                fi = funcs[i];
-                     funcs[i] = funcs[j];
-                                funcs[j] = fi;
-        }
+        _shuffle(funcs);
 
         const N = Math.random()*funcs.length + 1 | 0;
 

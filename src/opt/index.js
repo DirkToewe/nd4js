@@ -17,7 +17,12 @@
  */
 
 import * as line_search from './line_search'
-export {line_search}
+import * as test_fn from './test_fn'
+
+export {
+  line_search,
+  test_fn
+}
 
 export * from './dogleg'
 export * from './fit_lin'
@@ -27,4 +32,3 @@ export * from './line_search'
 export * from './lm'
 export * from './num_grad'
 export * from './root1d_bisect'
-

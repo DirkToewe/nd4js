@@ -19,7 +19,6 @@
 import {cartesian_prod} from '../../iter'
 import {asarray, NDArray} from '../../nd_array'
 import {root1d_bisect} from '../root1d_bisect'
-import {min1d_gss} from '../gss'
 
 
 // REFERENCES
@@ -93,20 +92,23 @@ export class Rastrigin extends Function
       {
         yield Array.from({length: n}, () => 0);
 
-        for( const min of NONGLOBAL_MINIMA )
+        let inner,
+            outer = [0];
+
+        // grow the minima in a hypercube from the inside out
+        for( let layer=0; layer < NONGLOBAL_MINIMA.length; layer++ )
         {
-          const range  = [-min, 0, +min],
-                ranges = [];
+          const min = NONGLOBAL_MINIMA[layer];
+
+          inner =           outer;
+          outer = [-min, ...inner, +min];
+
+          const ranges = Array.from({length: n}, () => outer);
+
           for( let i=0; i < n; i++ )
           {
-            for( const x of cartesian_prod(...ranges) )
-            {
-              for( let j=i; j < n; j++ )
-                x.push(0);
-              x[i] = -min; yield x.slice();
-              x[i] = +min; yield x;
-            }
-            ranges.push(range);
+            ranges[i] = [-min,+min]; yield* cartesian_prod(...ranges);
+            ranges[i] = inner;
           }
         }
       }

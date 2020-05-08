@@ -24,12 +24,15 @@ import {NDArray} from '../nd_array';
 
 import {norm} from "../la/norm";
 
+import {KDTree} from "../spatial/kd_tree";
+
 import {beale}             from './test_fn/beale';
 import {brown_badscale}    from './test_fn/brown_badscale';
 import {freudenstein_roth} from './test_fn/freudenstein_roth';
 import {helical_valley}    from "./test_fn/helical_valley";
 import {JennrichSampson}   from './test_fn/jennrich_sampson';
 import {powell_badscale}   from './test_fn/powell_badscale';
+import {Rastrigin}         from './test_fn/rastrigin'
 import {Rosenbrock}        from './test_fn/rosenbrock'
 
 import {OptimizationNoProgressError} from "./optimization_error";
@@ -50,19 +53,13 @@ export function generic_test_lsq_gen_with_test_fn( lsq_gen, test_fn, x_range )
   }
 
 
-  const closest_min = x =>
-  {
-    let best_dist = Infinity,
-        best_min;
-    for( const y of test_fn.minima ) {
-      const    dist = Math.hypot( ...x.data.map( (x,i) => x-y[i] ) )
-      if( best_dist > dist ) {
-          best_dist = dist;
-          best_min = y;
-      }
-    }
-    return best_min;
-  }
+  const kdTree = new KDTree(test_fn.minima);
+
+
+  const closest_min = x => {
+    const [nearest] = kdTree.nearest_gen(x.data);
+    return nearest;
+  };
 
 
   const test_body = x0 =>
@@ -164,7 +161,12 @@ export function generic_test_lsq_gen( lsq_gen )
 
     generic_test_lsq_gen_with_test_fn( lsq_gen, powell_badscale, [[-12.1, +12.0], // <- avoids starting at x1=x2 which leads to a saddle point
                                                                   [-12.0, +12.1]] );
-
+/* TODO: get the following test to work
+    for( const length of range(1,4) )
+      generic_test_lsq_gen_with_test_fn(
+        lsq_gen, new Rastrigin(length), Array.from({length}, () => [-Math.PI*11,+Math.PI*11])
+      );
+*/
     for( const length of range(2,4) )
       generic_test_lsq_gen_with_test_fn(
         lsq_gen, new Rosenbrock(length), Array.from({length}, () => [-Math.PI*3,+Math.PI*3])
