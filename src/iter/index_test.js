@@ -17,7 +17,7 @@
  */
 
 import {cartesian_prod,
-        islice,
+        enumerate,
         linspace,
         range} from '.'
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
@@ -132,5 +132,27 @@ describe('_iter_utils', () => {
     expect([...cartesian_prod(a,b    ) ]).toEqual( Object.freeze(prod_ab  ) );
     expect([...cartesian_prod(a,b,c  ) ]).toEqual( Object.freeze(prod_abc ) );
     expect([...cartesian_prod(a,b,c,d) ]).toEqual( Object.freeze(prod_abcd) );
+  })
+
+
+  forEachItemIn(
+    function*(){
+      for( let run=0; run++ < 7*1337; )
+      {
+        const length = _rand_int(0,1337);
+
+        yield Object.freeze(
+          Array.from({length}, () => _rand_int(-1337,+1337) )
+        );
+      }
+    }()
+  ).it('enumerate works given random examples', arr => {
+    let n=0;
+    for( const [i,x] of enumerate(arr) )
+    {
+      expect(i).toBe(n++);
+      expect(x).toBe(arr[i])
+    }
+    expect(n).toBe(arr.length);
   })
 })

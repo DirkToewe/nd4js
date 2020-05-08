@@ -74,3 +74,11 @@ export function* cartesian_prod( ...seqs )
 
   yield* iter(0);
 }
+
+
+export function* enumerate( seq )
+{
+  let i=0;
+  for( const x of seq )
+    yield [i++, x];
+}
