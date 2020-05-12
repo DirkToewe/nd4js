@@ -17,7 +17,24 @@
  */
 
 
-export * from './binary_search'
-export * from './comparator'
-export * from './heap_sort_gen'
-export * from './shuffle'
+import {Complex128Array} from "../dt/complex_array";
+
+
+const TYPESET = new Set(
+  [
+                Array,
+         Float32Array,
+         Float64Array,
+            Int8Array,
+           Int16Array,
+           Int32Array,
+           Uint8Array,
+          Uint16Array,
+          Uint32Array,
+    Uint8ClampedArray,
+      Complex128Array
+  ].map(clazz => clazz.prototype)
+);
+
+
+export const is_array = obj => TYPESET.has( Object.getPrototypeOf(obj) );
