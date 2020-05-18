@@ -56,11 +56,11 @@ describe('polyquad', () => {
 
     if( x1 > x2 ) [x1,x2] = [x2,x1];
 
-    expect(y1).not.toBeGreaterThan(y2);
+    expect(y1).toBeLessThanOrEqual(y2);
 
     expect(y1).not.toBeNaN();
     expect(y2).not.toBeNaN();
-    expect( Math.abs(y1-x1) ).not.toBeGreaterThan( Math.abs(x1)*tol );
-    expect( Math.abs(y2-x2) ).not.toBeGreaterThan( Math.abs(x2)*tol );
+    expect( Math.abs(y1-x1) ).toBeLessThanOrEqual( Math.abs(x1)*tol );
+    expect( Math.abs(y2-x2) ).toBeLessThanOrEqual( Math.abs(x2)*tol );
   })
 })

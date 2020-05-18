@@ -29,7 +29,7 @@ describe('nd.rand_normal', () => {
   it('Passes Jarque–Bera test', () => {
     // https://de.wikipedia.org/wiki/Jarque-Bera-Test
     // I'm no statistician, so ... please don't laugh if this test is implemented incorrectly :P
-    const length = 8*1024*1024;
+    const length = 32*1024*1024;
 
     const vals = Float64Array.from({length}, () => rand_normal());
 
@@ -48,7 +48,7 @@ describe('nd.rand_normal', () => {
       const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
 
       for( let run=16; run-- > 0; )
-        yield randInt(1,8)*1024*1024;
+        yield randInt(4,32)*1024*1024;
     }()
   ).it('Has σ=1 and E=0', len => {
     let E = 0,
