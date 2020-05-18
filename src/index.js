@@ -19,17 +19,18 @@
 import * as dt from './dt'
 
 export {math} from './math'
+export * from './concat'
 export * from './nd_array'
 export * from './rand_normal'
+export * from './stack'
 export * from './tabulate'
 export * from './zip_elems'
-export * from './concat'
-export * from './stack'
 
+import * as integrate from './integrate'
 import * as io  from './io'
+import * as iter from './iter'
 import * as la  from './la'
 import * as opt from './opt'
-import * as integrate from './integrate'
-import * as iter from './iter'
+import * as spatial from './spatial'
 
-export {dt,io,la,opt,integrate,iter}
+export {dt,io,la,opt,integrate,iter,spatial}

@@ -31,6 +31,7 @@ export class NAryHeap
   constructor()
   {
     this._heap = [];
+    Object.seal(this);
   }
 
   get size() {

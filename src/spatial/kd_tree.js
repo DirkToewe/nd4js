@@ -18,6 +18,8 @@
 
 import {_rand_int} from '../_test_data_generators'
 
+import {is_array} from '../arrays/is_array'
+
 import {FrobeniusNorm} from "../la/norm";
 
 import {NAryHeap} from "./_nary_heap";
@@ -68,6 +70,7 @@ class HeapedBranch
     this.key = distance;
     this.nearest= nearest;
     Object.assign(this,branch);
+    Object.seal(this);
   }
 }
 
@@ -78,6 +81,7 @@ class HeapedLeaf
   {
     this.key    = distance;
     this.point  = leaf.point;
+    Object.seal(this);
   }
 }
 
@@ -89,17 +93,18 @@ export class KDTree
     points = [...points];
     const ndim = points[0].length;
 
-    if( points.some(pt => pt.length !== ndim) )
-      throw new Error('Assertion failed.');
+    if( points.some(pt => pt.length !== ndim) ) throw new Error('new KDTree(points): points must be iterable of (typed) arrays of same length (NDArrays are not yet supported).');
+    if( points.some(pt => ! is_array(pt)    ) ) throw new Error('new KDTree(points): points must be iterable of (typed) arrays of same length (NDArrays are not yet supported).');
+    
 
     this.root = function build_tree( axis, start, stop )
     {
-      if( !(start >= 0            ) ) throw new Error('Assertion failed.');
-      if( !(start <  points.length) ) throw new Error('Assertion failed.');
-      if( !(stop  >  start        ) ) throw new Error('Assertion failed.');
-      if( !(stop  <= points.length) ) throw new Error('Assertion failed.');
-      if( !(axis >= 0  ) ) throw new Error('Assertion failed.');
-      if( !(axis < ndim) ) throw new Error('Assertion failed.');
+//*DEBUG*/      if( !(start >= 0            ) ) throw new Error('Assertion failed.');
+//*DEBUG*/      if( !(start <  points.length) ) throw new Error('Assertion failed.');
+//*DEBUG*/      if( !(stop  >  start        ) ) throw new Error('Assertion failed.');
+//*DEBUG*/      if( !(stop  <= points.length) ) throw new Error('Assertion failed.');
+//*DEBUG*/      if( !(axis >= 0  ) ) throw new Error('Assertion failed.');
+//*DEBUG*/      if( !(axis < ndim) ) throw new Error('Assertion failed.');
 
       const swap = (i,j) => {
         if( !(i >= start) ) throw new Error('Assertion failed.');
@@ -149,6 +154,8 @@ export class KDTree
         );
       }
     }(0, 0,points.length);
+
+    Object.seal(this);
   }
 
   *nearest_gen( queryPoint )
