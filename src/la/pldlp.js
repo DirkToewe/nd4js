@@ -21,6 +21,18 @@ import {KahanSum} from '../kahan_sum'
 import {asarray, NDArray} from '../nd_array'
 
 
+// REFERENCES
+// ----------
+// .. [1] "DSYTF2.f"
+//         Reference-LAPACK v3.9.0
+//         https://github.com/Reference-LAPACK/lapack/blob/v3.9.0/SRC/dsytf2.f
+// .. [2] "Matrix Computations" 4th Edition
+//         Chapter 4   "Special Linear Systems"
+//         Section 4.4 "Symmetric Indefinite Systems"
+//         pp. 186ff
+//         Hindustan Book Agency, 2015
+
+
 const _pldlp_decomp_1x1 = (M,N, LD,LD_off, k) =>
 {
   if( 0 !== M%1 ) throw new Error('Assertion failed.');
@@ -133,7 +145,7 @@ export function _pldlp_decomp(M,N, LD,LD_off, P,P_off)
                 r   =   i;
         }
       }
-  
+
       if( !(0 < Math.max(A_rk,A_kk)) )
         throw new Error('_pldlp_decomp(M,N, LD,LD_off, P,P_off): Zero column or NaN encountered.');
 
@@ -156,7 +168,7 @@ export function _pldlp_decomp(M,N, LD,LD_off, P,P_off)
         }
         if( r===s )
           throw new Error('Assertion failed.');
-      
+
         if( A_kk < α * A_rk * (A_rk / A_sr) )
         {
           const A_rr = Math.abs(LD[LD_off + N*r+r])
@@ -472,7 +484,7 @@ export function _pldlp_solve(M,N,O, LD,LD_off, P,P_off, X,X_off, tmp)
       const s = LD[LD_off + N*(i+1) + i  ],
           D00 = LD[LD_off + N*(i+1) + i+1] / s,
           D11 = LD[LD_off + N* i    + i  ] / s,
-          D10 =          1 / (D00*D11 - 1) / s; // <- TODO: understand this underflow-safe Vodoo magic
+          D10 =          1 / (D00*D11 - 1) / s; // <- TODO: understand this underflow-safe Vodoo magic (see [1])
 
       for( let j=0; j < O; j++ ) {
         const y0 = tmp[O* i   +j],

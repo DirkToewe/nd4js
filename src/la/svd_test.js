@@ -506,7 +506,7 @@ describe('svd', () => {
         expect( matmul2(V,V.T) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
       }
       expect(D).toBeDiagonal()
-      expect(a).toBeAllCloseTo(A)
+      expect(a).toBeAllCloseTo(A, {atol: 1e-7})
     })
 
 

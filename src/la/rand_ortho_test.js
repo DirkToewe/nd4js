@@ -17,14 +17,11 @@
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
-import {NDArray} from '../nd_array'
-import {tabulate} from '../tabulate'
+import {_rand_int} from "../_test_data_generators";
 import {matmul2} from './matmul'
 import {eye} from './eye'
 import {rand_ortho} from './rand_ortho'
 import {zip_elems} from '../zip_elems'
-
-import math from '../math'
 
 
 describe('nd.la.rand_ortho', () => {
@@ -34,95 +31,46 @@ describe('nd.la.rand_ortho', () => {
   })
 
 
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
-      const steps_per_binade = 3;
-
-      for( let run=0*steps_per_binade; run <= 8*steps_per_binade; run++ )
-        yield Math.round(2**(run/steps_per_binade));
-    }()
-  ).it('Generates orthogonal matrices', N => {
-    const I = eye(N);
-
-    const E = new Float64Array(N*N),
-          s = new Float64Array(N*N);
-
-    for( const Q of [rand_ortho(          N),
-                     rand_ortho(          N,N),
-                     rand_ortho('float64',N),
-                     rand_ortho('float64',N,N)] )
-    {
-      const Q_T = Q.T
-      expect( matmul2(Q,Q_T) ).toBeAllCloseTo(I);
-      expect( matmul2(Q_T,Q) ).toBeAllCloseTo(I);
-    }
-  })
-
-
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
-
-      const steps_per_binade = 3;
-
-      for( let repeat=0; repeat < 4; repeat++ )
-      for( let run=0*steps_per_binade; run <= 3*steps_per_binade; run++ )
-      {
-        const  N = Math.round(2**(run/steps_per_binade)),
-               N_RUNS = randInt(14*1024, 16*1024);
-        yield [N,N_RUNS];
-      }
-    }()
-  ).it('Generates evenly distributed matrices', ([N,N_RUNS]) => {
-    const I = eye(N);
-
-    const E = new Float64Array(N*N),
-          s = new Float64Array(N*N);
-
-    for( let run=0; run < N_RUNS; run++ )
-    {
-      for( const Q of [rand_ortho(          N),
-                       rand_ortho(          N,N),
-                       rand_ortho('float64',N),
-                       rand_ortho('float64',N,N)] )
-      {
-        for( let i=N*N; i-- > 0; )
-        {
-          const   q = Q.data[i];
-          E[i] += q;
-          s[i] += q*q;
-        }
-      }
-    }
-
-    for( let i=N*N; i-- > 0; )
-      E[i] /= (4*N_RUNS);
-
-    for( let i=N*N; i-- > 0; )
-      s[i] = s[i] / (4*N_RUNS) - E[i]*E[i];
-
-    const s_mean = s.reduce((x,y) => x+y) / (N*N);
-    expect(E).toBeAllCloseTo(0,      {atol:1e-2, rtol:0});
-    expect(s).toBeAllCloseTo(s_mean, {atol:1e-2, rtol:0});
-  })
-
-
   for( const [rndo_name, rndo_method] of Object.entries({
-    'rand_ortho(M,N,N)'          : (M,N) => rand_ortho(          M,N,N),
-    "rand_ortho('float64',M,N,N)": (M,N) => rand_ortho('float64',M,N,N)
+    "rand_ortho('float64',  N,N)": N => rand_ortho('float64',N,N),
+    "rand_ortho('float64',  N  )": N => rand_ortho('float64',N  ),
+    'rand_ortho(            N,N)': N => rand_ortho(          N,N),
+    'rand_ortho(            N  )': N => rand_ortho(          N  )
   }))
     forEachItemIn(
       function*(){
-        const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
+        const steps_per_binade = 3;
 
+        for( let repeat=0; repeat++ < 48; )
+        for( let run=0*steps_per_binade; run <= 8*steps_per_binade; run++ )
+          yield Math.round(2**(run/steps_per_binade));
+      }()
+    ).it(`${rndo_name} orthogonal matrices`, N => {
+      const I = eye(N);
+
+      const E = new Float64Array(N*N),
+            s = new Float64Array(N*N);
+
+      const Q = rndo_method(N);
+
+      const Q_T = Q.T
+      expect( matmul2(Q,Q_T) ).toBeAllCloseTo(I);
+      expect( matmul2(Q_T,Q) ).toBeAllCloseTo(I);
+    })
+
+
+  for( const [rndo_name, rndo_method] of Object.entries({
+    'rand_ortho(          M,N,N)': (M,N) => rand_ortho(           M,N,N),
+    "rand_ortho('float64',M,N,N)": (M,N) => rand_ortho('float64', M,N,N)
+  }))
+    forEachItemIn(
+      function*(){
         const steps_per_binade = 3;
 
         for( let run=0*steps_per_binade; run <= 8*steps_per_binade; run++ )
         {
           const  N = Math.round(2**(run/steps_per_binade)),
-                 M = randInt(1,32);
+                 M = _rand_int(1,32);
           yield [M,N];
         }
       }()
@@ -140,19 +88,64 @@ describe('nd.la.rand_ortho', () => {
 
 
   for( const [rndo_name, rndo_method] of Object.entries({
-    'rand_ortho(M,N,N)'          : (N_RUNS,N) => rand_ortho(           N_RUNS,N,N),
+    "rand_ortho('float64',  N,N)": N => rand_ortho('float64',N,N),
+    "rand_ortho('float64',  N  )": N => rand_ortho('float64',N  ),
+    'rand_ortho(            N,N)': N => rand_ortho(          N,N),
+    'rand_ortho(            N  )': N => rand_ortho(          N  )
+  }))
+    forEachItemIn(
+      function*(){
+        const steps_per_binade = 3;
+
+        for( let run=4*steps_per_binade; run >= 0; run-- )
+        {
+          const  N = Math.round(2**(run/steps_per_binade)),
+                   N_RUNS = _rand_int(64*1024, 80*1024);
+          yield [N,N_RUNS];
+        }
+      }()
+    ).it(`${rndo_name} generates evenly distributed matrices`, ([N,N_RUNS]) => {
+      const I = eye(N);
+
+      const E = new Float64Array(N*N),
+            s = new Float64Array(N*N);
+
+      for( let run=0; run < N_RUNS; run++ )
+      {
+        const Q = rndo_method(N);
+
+        for( let i=N*N; i-- > 0; )
+        {
+          const   q = Q.data[i];
+          E[i] += q;
+          s[i] += q*q;
+        }
+      }
+
+      for( let i=N*N; i-- > 0; )
+        E[i] /= (4*N_RUNS);
+
+      for( let i=N*N; i-- > 0; )
+        s[i] = s[i] / (4*N_RUNS) - E[i]*E[i];
+
+      const s_mean = s.reduce((x,y) => x+y) / (N*N);
+      expect(E).toBeAllCloseTo(0,      {atol:1e-2, rtol:0});
+      expect(s).toBeAllCloseTo(s_mean, {atol:1e-2, rtol:0});
+    })
+
+
+  for( const [rndo_name, rndo_method] of Object.entries({
+    'rand_ortho(          M,N,N)': (N_RUNS,N) => rand_ortho(           N_RUNS,N,N),
     "rand_ortho('float64',M,N,N)": (N_RUNS,N) => rand_ortho('float64', N_RUNS,N,N)
   }))
     forEachItemIn(
       function*(){
-        const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
-
         const steps_per_binade = 3;
 
         for( let run=0*steps_per_binade; run <= 3*steps_per_binade; run++ )
         {
           const  N = Math.round(2**(run/steps_per_binade)),
-                 N_RUNS = randInt(56*1024, 64*1024);
+                 N_RUNS = _rand_int(64*1024, 80*1024);
           yield [N,N_RUNS];
         }
       }()

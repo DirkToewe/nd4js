@@ -40,8 +40,10 @@ export function array(dtype, content)
     if( 'object' === typeof content && 'length' in content )
     {
       const len = content.length;
-      if( (typeof len) !== 'number' || ! (len % 1 === 0) || len === 0 )
-        throw new Error('Illegal argument(s).');
+      if( 'number' !== typeof len ) throw new Error('Illegal argument(s).');
+      if( 0 !== len%1) throw new Error('Illegal argument(s).');
+      if( 0 === len  ) throw new Error('Illegal argument(s).');
+
       yield len
       yield* shape(content[0])
     }
