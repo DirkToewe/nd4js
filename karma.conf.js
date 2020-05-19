@@ -1,13 +1,13 @@
-// Karma configuration
-// Generated on Tue Dec 04 2018 16:07:10 GMT+0100 (Central European Standard Time)
-
 const HOUR = 60*60*1000
 
-module.exports = function(config) {
+module.exports = config => {
   config.set({
     basePath: '',
 
-    frameworks: ['jasmine'],
+    frameworks: [
+      'parallel',
+      'jasmine'
+    ],
 
 //    browserDisconnectTolerance: 1e6,
     browserDisconnectTimeout: 1*HOUR,
@@ -17,6 +17,7 @@ module.exports = function(config) {
 //              captureTimeout: 1*HOUR,
 
     plugins: [
+      'karma-parallel',
       'karma-chrome-launcher',
       'karma-firefox-launcher',
       'karma-jasmine',
@@ -24,6 +25,11 @@ module.exports = function(config) {
       'karma-spec-reporter',
       'karma-sourcemap-loader',
     ],
+
+    parallelOptions: {
+      executors: 11,
+//      shardStrategy: 'round-robin'
+    },
 
     client: {
       jasmine: {
@@ -43,6 +49,10 @@ module.exports = function(config) {
     },
 
     files: [
+//      'src/opt/line_search/*_test.js',
+//      'src/**/lbfgs_test.js',
+//      'src/**/lbfgsb_test.js',
+//      'src/opt/**/*_test.js',
       'src/**/*_test.js',
     ],
 
@@ -54,8 +64,8 @@ module.exports = function(config) {
     },
 
     reporters: [
-      'spec'
-//      'progress'
+//      'spec'
+      'progress'
     ],
 
     specReporter: {
@@ -63,8 +73,8 @@ module.exports = function(config) {
     },
 
     browsers: [
-      'Chrome',
-      'Firefox',
+      'FirefoxHeadless',
+      'ChromeHeadless',
     ],
 
     port: 9876,

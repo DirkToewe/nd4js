@@ -1,0 +1,160 @@
+<!--
+  This file is part of ND.JS.
+  
+  ND.JS is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  ND.JS is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
+-->
+<!DOCTYPE html>
+<html>
+ <head>
+   <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+   <title>KD-Tree Example - ND4JS</title>
+   <script src="../dist/nd.min.js"></script>
+ </head>
+ <body>
+   <script type="module">
+     'use strict';
+
+     (async () => {
+      const W = 1200, // screen width
+            H = 900, // screen height,
+           WH = [W,H],
+            R = 16, // ball radius
+            C = 32, // <- contact spring stiffness
+            D = 2, // <- damping
+            M = 1, // <- ball mass
+            G = 9.81, // <- gravity
+          POS = [];
+
+      for( const x of nd.iter.linspace(R, W-R, 16) )
+      for( const y of nd.iter.linspace(R, H-R, 12) )
+      {
+        const ang = Math.random()*Math.PI*2,
+              vel = Math.random()*32;
+
+        const p = [x,y];
+        p.v = [
+          Math.cos(ang)*vel,
+          Math.sin(ang)*vel
+        ];
+        POS.push(p);
+      }
+
+      const scheduleRedraw = function(){        
+        const canvas = document.createElement('canvas'),
+                 ctx = canvas.getContext("2d");
+        document.body.appendChild(canvas);
+
+        canvas.width = W;
+        canvas.height= H;
+        canvas.style=`width: ${W}px; height: ${H}px; border-style: solid; border-color: black; border-width: 4px`;
+
+        let scheduled = false;
+
+        return () => {
+          if( ! scheduled )
+          {
+            scheduled = true;
+            window.requestAnimationFrame( t => {
+              ctx.clearRect(0,0,W,H);
+              ctx.  fillStyle = "#666";
+              ctx.strokeStyle = "#000";
+              ctx.strokeWidth = '1px';
+
+              for( const [x,y] of POS )
+              {
+                ctx.beginPath(); 
+                ctx.arc(x,y, R, 0, 2*Math.PI);
+                ctx.fill();
+                ctx.stroke();
+              }
+
+              scheduled = false;
+            });
+          }
+        };
+      }();
+
+      function updatePhysics(dt)
+      {
+        const kdTree = new nd.spatial.KDTree(POS);
+
+        for( const p of POS )
+        {
+          const {v} = p;
+
+          // COMPUTE ACCELERATION
+          const a = [0,0];
+
+          // border contact forces
+          for( let j=2; j-- > 0; )
+          {
+                 if( p[j] <         R ) { a[j] += C*(        R - p[j]); a[j] -= D*v[j]; }
+            else if( p[j] > WH[j] - R ) { a[j] += C*(WH[j] - R - p[j]); a[j] -= D*v[j]; }
+          }
+
+          // ball contact forces
+          for( const q of kdTree.nearest_gen(p) )
+          {
+            let dx = q[0] - p[0],
+                dy = q[1] - p[1];
+
+            const    dist = Math.hypot(dx,dy);
+            if(0 !== dist)
+            {
+              if( dist >= 2*R )
+                break;
+
+              const ux = q.v[0] - v[0],
+                    uy = q.v[1] - v[1];
+
+              dx /= dist;
+              dy /= dist;
+              const           FC = C*(2*R - dist);
+              a[0] += (D*ux - FC) * dx;
+              a[1] += (D*uy - FC) * dy;
+            }
+          }
+
+          // force -> acceleration
+          for( let j=2; j-- > 0; )
+            a[j] /= M;
+
+          // gravity
+          a[1] += G;
+
+          // UPDATE VELOCITY
+          for( let j=2; j-- > 0; )
+            v[j] += a[j] * dt;
+
+          // UPDATE POSITION
+          for( let j=2; j-- > 0; )
+            p[j] += v[j] * dt;
+        }
+      }
+
+      const DT = 10;
+
+      setInterval( t => {
+        const N = 8;
+        for( let i=N; i-- > 0; )
+          updatePhysics(DT/400/N);
+
+        scheduleRedraw();
+      }, DT);
+     })();
+   </script>
+ </body>
+</html>
