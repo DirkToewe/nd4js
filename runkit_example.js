@@ -1,4 +1,4 @@
-const nd = require('nd4js@1.1.1') // <- 1st line is auto-generated
+const nd = require('nd4js@1.2.0') // <- 1st line is auto-generated
 
 const a = nd.array(
   [[10,   0,  0],

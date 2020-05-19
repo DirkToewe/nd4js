@@ -105,4 +105,19 @@ describe('CUSTOM_MATCHERS.toBeAllCloseTo', () => {
       expect(test.pass).withContext(test.message).toBe(false)
     }
   })
+
+  it('handles NaN and Infinity correctly', () => {
+    for( const inf of [-Infinity,+Infinity] )
+    {
+      const  test = expectAllClose(inf,inf)
+      expect(test.pass).toBe(true)
+    }
+
+    for( const x of [-Infinity, 1337, NaN, +Infinity] )
+    for( const y of [-x, NaN] )
+    {
+      const  test = expectAllClose(x,y)
+      expect(test.pass).toBe(false)
+    }
+  })
 })

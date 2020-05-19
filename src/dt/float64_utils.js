@@ -18,14 +18,19 @@
 
 import {IS_LITTLE_ENDIAN} from '../io'
 
+
 const val =   Float64Array.of(NaN),
      bits = new Int32Array(val.buffer);
 
+
 /*DEBUG*/ if( bits.length !== 2 ) throw new Error('Assertion failed.');
+
 
 export function nextUp(x)
 {
-  if( ! (x < Infinity) ) // <- handles NaN and Infinity
+  if( 0 === x )
+    return +Number.MIN_VALUE;
+  if( ! (x < +Infinity) ) // <- handles NaN and Infinity
     return x;
 
   val[0] = x;
@@ -33,7 +38,7 @@ export function nextUp(x)
   const i = 1-IS_LITTLE_ENDIAN,
         j = 1*IS_LITTLE_ENDIAN;
 
-  if( x >= 0 )
+  if( x > 0 )
   {
     bits[j] += -1 === bits[i];
     bits[i] +=  1;
@@ -45,3 +50,29 @@ export function nextUp(x)
 
   return val[0];
 };
+
+
+export function nextDown(x)
+{
+  if( 0 === x )
+    return -Number.MIN_VALUE;
+  if( ! (x > -Infinity) ) // <- handles NaN and Infinity
+    return x;
+
+  val[0] = x;
+
+  const i = 1-IS_LITTLE_ENDIAN,
+        j = 1*IS_LITTLE_ENDIAN;
+
+  if( x > 0 )
+  {
+    bits[j] -= 0 === bits[i];
+    bits[i] -= 1;
+  }
+  else {
+    bits[j] += -1 === bits[i];
+    bits[i] +=  1;
+  }
+
+  return val[0];
+}

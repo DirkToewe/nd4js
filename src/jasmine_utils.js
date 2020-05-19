@@ -54,11 +54,6 @@ const toBeBand = (label, lower, upper) => (util, customEq) => ({
 
 function toBeAll(act,exp, predicate, str)
 {
-  act = asarray(act)
-  exp = asarray(exp)
-  if( Object.is(act,exp) )
-    console.warn('Actual and expected are identical.')
-
   const ndim = Math.max(
     act.ndim,
     exp.ndim
@@ -116,33 +111,57 @@ function toBeAll(act,exp, predicate, str)
   }
 }
 
+
+const is_close_float = (rtol,atol) => (x,y) => {
+  if( ! isFinite(x) ) return x===y;
+  if( ! isFinite(y) ) return false;
+  const tol = atol + rtol * Math.max(
+    Math.abs(x),
+    Math.abs(y)
+  );
+  return Math.abs(x-y) <= tol
+};
+
+
+const is_close_obj = (rtol,atol) => (x,y) => {
+  const abs_x = math.abs(x),
+        abs_y = math.abs(y);
+  if( ! isFinite(abs_x) ) return math.is_equal(x,y);
+  if( ! isFinite(abs_y) ) return false;
+  const tol = atol + rtol * math.max(
+    abs_x,
+    abs_y
+  );
+  return math.abs( math.sub(x,y) ) <= tol
+};
+
+
 export const CUSTOM_MATCHERS = {
   toBeAllCloseTo: (util, customEq) => ({
     compare(act, exp, { rtol=1e-5, atol=1e-8 } = {})
     {
-      const is_close = (x,y) => {
-        const tol = atol + rtol * math.max(
-          math.abs(x),
-          math.abs(y)
-        );
-        return math.abs( math.sub(x,y) ) <= tol
-      }
+      if( Object.is(act,exp) && 'number' !== typeof act )
+        console.warn('Actual and expected are identical.')
+      act = asarray(act);
+      exp = asarray(exp);
 
-      return toBeAll(act,exp, is_close, 'be all close to');
+      const is_close =(act.dtype.startsWith('float')
+                    && exp.dtype.startsWith('float'))
+                     ? is_close_float
+                     : is_close_obj;
+
+      return toBeAll(act,exp, is_close(rtol,atol), 'be all close to');
     }
   }),
 
   toBeAllLessOrClose: (util, customEq) => ({
     compare(act, exp, { rtol=1e-5, atol=1e-8 } = {})
     {
-      const clothless = (x,y) => {
-        const tol = atol + rtol * math.max(
-          math.abs(x),
-          math.abs(y)
-        );
-        return x - y <= tol
-      }
-
+      if( Object.is(act,exp) && 'number' !== typeof act )
+        console.warn('Actual and expected are identical.')
+      act = asarray(act);
+      exp = asarray(exp);
+      const                   clothless = (x,y) => x <= y || is_close_float(rtol,atol)(x,y);
       return toBeAll(act,exp, clothless, 'be all less than or close to');
     }
   }),
