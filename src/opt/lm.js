@@ -82,6 +82,11 @@ export function* lsq_lm_gen(
   if(   0!== stuckLimit%1              ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.stuckLimit must be an integer.');
   if( !(0 <= stuckLimit              ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.stuckLimit must not be negative.');
 
+  // TODO: Instead of a specified rMin, we could compute
+  //       the smallest rMin that still results in an
+  //       X different from X0, i.e. an rMin that
+  //       does not result in complete underflow.
+
   let X = x0.data,
       W = new Float64Array(X.length);
 
@@ -155,7 +160,7 @@ export function* lsq_lm_gen(
 /*DEBUG*/      let nIter = -1;
       for(;;)
       {
-/*DEBUG*/        if( 8 < ++nIter ) throw new Error('Assertion failed.');
+/*DEBUG*/        if( 64 < ++nIter ) throw new Error('Assertion failed.');
 //*DEBUG*/        if( ! (solver.computeMinRegularized(λMin)[0] > R) ) throw new Error('Assertion failed.');
 //*DEBUG*/        if( ! (solver.computeMinRegularized(λMax)[0] < R) ) throw new Error('Assertion failed.');
 

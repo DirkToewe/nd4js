@@ -77,6 +77,11 @@ export function* lsq_dogleg_gen(
   if(   0!== stuckLimit%1              ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.stuckLimit must be an integer.');
   if( !(0 <= stuckLimit              ) ) throw new Error('lsq_dogleg_gen(fJ, x0, opt): opt.stuckLimit must not be negative.');
 
+  // TODO: Instead of a specified rMin, we could compute
+  //       the smallest rMin that still results in an
+  //       X different from X0, i.e. an rMin that
+  //       does not result in complete underflow.
+
   let X = x0.data,
       W = new Float64Array(X.length),
      dX = new Float64Array(X.length);

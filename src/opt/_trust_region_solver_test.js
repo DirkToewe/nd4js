@@ -93,7 +93,7 @@ describe('TrustRegionSolverLSQ', () => {
              Jx = matmul2(J,x);
 
         // every least square solution satisfies the normal equaltion Aᵀ(Ax - y) = 0
-        expect( matmul2(J.T, zip_elems([Jx,f], (x,y) => x-y) ) ).toBeAllCloseTo(0);
+        expect( matmul2(J.T, zip_elems([Jx,f], (x,y) => x-y) ) ).toBeAllCloseTo(0, {atol: 1e-7});
       }
     }
   })

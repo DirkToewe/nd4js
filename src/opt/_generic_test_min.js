@@ -22,9 +22,12 @@ import {cartesian_prod,
         range} from "../iter";
 import {NDArray} from '../nd_array';
 
+import {norm} from '../la/norm'
+
 import {KDTree} from "../spatial/kd_tree";
 
-import {LineSearchNoProgressError} from "./line_search/line_search_error";
+import {LineSearchError,
+        LineSearchNoProgressError} from "./line_search/line_search_error";
 
 import {beale}             from './test_fn/beale';
 import {brown_badscale}    from './test_fn/brown_badscale';
@@ -66,14 +69,14 @@ export function generic_test_min_gen_with_test_fn( minimize_gen, test_fn, x_rang
 
     let nCalls = 0
     const fg = x => {
-      expect(++nCalls).toBeLessThan(8192)
+      expect(++nCalls).toBeLessThan(16*1024)
       return [
         test_fn(x),
         test_fn.grad(x)
       ]
     }
 
-    let   x,f,g, nIter = -1
+    let x,f,g, nIter = -1
     try
     {
       for( [x,f,g] of minimize_gen(fg, x0) )
@@ -91,18 +94,18 @@ export function generic_test_min_gen_with_test_fn( minimize_gen, test_fn, x_rang
         expect(f).toBeAllCloseTo(test_fn     (x), {rtol:0, atol:0})
         expect(g).toBeAllCloseTo(test_fn.grad(x), {rtol:0, atol:0})
 
-        const gNorm = Math.hypot(...g.data) / Math.sqrt(g.data.length);
+        const gNorm = norm(g) / Math.sqrt(g.data.length);
         if(   gNorm <= 1e-8 )
           break
-        expect(++nIter).toBeLessThan(8192)
+        expect(++nIter).toBeLessThan(8*1024)
       }
     }
-    catch(    lsnpe ) {
-      if( ! ( lsnpe instanceof LineSearchNoProgressError )  )
-        throw lsnpe;
+    catch( err ) {
+      if( ! (err instanceof LineSearchError) )
+        throw err;
     }
 
-    const TOL = {rtol: 1e-4, atol: 1e-4};
+    const TOL = {rtol: 1e-4, atol: 2e-4};
 
     expect(g).toBeAllCloseTo(0, TOL)
     expect(x).toBeAllCloseTo(closest_min(x), TOL); // <- TODO: generalize
@@ -142,22 +145,22 @@ export function generic_test_min_gen( minimize_gen )
 
     generic_test_min_gen_with_test_fn( minimize_gen, beale, [[+0.1, +5.0],
                                                              [-0.5, +1.0]] );
-
+/*
     generic_test_min_gen_with_test_fn( minimize_gen, brown_badscale, [[1e+6 - 2e+5, 1e+6 + 2e+5],
                                                                       [2e-6 - 4e-7, 2e-6 + 4e-7]] ); // <- TODO: increase range of starting points once line search improved
-
-    generic_test_min_gen_with_test_fn( minimize_gen, freudenstein_roth, [[-8, +8],
-                                                                         [-8, +8]] );
+*/
+    generic_test_min_gen_with_test_fn( minimize_gen, freudenstein_roth, [[-Math.PI/2, +16],
+                                                                         [-Math.PI/2,  +8]] );
 
     generic_test_min_gen_with_test_fn( minimize_gen, helical_valley, [[-Math.PI/2, +2],
                                                                       [-Math.PI/2, +2],
                                                                       [-Math.PI/2, +2]] );
-/* TODO: get the following to converge properly:
+
     generic_test_min_gen_with_test_fn( minimize_gen, new JennrichSampson(10), [[0, 0.6],
                                                                                [0, 0.8]] );
-
-    generic_test_min_gen_with_test_fn( minimize_gen, powell_badscale, [[-9.4, +9.6], // <- avoids starting at x1=x2 which leads to a saddle point
-                                                                       [-9.6, +9.4]] );
+/*
+    generic_test_min_gen_with_test_fn( minimize_gen, powell_badscale, [[-10.1, +10.0], // <- avoids starting at x1=x2 which leads to a saddle point
+                                                                       [-10.0, +10.1]] );
 */
     for( const length of range(1,4) )
       generic_test_min_gen_with_test_fn(
@@ -169,5 +172,5 @@ export function generic_test_min_gen( minimize_gen )
         minimize_gen, new Rosenbrock(length), Array.from({length}, () => [-Math.PI*3,+Math.PI*3])
       );
 
-  })
+  });
 }
