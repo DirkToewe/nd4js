@@ -16,18 +16,18 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {albaali_fletcher} from './albaali_fletcher'
 import {generic_test_line_search        } from './_generic_test_line_search'
 import {generic_test_line_search_bounded} from './_generic_test_line_search_bounded'
+import {more_thuente_u123} from './more_thuente_u123'
 
 
-generic_test_line_search_bounded( albaali_fletcher() );
-generic_test_line_search_bounded( albaali_fletcher({fRed: 0.2           }) );
-generic_test_line_search_bounded( albaali_fletcher({           gRed: 0.7}) );
-generic_test_line_search_bounded( albaali_fletcher({fRed: 0.4, gRed: 0.6}) );
+generic_test_line_search_bounded( more_thuente_u123() );
+generic_test_line_search_bounded( more_thuente_u123({fRed: 0.2           }) );
+generic_test_line_search_bounded( more_thuente_u123({           gRed: 0.7}) );
+generic_test_line_search_bounded( more_thuente_u123({fRed: 0.4, gRed: 0.6}) );
 
 
-generic_test_line_search( albaali_fletcher() );
-generic_test_line_search( albaali_fletcher({fRed: 0.2          }) );
-generic_test_line_search( albaali_fletcher({           gRed: 0.7}) );
-generic_test_line_search( albaali_fletcher({fRed: 0.4, gRed: 0.6}) );
+generic_test_line_search( more_thuente_u123() );
+generic_test_line_search( more_thuente_u123({fRed: 0.2          }) );
+generic_test_line_search( more_thuente_u123({           gRed: 0.7}) );
+generic_test_line_search( more_thuente_u123({fRed: 0.4, gRed: 0.6}) );

@@ -21,7 +21,6 @@ import {cartesian_prod,
         linspace,
         range} from '../../iter'
 import {forEachItemIn, CUSTOM_MATCHERS} from '../../jasmine_utils'
-import {_rand_int} from '../../_test_data_generators'
 import {zip_elems} from '../../zip_elems'
 
 import {norm} from '../../la/norm'
@@ -34,7 +33,7 @@ import {powell_badscale}   from '../test_fn/powell_badscale';
 import {Rastrigin}         from '../test_fn/rastrigin'
 import {Rosenbrock}        from '../test_fn/rosenbrock'
 
-import {LineSearchNoProgressError} from './line_search_error'
+import {LineSearchError} from './line_search_error'
 
 
 export function generic_test_line_search_with_test_fn( line_search, test_fn, x_range )
@@ -52,62 +51,71 @@ export function generic_test_line_search_with_test_fn( line_search, test_fn, x_r
   }
 
 
-  forEachItemIn(
-    function(){
-      const N = Math.round( 2**(16/test_fn.nIn) );
+  const {fRed, gRed} = line_search;
 
-      return cartesian_prod(
-        ...x_range.map( r => linspace(...r,N) )
-      )
-    }()
-  ).it(`works given generated ${test_fn.name} examples`, x0 => {
-    x0 = Object.freeze(x0);
 
-    let nCalls = 0
-    const fg = x => {
-      ++nCalls
-      return [
-        test_fn(x),
-        test_fn.grad(x)
-      ]
-    };
+  {
+    let nNoProgress = 0;
 
-    const [f0,g0] = fg(x0), negDir = g0.mapElems('float64', x => x*0.1),
-       [c1,c2,c3] = [0.4,0.8,1.6]
+    forEachItemIn(
+      function(){
+        const N = Math.round( 2**(16/test_fn.nIn) );
 
-    let x,f,g;
-    try {
-      ( [x,f,g] = line_search({c1,c2,c3})(fg)(x0,f0,g0, negDir) );
-    }
-    catch(err) {
-      if( err instanceof LineSearchNoProgressError )
-        return;
-      throw err
-    }
+        return cartesian_prod(
+          ...x_range.map( r => linspace(...r,N) )
+        )
+      }()
+    ).it(`works given generated ${test_fn.name} examples`, x0 => {
+      x0 = Object.freeze(x0);
 
-    expect(x).toEqual(jasmine.any(NDArray))
-    expect(f).toEqual(jasmine.any(Number))
-    expect(g).toEqual(jasmine.any(NDArray))
+      let nCalls = 0
+      const fg = x => {
+        ++nCalls
+        return [
+          test_fn(x),
+          test_fn.grad(x)
+        ]
+      };
 
-    expect( test_fn.grad(x) ).toBeAllCloseTo(g, {atol:0, gtol:0})
+      const [f0,g0] = fg(x0), negDir = g0.mapElems('float64', x => x*0.1);
 
-    expect(x.shape).toEqual( Int32Array.of(x0.length) )
-    expect(g.shape).toEqual( Int32Array.of(x0.length) )
+      let x,f,g;
+      try {
+        [x,f,g] = line_search(fg)(x0,f0,g0, negDir);
+      }
+      catch(err)
+      { if( err instanceof LineSearchError )
+        {
+          expect(++nNoProgress).toBeLessThan(2);
+          return;
+        }
+        throw err
+      }
 
-    expect(nCalls).toBeLessThan(64)
+      expect(x).toEqual(jasmine.any(NDArray))
+      expect(f).toEqual(jasmine.any(Number))
+      expect(g).toEqual(jasmine.any(NDArray))
 
-    const [p,p0] = [g,g0].map( g => {
-      let pg = 0
-      for( let [i]=negDir.shape; i-- > 0; )
-        pg -= negDir.data[i] * g.data[i]
-      return pg
-    })
+      expect( test_fn.grad(x) ).toBeAllCloseTo(g, {atol:0, gtol:0})
 
-    expect( Math.abs(p) ).not.toBeGreaterThan( -c2*p0 )
+      expect(x.shape).toEqual( Int32Array.of(x0.length) )
+      expect(g.shape).toEqual( Int32Array.of(x0.length) )
 
-    let α = norm( zip_elems([x,x0], (x,y) => x-y) ) / norm(negDir)
-    expect( f - f0 ).not.toBeGreaterThan( c1*α*p0 )
-  });
+      expect(nCalls).toBeLessThan(512)
+
+      const [p,p0] = [g,g0].map( g => {
+        let pg = 0
+        for( let [i]=negDir.shape; i-- > 0; )
+          pg -= negDir.data[i] * g.data[i]
+        return pg
+      })
+
+      expect( Math.abs(p) ).toBeAllLessOrClose( -gRed*p0 )
+
+      let α = norm( zip_elems([x,x0], (x,y) => x-y) ) / norm(negDir)
+      expect( f - f0 ).toBeAllLessOrClose( fRed*α*p0 )
+    });
+  }
 }
 
 
@@ -142,6 +150,6 @@ export function generic_test_line_search( line_search )
       generic_test_line_search_with_test_fn( line_search, new Rastrigin(length), Array.from({length}, () => [-Math.PI*11,+33]) )
 
     for( const length of range(2,9) )
-      generic_test_line_search_with_test_fn( line_search, new Rosenbrock(length), Array.from({length}, () => [-Math.PI*3,+Math.PI*3]) )
+      generic_test_line_search_with_test_fn( line_search, new Rosenbrock(length), Array.from({length}, () => [-Math.PI*2,Math.PI**2]) )
   });
 }

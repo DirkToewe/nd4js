@@ -16,4 +16,5 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
+export * from './more_thuente_u123'
 export * from './strong_wolfe'

@@ -16,9 +16,22 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {asarray, NDArray} from '../../nd_array'
+import {albaali_fletcher} from './albaali_fletcher'
 
-import {_min1d_interp_quad} from '../_opt_utils'
 
-export {albaali_fletcher as strong_wolfe} from './albaali_fletcher'
-import {LineSearchError, LineSearchNoProgressError} from './line_search_error'
+export const strong_wolfe = (opt={}) => {
+  opt = {...opt};
+
+  for( const [old_name, new_name] of [
+    'c1', 'fRed',
+    'c2', 'gRed',
+    'c3', 'grow'
+  ])
+    if( !(new_name in opt) && old_name in opt ) {
+      console.warn(`strong_wolfe(opt): opt.${old_name} is deprecated, use opt.${new_name} instead.`);
+      opt[new_name] = opt[old_name];
+      delete          opt[old_name];
+    }
+
+  return albaali_fletcher(opt);
+}

@@ -21,32 +21,32 @@ import {array, NDArray} from '../../nd_array'
 import {nextUp} from "../../dt/float64_utils";
 
 import {_min1d_interp_quad} from '../_opt_utils'
-//*DEBUG*/import {num_grad} from '../num_grad'
-//*DEBUG*/import {zip_elems} from '../../zip_elems'
 
 import {LineSearchError,
         LineSearchNoProgressError,
         LineSearchBoundReachedError,
         LineSearchBisectionError} from './line_search_error'
 
+
 // References
 // ----------
 // .. [1] "Numerical Optimization", 2nd Edition,
 //         Jorge Nocedal & Stephen J. Wright,
 //         Chapter 3. Line Search Methods, page 60f
-// .. [2] "An Efficient Line Search for Nonlinear Least Squares",
-//         M. Al-Baali & R. Fletcher
-//         Journal Of Optimization Theory and Applications: Vol. 48, No. 3, MARCH 1986
-// .. [3] "Line Search Algorithms with Guaranteed Sufficient Decrease"
+// .. [2] "Line Search Algorithms with Guaranteed Sufficient Decrease"
 //         Jorge J. Moré and David J. Thuente
 //         ACM Transactions on Mathematical Software,
 //         Vol 20, No. 3, Septermber 1994, Pages 286-307
 
 
-// Implementation of Scheme S2 from [2].
-export const albaali_fletcher = (opt={}) => {
-  let   {fRed=0.1, gRed=0.9, grow=Math.PI/3, shrinkLeast=0.2} = opt;
-  opt = {fRed,     gRed,     grow,           shrinkLeast    };
+// TODO: study dcsrch.f and dcstep.f from MINPACK2 for possible improvements
+//       https://github.com/scipy/scipy/tree/master/scipy/optimize/minpack2
+
+
+// implements the pseudocode lines (U1,U2,U3) from [2].
+export const more_thuente_u123 = (opt={}) => {
+  let   {fRed=0.01, gRed=0.9, grow=Math.PI/3, shrinkLeast=0.2} = opt;
+  opt = {fRed,      gRed,     grow,           shrinkLeast    };
 
   fRed       *= 1; // (1) Wolfe cond. 1: Sufficient decrease of objective.
   gRed       *= 1; // (2) Wolfe cond. 2: Sufficient decrease of projected gradient.
@@ -54,14 +54,14 @@ export const albaali_fletcher = (opt={}) => {
   shrinkLeast*= 1; // (4) Minimum reduction of search range during 2nd phase of line search (zoom).
 
   // CHECK 0 < fRed < gRed < 1 < c3
-  if( !(fRed   >  0  ) ) throw new Error('albaali_fletcher(opt): opt.fRed must be positive.'  );
-  if( !(fRed   < gRed) ) throw new Error('albaali_fletcher(opt): opt.fRed must less than opt.gRed.' );
-  if( !(1      > gRed) ) throw new Error('albaali_fletcher(opt): opt.gRed must less than 1.'  );
-  if( !(1      < grow) ) throw new Error('albaali_fletcher(opt): opt.grow must larger than 1.');
-  if( !(fRed   <  0.5) )    console.warn('albaali_fletcher(opt): opt.fRed should be less than 0.5 to work properly with (quasi-)Newton methods.');
+  if( !(fRed   >  0  ) ) throw new Error('more_thuente_u123(opt): opt.fRed must be positive.'  );
+  if( !(fRed   < gRed) ) throw new Error('more_thuente_u123(opt): opt.fRed must less than opt.gRed.' );
+  if( !(1      > gRed) ) throw new Error('more_thuente_u123(opt): opt.gRed must less than 1.'  );
+  if( !(1      < grow) ) throw new Error('more_thuente_u123(opt): opt.grow must larger than 1.');
+  if( !(fRed   <  0.5) )    console.warn('more_thuente_u123(opt): opt.fRed should be less than 0.5 to work properly with (quasi-)Newton methods.');
 
-  if( !(shrinkLeast >= 0.0) ) throw new Error('albaali_fletcher(opt): opt.shrinkLeast must be non-negative.');
-  if( !(shrinkLeast <= 0.5) ) throw new Error('albaali_fletcher(opt): opt.shrinkLeast must not be greater than 0.5.');
+  if( !(shrinkLeast >= 0.0) ) throw new Error('more_thuente_u123(opt): opt.shrinkLeast must be non-negative.');
+  if( !(shrinkLeast <= 0.5) ) throw new Error('more_thuente_u123(opt): opt.shrinkLeast must not be greater than 0.5.');
 
   const Λ = 1 / shrinkLeast,
         λ = Λ - 1;
@@ -76,21 +76,26 @@ export const albaali_fletcher = (opt={}) => {
     const   shape = negDir.shape,
       [L] = shape;
 
-    if    (X0.ndim !== 1 ) throw new Error('albaali_fletcher()(fg)(X0,f0,G0): X0.ndim must be 1.')
-    if(    G0.ndim !== 1 ) throw new Error('albaali_fletcher()(fg)(X0,f0,G0): G0.ndim must be 1.')
-    if(negDir.ndim !== 1 ) throw new Error('albaali_fletcher()(fg)(X0,f0,G0): negDir.ndim must be 1.')
-    if(X0.shape[0] !== L ) throw new Error('albaali_fletcher()(fg)(X0,f0,G0): negDir and X0 must have the same shape.')
-    if(G0.shape[0] !== L ) throw new Error('albaali_fletcher()(fg)(X0,f0,G0): negDir and G0 must have the same shape.')
-    if(  isNaN(f0)       ) throw new Error('albaali_fletcher()(fg)(X0,f0,G0): f0 is NaN.')
-    if(       αMin !== 0 ) throw new Error('albaali_fletcher()(fg)(X0,f0,G0, αMin,α0,αMax): αMin !== 0 not (yet) supported.')
+    if    (X0.ndim !== 1 ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0): X0.ndim must be 1.')
+    if(    G0.ndim !== 1 ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0): G0.ndim must be 1.')
+    if(negDir.ndim !== 1 ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0): negDir.ndim must be 1.')
+    if(X0.shape[0] !== L ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0): negDir and X0 must have the same shape.')
+    if(G0.shape[0] !== L ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0): negDir and G0 must have the same shape.')
+    if(  isNaN(f0)       ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0): f0 is NaN.')
+    if(       αMin !== 0 ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0, αMin,α0,αMax): αMin !== 0 not (yet) supported.')
 
     negDir = negDir.data;
+
+    // TODO: Instead of a specified αMin, we could compute
+    //       the smallest αMin that still results in an
+    //       X different from X0, i.e. an αMin that
+    //       does not result in complete underflow.
 
     if( null == α0 )
       α0 = Math.min(1, αMax/2);
 
-    if( !(αMin <= α0) ) throw new Error('albaali_fletcher()(fg)(X0,f0,G0, αMin,α0,αMax): αMin !== 0 not (yet) supported.')
-    if( !(αMax >= α0) ) throw new Error('albaali_fletcher()(fg)(X0,f0,G0, αMin,α0,αMax): αMax must not be less than αMin.')
+    if( !(αMin <= α0) ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0, αMin,α0,αMax): αMin must not be greater than α0.')
+    if( !(αMax >= α0) ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0, αMin,α0,αMax): αMax must not be less than α0.')
 
     if( 0 === αMax )
       throw new LineSearchNoProgressError();
@@ -113,9 +118,9 @@ export const albaali_fletcher = (opt={}) => {
       return [X,f,G,p];
     };
 
-    const p0 = projGrad(G0); // <- projected gradient
+    const  p0 = projGrad(G0); // <- projected gradient
     if(0===p0) throw new LineSearchNoProgressError();
-    if(0 < p0) throw new                     Error('albaali_fletcher: Initial projected gradient not negative.');
+    if(0 < p0) throw new                     Error('more_thuente_u123: Initial projected gradient not negative.');
 
     let αLo =  0, αHi = Infinity, α = α0,
         fLo = f0, fHi = NaN,
@@ -131,7 +136,11 @@ export const albaali_fletcher = (opt={}) => {
 
       const [X,f,G,p] = xfgp(α);
 
-      if( f - f0 > fRed*α*p0 || (0 < αLo && f >= fLo) )
+      // check convergence
+      if(  f-f0 <= fRed*α*p0  &&  Math.abs(p) <= -gRed*p0  )
+        return [X,f,G];
+
+      if( f - fLo > fRed*(α-αLo)*p0 )
       {
         αHi = α;
         fHi = f;
@@ -139,10 +148,7 @@ export const albaali_fletcher = (opt={}) => {
         break bracketing;
       }
 
-      if( Math.abs(p) <= -gRed*p0 )
-        return [X,f,G];
-
-      if( p >= 0 )
+      if( p > 0 )
       {
         αHi = αLo; αLo = α;
         fHi = fLo; fLo = f;
@@ -151,17 +157,17 @@ export const albaali_fletcher = (opt={}) => {
       }
 
       if( ! (α < αMax) ) throw new LineSearchBoundReachedError(X,f,G);
-      if( ! (α < αHi ) ) throw new LineSearchError            ('albaali_fletcher: Strong Wolfe condition not satisfiable in range.');
+      if( ! (α < αHi ) ) throw new LineSearchError            ('more_thuente_u123: Strong Wolfe condition not satisfiable in range.');
 
       αLo = α; α = Math.min(Math.max(nextUp(α), α*grow), αMax);
       fLo = f;
       pLo = p;
     }
 
-    if( αLo === αHi ) throw new LineSearchError('albaali_fletcher: bracketing failed.');
+    if( αLo === αHi ) throw new LineSearchError('more_thuente_u123: bracketing failed.');
 
-    const noProgress = () => {
-      if( 0 === αLo ) // <- TODO FIXME
+    const noProgress = (X,f,G) => {
+      if( αLo === 0 ) // <- TODO FIXME
         throw new LineSearchNoProgressError('strongWolfeLineSearch(): no progress.');
       throw new LineSearchBisectionError(X,f,G);
     };
@@ -174,8 +180,11 @@ export const albaali_fletcher = (opt={}) => {
     {
       // SELECT A NEW TRIAL VALUE FOR α
       if( 2===Λ || αLo === αHi || ! isFinite(fHi) )
-        α = (αLo + αHi) / 2;
+        α = αLo + (αHi-αLo) / 2;
       else {
+        // TODO: the minimum will satisfy gRed but might not satisfy fRed.
+        //       It might be smarter to use the interpolation to find
+        //       a point that potentially satisfies both.
         α = _min1d_interp_quad(
           αLo,αHi,
           fLo,fHi,
@@ -189,25 +198,26 @@ export const albaali_fletcher = (opt={}) => {
 
       const [X,f,G,p] = xfgp(α);
 
-      if( f - f0 > fRed*α*p0 || f >= fLo ) {
+      // check convergence
+      if(  f-f0 <= fRed*α*p0  &&  Math.abs(p) <= -gRed*p0  )
+        return [X,f,G];
+
+      if( f - fLo > fRed*(α-αLo)*p0 ) {
         if( αHi === α )
-          noProgress()
+          noProgress(X,f,G);
         αHi = α;
         fHi = f;
         pHi = p;
       }
       else {
-        if( Math.abs(p)  <= -gRed*p0 )
-          return [X,f,G];
-
-        if( Math.sign(αHi - αLo) * p >= 0 ) {
+        if( Math.sign(αHi - αLo) * p > 0 ) {
           αHi = αLo;
           fHi = fLo;
           pHi = pLo;
         }
 
         if( αLo === α )
-          noProgress()
+          noProgress(X,f,G);
 
         αLo = α;
         fLo = f;
@@ -216,7 +226,7 @@ export const albaali_fletcher = (opt={}) => {
     }
   };
 
-  Object.defineProperty(line_search, 'name', {value: `albaali_fletcher(${JSON.stringify(opt)})`, writable: false});
+  Object.defineProperty(line_search, 'name', {value: `more_thuente_u123(${JSON.stringify(opt)})`, writable: false});
   Object.assign(line_search, opt);
   Object.freeze(line_search);
   return line_search;

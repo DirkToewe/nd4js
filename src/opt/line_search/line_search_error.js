@@ -24,6 +24,20 @@ export class LineSearchNoProgressError extends LineSearchError
 {
 }
 
+export class LineSearchBisectionError extends LineSearchError
+{
+  constructor(x,f,g)
+  {
+    super();
+    Object.assign(this, {x,f,g});
+  }
+}
+
 export class LineSearchBoundReachedError extends LineSearchError
 {
+  constructor(x,f,g)
+  {
+    super();
+    Object.assign(this, {x,f,g});
+  }
 }
