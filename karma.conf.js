@@ -1,4 +1,24 @@
+const os = require('os');
+
 const HOUR = 60*60*1000
+
+const browsers = [
+  'FirefoxHeadless',
+  'ChromeHeadless'
+];
+
+const tested_files = [
+  'src/**/*_test.js',
+];
+
+const reporters = [
+//  'spec'
+  'progress'
+];
+
+
+const nExecutors = Math.min( browsers.some(b => b.startsWith('Firefox')) ? 12 : 24, // <- Firefox can't seem handle more than 12
+                   Math.max( 1, Math.floor(os.cpus().length / browsers.length) ));
 
 module.exports = config => {
   config.set({
@@ -27,7 +47,7 @@ module.exports = config => {
     ],
 
     parallelOptions: {
-      executors: 11,
+      executors: nExecutors,
 //      shardStrategy: 'round-robin'
     },
 
@@ -48,13 +68,7 @@ module.exports = config => {
       devtool: 'inline-source-map'
     },
 
-    files: [
-//      'src/opt/line_search/*_test.js',
-//      'src/**/lbfgs_test.js',
-//      'src/**/lbfgsb_test.js',
-//      'src/opt/**/*_test.js',
-      'src/**/*_test.js',
-    ],
+    files: tested_files,
 
     exclude: [
     ],
@@ -63,19 +77,13 @@ module.exports = config => {
       'src/**/*.js': ['webpack', 'sourcemap']
     },
 
-    reporters: [
-//      'spec'
-      'progress'
-    ],
+    reporters,
 
     specReporter: {
-      showSpecTiming: true 
+      showSpecTiming: true
     },
 
-    browsers: [
-      'FirefoxHeadless',
-      'ChromeHeadless',
-    ],
+    browsers,
 
     port: 9876,
     logLevel: config.LOG_INFO,

@@ -8,10 +8,15 @@ module.exports = api => {
   return {
     presets: ['@babel/preset-env'],
     plugins: ['@babel/transform-runtime'],
-    only: glob.sync("src/**/*.js").filter(
-      path => !path.endsWith('_test.js') &&
-              !path.endsWith('_test_data.js')
-    ),
+    only: glob.sync("src/**/*.js").filter( path => {
+      path = path.split(/[\\/]/).pop();
+
+      return !path.  endsWith('_test.js')
+          && !path.  endsWith('_test_data.js')
+          && !path.  endsWith('_test_utils.js')
+          && !path.startsWith('_generic_test')
+          &&  path !== 'jasmine_utils.js';
+    }),
     sourceType: 'module',
     sourceMaps: false,
 
