@@ -17,11 +17,10 @@
  */
 
 import {ARRAY_TYPES} from '../dt'
-import {KahanSum} from '../kahan_sum'
 import {asarray, NDArray} from '../nd_array'
 
 
-// THE FOLLOWING IMPLEMENTATION HAS BETTER CACHE ALIGNMENT BUT REQUIRES AN EXTRA ARRAY OF LENGTH M-1
+// THE FOLLOWING IMPLEMENTATION HAS BETTER CACHE ALIGNMENT BUT REQUIRES AN EXTRA ARRAY OF LENGTH M-1 (A benchmark would be required to justify that)
 //export function _ldl_decomp(M,N, LD,LD_off, V)
 //{
 //  if( ! (M   <= N       ) ) throw new Error('Assertion failed.');

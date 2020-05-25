@@ -858,6 +858,79 @@ Example
 `
 
 
+nd.opt.min_lbfgsb_gen.__doc__ = `\
+Iteratively minimizes a function using the L-BFGS-B method which supports bound-constraits.
+An indefinite number of solutions is returned unless the line search does not make any further
+progress, in which case a \`LineSearchNoProgressError\` is thrown. The user must check for a
+proper stopping condition her-/himself.
+
+Parameters
+----------
+fg: (x: NDArray[N]) => [f: NDArray[], g: NDArray[N]]
+  A method return both the function value and gradients of the optimized function for
+  the given input \`x\`. 
+x0: NDArray[N]
+  The starting point for the minimization.
+bounds: NDArray[N,2]
+  The lower and upper bounds for each dimension. Set to -Infinity and +Infinity respectively
+  to disable a the bounds in some directions.
+options: {
+  historySize=8: int
+    The number of past value-gradient pairs that are memoized in order to approximate the Hessian.
+  lineSearch=nd.opt.line_search.strong_wolfe()
+    The line search method used to advance the solution along the current search direction.
+    Must at least satisfy the Wolfe Condition.
+}
+
+Returns
+-------
+approximations: Iterator<[x: NDArray[N], f: NDArray[] g: NDArray[N]]>
+  An iterator over the approximations/iterations made by the L-BFGS method. Will return an indefinite
+  amount of approximations unless a \`LineSearchNoProgressError\` is thrown.
+
+Throws
+------
+noProgress: nd.opt.LineSearchNoProgressError
+  If the optimization is not making any more progress. This is usally happens when the optimizer
+  is already very close to the minimum.
+
+References
+----------
+.. [1] https://en.wikipedia.org/wiki/Limited-memory_BFGS
+.. [2] https://en.wikipedia.org/wiki/Wolfe_conditions
+
+Example
+-------
+>>> const fg = ([x,y]) => [
+...   nd.array(  (x-1)**2 + 100*(y-x*x)**2 ),
+...   nd.array([ (x-1) *2 - 400*(y-x*x) *x,
+...                         200*(y-x*x) ])
+... ];
+... const bounds = [
+...   [-Infinity, 0       ],
+...   [-8,       +Infinity]
+... ];
+... let x,f,g, nIter = -1;
+... try {
+...   for( [x,f,g] of nd.opt.min_lbfgsb_gen(fg, /*x0=*/[-1,+1], bounds) )
+...   {
+...     const gNorm = g.reduceElems(nd.math.hypot);
+...     if( ++nIter > 1e3 )
+...       throw new Error('Too many iterations.');
+...     if( gNorm <= 1e-8 )
+...       break;
+...   }
+... }
+... catch(err) {
+...   if( ! (err instanceof nd.opt.LineSearchNoProgressError) )
+...     throw err;
+...   console.log('No progress.');
+... }
+... console.log('Solution:', x);
+  Solution: [ 0, 0 ]
+`
+
+
 nd.opt.root1d_bisect.__doc__ = `\
 Finds a single root of a continuous univariate function using the bisection method.
 
@@ -1434,7 +1507,7 @@ Examples
 
 nd.la.cholesky_decomp.__doc__ = `\
 Computes the Cholesky Decomposition of an \`NDArray\` of symmetric, positive
-definite (square) matrices. The implementation assume the matrices to be symmetric
+definite (square) matrices. The implementation assumes the matrices to be symmetric
 and only looks at the lower triangular values. The last two axes of the \`NDArray\`
 are considered to be the matrix dimensions.
 
@@ -1501,6 +1574,78 @@ Examples
    [4.0]]]
 `
 
+
+
+nd.la.ldl_decomp.__doc__ = `\
+Computes the LDLᵀ Decomposition of an \`NDArray\` of a symmetric, indefinite (square) matrix.
+The implementation assumes the matrices to be symmetric and only looks at the lower triangular
+values. The last two axes of the \`NDArray\` are considered to be the matrix dimensions.
+Unless the input is entirely either positive or negative definite, the result may be inaccurate
+for badly conditioned matrices.
+
+Parameters
+----------
+S: NDArray[...,N,N]
+  An \`NDArray\` of symmetric (square) matrices.
+
+Returns
+-------
+LD: NDArray[...,N,N]
+  A lower triangular matrix, such that \`S = L @ D @ L.T\`, where \`L = tril(LD,-1) + nd.eye(N)\`
+  and \`D = diag(LD)\`.
+
+Examples
+--------
+>>> const S = [
+...   [ 25, -50],
+...   [-50, 101]
+... ];
+... const LD = nd.la.ldl_decomp(S),
+...       L  = LD.mapElems( (ld, i,j) => ld*(i > j) + (i===j) ),
+...       D  = LD.mapElems( (ld, i,j) => ld*(i===j) );
+... console.log( nd.la.matmul(L,D,L.T).toString() );
+  [[ 25, -50],
+   [-50, 101]]
+`
+
+
+nd.la.pldlp_decomp.__doc__ = `\
+Computes the PLDLᵀPᵀ Decomposition (a.k.a. Bunch-Kaufmann) of an \`NDArray\` of a symmetric
+indefinite (square) matrix. The implementation assumes the matrices to be symmetric and only
+looks at the lower triangular values. The last two axes of the \`NDArray\` are considered
+to be the matrix dimensions.
+
+Parameters
+----------
+S: NDArray[...,N,N]
+  An \`NDArray\` of symmetric indefinite (square) matrices.
+
+Returns
+-------
+LD: NDArray[...,N,N]
+Q:    int32[...,N]
+  The result of the Bunch-Kaufmann decomposition, such that \`S[P[i],P[j <= i]] = (L @ D @ Lᵀ)[i,j] \`,
+  where \`L = pldlp_l(LD,Q)\` is a lower triangular matrix, \`D = pldlp_d(LD,Q)\` is a block diagonal
+  matrix with with 2x2 and 1x1 blocks, and \`P = pldlp_p(LD,Q)\` are the permutation indices.
+  
+
+Examples
+--------
+>>> const S = [
+...   [ 25, -50],
+...   [-50, 101]
+... ];
+... const [LD,Q]= nd.la.pldlp_decomp(S),
+...        L    = nd.la.pldlp_l(LD,Q),
+...         D   = nd.la.pldlp_d(LD,Q),
+...           P = nd.la.pldlp_p(LD,Q),
+...        LDL  = nd.la.matmul(L,D,L.T),
+...       PLDL  = nd.la.unpermute_rows( LDL,P),
+...       PLDLP = nd.la.unpermute_cols(PLDL,P);
+... console.log('PLDLᵀPᵀ =\n' + PLDLP);
+  [[ 25, -50],
+   [-50, 101]]
+`
 
 
 nd.la.tril_solve.__doc__ = `\

@@ -266,6 +266,8 @@ Available operations and decompositions:
   * [Rank-Revaling QR Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.rrqr_decomp)
   * [URV Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.urv_decomp_full)
   * [Cholesky Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.cholesky_decomp)
+  * [LDLᵀ Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.ldl_decomp)
+  * [PLDLᵀPᵀ Decomposition (Bunch-Kaufmann)](https://dirktoewe.github.io/nd4js/doc.html#nd.la.pldlp_decomp)
   * [Hessenberg Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.hessenberg_decomp)
   * [Bidiagonal Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.bidiag_decomp)
   * [LU Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.lu_decomp)
@@ -277,7 +279,10 @@ Available operations and decompositions:
   * Nonlinear Curve Fitting and Least Square Optimization:
     * [Levenberg-Marquardt](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.lsq_lm_gen)
     * [Dogleg Method](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.lsq_dogleg_gen)
-  * [L-BFGS Optimizer](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.min_lbfgs_gen)
+    * [L-BFGS](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.lsq_lbfgs_gen)
+  * General Nonlinear Optimization
+    * [L-BFGS Optimizer](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.min_lbfgs_gen)
+    * [L-BFGS-B Optimizer (Bound Constrained)](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.min_lbfgsb_gen)
   * [Bisection Solver 1D](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.root1d_bisect)
   * [Golden Section Search Minimizer 1D](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.min1d_gss)
 
