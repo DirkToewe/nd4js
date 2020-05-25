@@ -21,19 +21,20 @@ import {NDArray} from '../nd_array'
 import {tabulate} from '../tabulate'
 import {_rand_int,
         _shuffle} from '../_test_data_generators'
-import {zip_elems} from '../zip_elems'
 
 import {heap_sort_gen} from '../arrays/heap_sort_gen'
 
 import {diag_mat} from '../la/diag'
-import {eye} from '../la/eye'
 import {matmul,
         matmul2} from '../la/matmul'
 import {norm} from '../la/norm'
 import {rand_ortho} from '../la/rand_ortho'
 import {solve} from '../la/solve'
 
-import {LBFGSB_Solver} from './_lbfgsb_solver'
+import {LBFGSB_Solver       } from './_lbfgsb_solver'
+import { LBFGS_SolverRefImpl,
+        _rand_updates       } from './_lbfgs_solver_test_utils'
+
 
 // References
 // ----------
@@ -46,114 +47,6 @@ import {LBFGSB_Solver} from './_lbfgsb_solver'
 //         by Richard H. Byrd, Peihuang Lu, Jorge Nocedal and Ciyou Zhu
 //         Technical Report NAM-08; Revised: May 1994
 //         http://users.iems.northwestern.edu/~nocedal/PDFfiles/limited.pdf
-
-
-/** A slow reference implementation of the LBFGS Hessian approximation
- *  used to test the much more efficient `LBFGSSolver`.
- */
-class LBFGS_SolverRef
-{
-  constructor( M, N )
-  {
-    if( M%1 !== 0 ) throw new Error('Assertion failed.');
-    if( N%1 !== 0 ) throw new Error('Assertion failed.');
-    if( !(0 < M) ) throw new Error('Assertion failed.');
-    if( !(0 < N) ) throw new Error('Assertion failed.');
-    this.M = M|0;
-    this.N = N|0;
-    this.dx = [];
-    this.dg = [];
-    this.scale = 1;
-  }
-
-  update( dx, dg )
-  {
-    if( dx.length%1 !== 0 ) throw new Error('Assertion failed.');
-    if( dg.length%1 !== 0 ) throw new Error('Assertion failed.');
-
-    const {dx: dX, dg: dG, N} = this;
-
-    dx = Float64Array.from(dx);
-    dg = Float64Array.from(dg);
-
-    if( dx.length !== N ) throw new Error('Assertion failed: ' + dx.length);
-    if( dg.length !== N ) throw new Error('Assertion failed: ' + dg.length);
-
-    const shape = Int32Array.of(N,1);
-
-    dx = new NDArray(shape, dx);
-    dg = new NDArray(shape, dg);
-    Object.freeze(dx.buffer);
-    Object.freeze(dg.buffer);
-
-    if( dX.length != dG.length ) throw new Error('Assertion failed.');
-    dX.push(dx);
-    dG.push(dg);
-    if( dX.length > this.M ) {
-        dX.shift();
-        dG.shift();
-    }
-    if( dX.length > this.M ) throw new Error('Assertion failed.');
-  }
-
-  *_history()
-  {
-    const {dx,dg} = this;
-    if( dx.length != dg.length ) throw new Error('Assertion failed.');
-    for( let i=0; i < dx.length; i++ )
-      yield [dx[i], dg[i]];
-  }
-
-  get B()
-  {
-    const {N} = this;
-
-    let B = eye(N).mapElems(x => x * this.scale);
-
-    for( const [dx,dg] of this._history() )
-      B = zip_elems(
-        [ B,
-          matmul2(dg, dg.T),
-          matmul2(dg.T, dx),
-          matmul(B,dx, dx.T, B.T),
-          matmul(dx.T, B, dx) ],
-        (B, gg, gx, BxxB, xBx) => B + gg/gx - BxxB/xBx
-      );
-
-    Object.freeze(B.data.buffer);
-    Object.freeze(B);
-    return B;
-  }
-
-  get H()
-  {
-    const {N} = this;
-
-    const I = eye(N);
-
-    let H = I.mapElems(x => x / this.scale);
-
-    for( const [dx,dg] of this._history() )
-    {
-      const gx = matmul2(dg.T, dx),
-             W = zip_elems(
-               [I, matmul2(dx, dg.T), gx],
-               (I,xg,gx) => I - xg/gx
-             );
-
-      H = zip_elems(
-        [ matmul(W, H, W.T),
-          matmul2(dx, dx.T),
-          gx ],
-        (WHW,xx,gx) => WHW + xx/gx
-      );
-    }
-
-    Object.freeze(H.data.buffer);
-    Object.freeze(H);
-    return        H;
-  }
-}
 
 
 /** Computes the dot product of two arrays.
@@ -284,57 +177,6 @@ function* generalized_cauchy(G,B, X, bounds, indices, complete=true)
     }
 
   yield [n_fix, X.slice(), df];
-}
-
-
-/** Produces an infinite series of LBFGS update input pairs.
- *  The are filtered to result in a sufficiently well-conditioned
- *  (positive definite) Hessian approximation.
- */
-function* _rand_updates( N )
-{
-  if( N%1 !== 0 ) throw new Error('Assertion failed.');
-  if( ! (0 < N) ) throw new Error('Assertion failed.');
-
-  const shape = Int32Array.of(N,1);
-
-  loop:for(;;)
-  {
-    const dx = Float64Array.from({length: N}, () => Math.random()*2-1),
-          dg = Float64Array.from({length: N}, () => Math.random()*2-1);
-
-    const nx = Math.hypot(...dx),
-          ng = Math.hypot(...dg);
-
-    for( let i=N; i-- > 0; ) {
-      dx[i] /= nx;
-      dg[i] /= ng;
-    }
-
-    let dot_xg = dot(dx,dg);
-    if( dot_xg < 0 ) {
-      for( let i=N; i-- > 0; )
-        dx[i] *= -1;
-      dot_xg *= -1;
-    }
-    if( dot_xg < 0.05 )
-      continue loop;
-
-    const sx = Math.random()*1 + 0.5,
-          sg = Math.random()*1 + 0.5;
-
-    for( let i=N; i-- > 0; ) {
-      dx[i] *= sx;
-      dg[i] *= sg;
-    }
-
-    Object.freeze(dx.buffer);
-    Object.freeze(dg.buffer);
-    yield Object.freeze([
-      new NDArray(shape,dx),
-      new NDArray(shape,dg)
-    ]);
-  }
 }
 
 
@@ -505,8 +347,8 @@ describe('LBFGSB_Solver', () => {
           yield [M,N];
       }()
     ).it('compute_subspace_Hv works with all free variables (n_fix=0) given random updates' + suffix, ([M,N]) => {
-      const ref = new LBFGS_SolverRef(M,N),
-            tst = new LBFGSB_Solver (M,N);
+      const ref = new LBFGS_SolverRefImpl(M,N),
+            tst = new LBFGSB_Solver      (M,N);
 
       expect(M).toBeGreaterThan(0);
       expect(N).toBeGreaterThan(0);
@@ -556,8 +398,8 @@ describe('LBFGSB_Solver', () => {
           yield [M,N];
       }()
     ).it('compute_subspace_Hv works given random updates' + suffix, ([M,N]) => {
-      const ref = new LBFGS_SolverRef(M,N),
-            tst = new LBFGSB_Solver (M,N);
+      const ref = new LBFGS_SolverRefImpl(M,N),
+            tst = new LBFGSB_Solver      (M,N);
 
       expect(M).toBeGreaterThan(0);
       expect(N).toBeGreaterThan(0);
@@ -726,8 +568,8 @@ describe('LBFGSB_Solver', () => {
           yield [M,N];
       }()
     ).it('compute_bv+compute_ubbv work given random updates' + suffix, ([M,N]) => {
-      const ref = new LBFGS_SolverRef(M,N),
-            tst = new LBFGSB_Solver  (M,N);
+      const ref = new LBFGS_SolverRefImpl(M,N),
+            tst = new LBFGSB_Solver      (M,N);
 
       expect(M).toBeGreaterThan(0);
       expect(N).toBeGreaterThan(0);
@@ -903,8 +745,8 @@ describe('LBFGSB_Solver', () => {
           yield [M,N];
       }()
     ).it('compute_Bv work given random updates' + suffix, ([M,N]) => {
-      const ref = new LBFGS_SolverRef(M,N),
-            tst = new LBFGSB_Solver (M,N);
+      const ref = new LBFGS_SolverRefImpl(M,N),
+            tst = new LBFGSB_Solver      (M,N);
 
       expect(M).toBeGreaterThan(0);
       expect(N).toBeGreaterThan(0);
@@ -946,157 +788,5 @@ describe('LBFGSB_Solver', () => {
         if( ++i >= 64 ) break;
       }
     })
-  }
-})
-
-
-describe('LBFGS_SolverRef', () => {
-  beforeEach( () => {
-    jasmine.addMatchers(CUSTOM_MATCHERS)
-  })
-
-
-  for( const [suffix, rand_scale] of [
-    [''           , () => 1                  ],
-    [' and scales', () => Math.random() + 0.5]
-  ])
-  {
-    forEachItemIn(
-      function*(){
-        for( let M=0; M++ <  8; )
-        for( let N=0; N++ < 16; )
-          yield [M,N];
-      }()
-    ).it('computes B correctly given random updates' + suffix, ([M,N]) => {
-      const lbfgs = new LBFGS_SolverRef(M,N);
-    
-      expect(M).toBeGreaterThan(0);
-      expect(N).toBeGreaterThan(0);
-    
-      let i=0;
-      for( let [dx,dg] of _rand_updates(N) )
-      {
-        lbfgs.update(dx.data, dg.data);
-        lbfgs.scale = rand_scale();
-    
-        const {B} = lbfgs;
-        expect( matmul2(B,dx) ).toBeAllCloseTo(dg);
-    
-        if( ++i >= 128 ) break;
-      }
-    })
-    
-    
-    forEachItemIn(
-      function*(){
-        for( let M=0; M++ <  8; )
-        for( let N=0; N++ < 16; )
-          yield [M,N];
-      }()
-    ).it('computes H correctly given random updates' + suffix, ([M,N]) => {
-      const lbfgs = new LBFGS_SolverRef(M,N);
-    
-      expect(M).toBeGreaterThan(0);
-      expect(N).toBeGreaterThan(0);
-    
-      const shape = Int32Array.of(N,1);
-      Object.freeze(shape.buffer);
-    
-      let i=0;
-      for( let [dx,dg] of _rand_updates(N) )
-      {
-        lbfgs.update(dx.data, dg.data);
-        lbfgs.scale = rand_scale();
-    
-        const {H} = lbfgs;
-    
-        const atol = Number.EPSILON * norm(H) * norm(dx);
-        expect( matmul2(H,dg) ).toBeAllCloseTo(dx, {atol});
-    
-        if( ++i >= 128 ) break;
-      }
-    })
-
-
-    forEachItemIn(
-      function*(){
-        for( let M=0; M++ <  8; )
-        for( let N=0; N++ < 16; )
-          yield [M,N];
-      }()
-    ).it('H=inv(B) given random updates' + suffix, ([M,N]) => {
-      const lbfgs = new LBFGS_SolverRef(M,N);
-    
-      expect(M).toBeGreaterThan(0);
-      expect(N).toBeGreaterThan(0);
-    
-      const shape = Int32Array.of(N,1);
-      Object.freeze(shape.buffer);
-    
-      const I = eye(N);
-    
-      let i=0;
-      for( let [dx,dg] of _rand_updates(N) )
-      {
-        lbfgs.update(dx.data, dg.data);
-        lbfgs.scale = rand_scale();
-    
-        const {H,B} = lbfgs;
-    
-        const tol = {
-          rtol: 0,
-          atol: Number.EPSILON * (1<<18) * norm(H) * norm(B)
-        };
-        expect( matmul2(B,H) ).toBeAllCloseTo(I, tol);
-        expect( matmul2(H,B) ).toBeAllCloseTo(I, tol);
-    
-        if( ++i >= 64 ) break;
-      }
-    })
-
-
-    forEachItemIn(
-      function*(){
-        for( let run=0; run++ < 512; )
-        for( let N=0; N++ < 16; )
-        {
-          const   d = Float64Array.from({length: N}, () => Math.random()*1.8 + 0.2),
-                  D = diag_mat(d),
-                  Q = rand_ortho(N),
-                  B = matmul(Q.T, D, Q),
-            updates = [];
-
-          let i=0;
-          for( const {data: row} of Q )
-          {
-            const dxScale = Math.random()*1.8 + 0.2,
-                  dgScale = d[i];
-            i++;
-            const dx = row.map(dx => dx*dxScale),
-                  dg =  dx.map(dg => dg*dgScale);
-            Object.freeze(dx.buffer);
-            Object.freeze(dg.buffer);
-            updates.push([dx,dg]);
-          }
-
-          Object.freeze(updates);
-          Object.freeze(B.data.buffer);
-          Object.freeze(B);
-
-          yield [updates,B];
-        }
-      }()
-    ).it('approximates Hessian given random multivariate polynomials' + suffix, ([updates,B]) => {
-      const N = B.shape[0];
-
-      const lbfgs = new LBFGS_SolverRef(N,N);
-
-      for( const [dx,dg] of updates )
-        lbfgs.update(dx,dg);
-      lbfgs.scale = rand_scale();
-
-      const  b = lbfgs.B;
-      expect(b).toBeAllCloseTo(B);
-    });
   }
 })

@@ -50,8 +50,8 @@ export function* min_lbfgsb_gen(
   bounds,
   {
     historySize = 8,
-    lineSearch = more_thuente_u123(),
-    updateTol = 1e-8
+    lineSearch = more_thuente_u123({fRed: 1e-3, gRed: 0.8}), // <- there's not always a minimum along search direction (due to bounds) -> use _u123 instead of _abc
+    updateTol = 1e-14
   } = {}
 )
 {
@@ -140,6 +140,10 @@ export function* min_lbfgsb_gen(
       return αMax;
     }();
 
+    // TODO: g_arg is only the quasi newton approximation of the gradient at x_arg.
+    //       Alternatively we could compute the gradient at x_arg insteal which might
+    //       improve robustness.
+
     let    X,F,G;
     try { [X,F,G] = lineSearch(
             new NDArray(shape, x_arg.slice()), f+df,
@@ -177,8 +181,17 @@ export function* min_lbfgsb_gen(
     if( dx.every(x => x===0) )
       throw new LineSearchNoProgressError();
 
-    const gg = dot(dg,dg),
-          gx = dot(dg,dx);
+    const mx = dg.reduce((mx,x) => Math.max(mx,Math.abs(x)), 0); // <- avoid underflow
+
+    let gg = 0,
+        gx = 0;
+
+    for( let i=dg.length; i-- > 0; )
+    { const xi = dx[i]/mx,
+            gi = dg[i]/mx;
+      gg += gi*gi;
+      gx += xi*gi;
+    }
 
     if( updateTol*gg < gx )
     {

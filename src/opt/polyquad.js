@@ -57,11 +57,11 @@ export function roots1d_polyquad( a, b, c )
   c  = Math.sqrt(Math.abs(a)) * Math.sign(b);
   b /= 2*c;
 
-  const TOL = Number.EPSILON*2;
+  const TOL = Number.EPSILON * 1024 * 64;
 
   let x1,x2;
   if( 0 < a ) {
-    if( b < 1-TOL) throw new Error('Complex roots not yet supported: '+b);
+    if( b < 1-TOL) throw new Error('Complex roots not yet supported: '+b); // <- TODO: this should be a custom error
     if( b < 1    ) b=1;
     x1 = -b - Math.sqrt((b+1)*(b-1));
     x2 = +1 / x1;

@@ -69,7 +69,7 @@ export function generic_test_min_gen_with_test_fn( minimize_gen, test_fn, x_rang
 
     let nCalls = 0
     const fg = x => {
-      expect(++nCalls).toBeLessThan(16*1024)
+      expect(++nCalls).toBeLessThan(32*1024)
       return [
         test_fn(x),
         test_fn.grad(x)
@@ -101,7 +101,7 @@ export function generic_test_min_gen_with_test_fn( minimize_gen, test_fn, x_rang
       }
     }
     catch( err ) {
-      if( ! (err instanceof LineSearchError) )
+      if( ! (err instanceof LineSearchNoProgressError) )
         throw err;
     }
 
@@ -145,10 +145,10 @@ export function generic_test_min_gen( minimize_gen )
 
     generic_test_min_gen_with_test_fn( minimize_gen, beale, [[+0.1, +5.0],
                                                              [-0.5, +1.0]] );
-/*
+
     generic_test_min_gen_with_test_fn( minimize_gen, brown_badscale, [[1e+6 - 2e+5, 1e+6 + 2e+5],
                                                                       [2e-6 - 4e-7, 2e-6 + 4e-7]] ); // <- TODO: increase range of starting points once line search improved
-*/
+
     generic_test_min_gen_with_test_fn( minimize_gen, freudenstein_roth, [[-Math.PI/2, +16],
                                                                          [-Math.PI/2,  +8]] );
 
@@ -156,8 +156,8 @@ export function generic_test_min_gen( minimize_gen )
                                                                       [-Math.PI/2, +2],
                                                                       [-Math.PI/2, +2]] );
 
-    generic_test_min_gen_with_test_fn( minimize_gen, new JennrichSampson(10), [[0, 0.6],
-                                                                               [0, 0.8]] );
+    generic_test_min_gen_with_test_fn( minimize_gen, new JennrichSampson(10), [[-1, 0.35],
+                                                                               [-1, 0.35]] );
 /*
     generic_test_min_gen_with_test_fn( minimize_gen, powell_badscale, [[-10.1, +10.0], // <- avoids starting at x1=x2 which leads to a saddle point
                                                                        [-10.0, +10.1]] );
