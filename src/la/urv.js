@@ -155,6 +155,24 @@ export function _urv_lstsq( rnk, I,J,K,L,M, U,U_off, R,R_off, V,V_off, X,X_off, 
   if(    X_off%1 !== 0 ) throw new Error('Assertion failed.');
   if(    Y_off%1 !== 0 ) throw new Error('Assertion failed.');
 
+  if( ! (0 <= I) ) throw new Error('Assertion failed.');
+  if( ! (0 <= J) ) throw new Error('Assertion failed.');
+  if( ! (0 <= K) ) throw new Error('Assertion failed.');
+  if( ! (0 <= L) ) throw new Error('Assertion failed.');
+  if( ! (0 <= M) ) throw new Error('Assertion failed.');
+
+  if( ! (0 <= U_off) ) throw new Error('Assertion failed.');
+  if( ! (0 <= R_off) ) throw new Error('Assertion failed.');
+  if( ! (0 <= V_off) ) throw new Error('Assertion failed.');
+  if( ! (0 <= X_off) ) throw new Error('Assertion failed.');
+  if( ! (0 <= Y_off) ) throw new Error('Assertion failed.');
+
+  if( ! (U_off <= U.length-I*J) ) throw new Error('Assertion failed.');
+  if( ! (R_off <= R.length-J*K) ) throw new Error('Assertion failed.');
+  if( ! (V_off <= V.length-K*L) ) throw new Error('Assertion failed.');
+  if( ! (X_off <= X.length-L*M) ) throw new Error('Assertion failed.');
+  if( ! (Y_off <= Y.length-I*M) ) throw new Error('Assertion failed.');
+
   if( tmp.length < I*M ) throw new Error('Assertion failed.');
   tmp.fill(0.0, 0,I*M);
 
@@ -236,6 +254,7 @@ export function urv_lstsq( U,R,V, ranks, Y )
 
   if( R.shape[R.ndim-2] !== J ) throw new Error('urv_lstsq( U,R,V,ranks, Y ): Matrix dimensions incompatible.');
   if( R.shape[R.ndim-1] !== K ) throw new Error('urv_lstsq( U,R,V,ranks, Y ): Matrix dimensions incompatible.');
+  if( Y.shape[Y.ndim-2] !== I ) throw new Error('urv_lstsq( U,R,V,ranks, Y ): Matrix dimensions incompatible.');
 
   if( J !== K ) {
     if( I < L ) if( I !== J ) throw new Error('Assertion failed.');

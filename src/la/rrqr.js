@@ -187,8 +187,8 @@ export function rrqr_decomp_full(A)
 
 export function _rrqr_decomp_inplace( M,N,L, A,A_off, Y,Y_off, P,P_off, norm )
 {
-  // using this this method could be used to implement rrqr_decomp_full
-  // BUT it would be inefficient because, due to the special structure of Q,
+  // this method could be used to implement rrqr_decomp_full BUT it
+  // would be inefficient because, due to the special structure of Q,
   // Givens rotations of Q can be made more efficient in rrqr_decomp_full
 
   if( 0 !== M%1 ) throw new Error('Assertion failed.');
