@@ -67,11 +67,16 @@ export function generic_test_line_search_bounded_with_test_fn( line_search, test
           ...x_range.map( r => linspace(...r,N) )
         )
 
+        let nSamples = 0;
         for( const x0 of samples )
         {
+          ++nSamples;
           const αMax = Math.random()*64;
           yield [αMax, x0];
         }
+
+        expect(nBoundsReached).toBeLessThan(nSamples*0.006) // <- less than 0.5% fail rate
+        expect(nNoProgress   ).toBeLessThan(nSamples*0.002) // <- less than 0.2% fail rate
       }()
     ).it(`works given generated ${test_fn.name} examples`, ([αMax, x0]) => {
       x0 = Object.freeze(x0);
@@ -102,7 +107,8 @@ export function generic_test_line_search_bounded_with_test_fn( line_search, test
 
       let nCalls = 0
       const fg = x => {
-        expect(++nCalls).toBeLessThan(512)
+        if( ++nCalls > 1024*1024 )
+          throw new Error('Too many function calls.');
 
         const  α = compute_α(x);
         expect(α).toBeGreaterThanOrEqual(0);
@@ -123,7 +129,7 @@ export function generic_test_line_search_bounded_with_test_fn( line_search, test
       catch(err)
       { if( err instanceof LineSearchBoundReachedError )
         {
-          expect(++nBoundsReached).toBeLessThanOrEqual(384);
+          ++nBoundsReached;
 
           const x = zip_elems([x0,negDir], (x,g) => x - g*αMax),
             [f,g]= fg(x);
@@ -138,7 +144,7 @@ export function generic_test_line_search_bounded_with_test_fn( line_search, test
         }
         if( err instanceof LineSearchError )
         {
-          expect(++nNoProgress).toBeLessThan(2);
+          ++nNoProgress;
           return;
         }
         throw err

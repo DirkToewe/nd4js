@@ -18,16 +18,13 @@
 
 import {array, NDArray} from '../../nd_array'
 
-import {nextUp} from "../../dt/float64_utils";
-
-import {_min1d_interp_quad} from '../_opt_utils'
-//*DEBUG*/import {num_grad} from '../num_grad'
-//*DEBUG*/import {zip_elems} from '../../zip_elems'
+import {nextUp, nextDown} from "../../dt/float64_utils";
 
 import {LineSearchError,
         LineSearchNoProgressError,
         LineSearchBoundReachedError,
         LineSearchBisectionError} from './line_search_error'
+import {_min1d_interp_ffg} from './_line_search_utils'
 
 // References
 // ----------
@@ -173,18 +170,31 @@ export const albaali_fletcher = (opt={}) => {
     for( let run=1;; run++ )
     {
       // SELECT A NEW TRIAL VALUE FOR α
-      if( 2===Λ || αLo === αHi || ! isFinite(fHi) )
-        α = (αLo + αHi) / 2;
-      else {
-        α = _min1d_interp_quad(
-          αLo,αHi,
-          fLo,fHi,
-          pLo
-        );
-        const αLst = (αHi + λ*αLo) / Λ, // least
-              αMst = (αLo + λ*αHi) / Λ; // most
-             if( !(αLst <= α) ) α = αLst; // < handles NaN
-        else if( !(αMst >= α) ) α = αMst; // < handles NaN
+      {
+        const αLil = Math.min(αLo,αHi),
+              αBig = Math.max(αLo,αHi);
+
+        const αLst = Math.max( nextUp  (αLil), (αBig + λ*αLil) / Λ ), // <- Least
+              αMst = Math.min( nextDown(αBig), (αLil + λ*αBig) / Λ ); // <- Most
+
+        if( 2===Λ || !(αLst < αMst) || ! isFinite(fHi) || ! isFinite(pHi) )
+          α = αLo + (αHi-αLo) / 2;
+        else {
+          // TODO: the minimum will satisfy gRed but might not satisfy fRed.
+          //       It might be smarter to use the interpolation to find
+          //       a point that potentially satisfies both.
+          α = _min1d_interp_ffg(
+            αLo,αHi,
+            fLo,fHi,
+            pLo
+          );
+
+               if( !(αLst <= α) ) α = αLst; // < handles NaN
+          else if( !(αMst >= α) ) α = αMst; // < handles NaN
+        }
+
+/*DEBUG*/        if( ! (αLil <= α) ) throw new Error('Assertion failed.');
+/*DEBUG*/        if( ! (αBig >= α) ) throw new Error('Assertion failed.');
       }
 
       const [X,f,G,p] = xfgp(α);

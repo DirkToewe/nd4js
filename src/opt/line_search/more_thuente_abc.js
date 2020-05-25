@@ -29,7 +29,6 @@ import {_min1d_interp_ffg,
         _min1d_interp_ffgg,
         _min1d_interp_gg} from './_line_search_utils'
 
-
 // References
 // ----------
 // .. [1] "Numerical Optimization", 2nd Edition,
@@ -54,12 +53,12 @@ const DEFAULT_OPTIONS = Object.freeze({
 });
 
 
-// implements the pseudocode lines (U1,U2,U3) from [2].
-export const more_thuente_u123 = (opt={}) =>
+// implements the pseudocode lines (a,b,c) from [2].
+export const more_thuente_abc = (opt={}) =>
 {
   for( const key of Object.keys(opt) )
     if( ! (key in DEFAULT_OPTIONS) )
-      console.warn(`more_thuente_u123(opt): unknown parameter "${key}" in opt.`);
+      console.warn(`more_thuente_abc(opt): unknown parameter "${key}" in opt.`);
 
   let {fRed, gRed, growMin, growMax, shrinkLeast} = opt = Object.assign({}, DEFAULT_OPTIONS, opt);
 
@@ -67,18 +66,21 @@ export const more_thuente_u123 = (opt={}) =>
   gRed       *= 1; // (2) Wolfe cond. 2: Sufficient decrease of projected gradient.
   growMin    *= 1; // (3) Lower growth factor bound for 1st phase of line search (bracketing).
   growMax    *= 1; // (4) Upper growth factor bound for 1st phase of line search (bracketing).
-  shrinkLeast*= 1; // (5) Minimum reduction of search range during 2nd phase of line search (zoom).
+  shrinkLeast*= 1; // (4) Minimum reduction of search range during 2nd phase of line search (zoom).
 
   // CHECK 0 < fRed < gRed < 1 < c3
-  if( !(fRed    >  0      ) ) throw new Error('more_thuente_u123(opt): opt.fRed must be positive.');
-  if( !(fRed    <  gRed   ) ) throw new Error('more_thuente_u123(opt): opt.fRed must less than opt.gRed.');
-  if( !(1       >  gRed   ) ) throw new Error('more_thuente_u123(opt): opt.gRed must less than 1.'  );
-  if( !(1       <  growMin) ) throw new Error('more_thuente_u123(opt): opt.growMin must larger than 1.');
-  if( !(growMax >= growMin) ) throw new Error('more_thuente_u123(opt): opt.growMax must not be less than opt.growMin.');
-  if( !(fRed    <  0.5    ) )    console.warn('more_thuente_u123(opt): opt.fRed should be less than 0.5 to work properly with (quasi-)Newton methods.');
+  if( !(fRed    >   0     ) ) throw new Error('more_thuente_abc(opt): opt.fRed must be positive.'  );
+  if( !(fRed    <  gRed   ) ) throw new Error('more_thuente_abc(opt): opt.fRed must less than opt.gRed.' );
+  if( !(1       >  gRed   ) ) throw new Error('more_thuente_abc(opt): opt.gRed must less than 1.'  );
+  if( !(1       <  growMin) ) throw new Error('more_thuente_abc(opt): opt.growMin must larger than 1.');
+  if( !(growMax >= growMin) ) throw new Error('more_thuente_abc(opt): opt.growMax must not be less than opt.growMin.');
+  if( !(fRed    <  0.5    ) )    console.warn('more_thuente_abc(opt): opt.fRed should be less than 0.5 to work properly with (quasi-)Newton methods.');
 
-  if( !(shrinkLeast >= 0.0) ) throw new Error('more_thuente_u123(opt): opt.shrinkLeast must be non-negative.');
-  if( !(shrinkLeast <= 0.5) ) throw new Error('more_thuente_u123(opt): opt.shrinkLeast must not be greater than 0.5.');
+  if( !(shrinkLeast >= 0.0) ) throw new Error('more_thuente_abc(opt): opt.shrinkLeast must be non-negative.');
+  if( !(shrinkLeast <= 0.5) ) throw new Error('more_thuente_abc(opt): opt.shrinkLeast must not be greater than 0.5.');
+
+  const Λ = 1 / shrinkLeast,
+        λ = Λ - 1;
 
   const line_search = fg_raw => (X0,f0,G0, negDir, αMin=0, α0=undefined, αMax=Infinity) => {
     X0 = array('float64', X0);
@@ -90,21 +92,15 @@ export const more_thuente_u123 = (opt={}) =>
     const   shape = negDir.shape,
       [L] = shape;
 
-    if    (X0.ndim !== 1 ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0): X0.ndim must be 1.')
-    if(    G0.ndim !== 1 ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0): G0.ndim must be 1.')
-    if(negDir.ndim !== 1 ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0): negDir.ndim must be 1.')
-    if(X0.shape[0] !== L ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0): negDir and X0 must have the same shape.')
-    if(G0.shape[0] !== L ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0): negDir and G0 must have the same shape.')
-    if(       αMin !== 0 ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0, αMin,α0,αMax): αMin !== 0 not (yet) supported.')
-
-    if(              isNaN(f0)) throw new Error('more_thuente_u123()(fg)(X0,f0,G0): f0 is NaN.')
-    if( X0.data.some(isNaN)   ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0): X0 contains NaN.')
-    if( G0.data.some(isNaN)   ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0): G0 contains NaN.')
+    if    (X0.ndim !== 1 ) throw new Error('more_thuente_abc()(fg)(X0,f0,G0): X0.ndim must be 1.')
+    if(    G0.ndim !== 1 ) throw new Error('more_thuente_abc()(fg)(X0,f0,G0): G0.ndim must be 1.')
+    if(negDir.ndim !== 1 ) throw new Error('more_thuente_abc()(fg)(X0,f0,G0): negDir.ndim must be 1.')
+    if(X0.shape[0] !== L ) throw new Error('more_thuente_abc()(fg)(X0,f0,G0): negDir and X0 must have the same shape.')
+    if(G0.shape[0] !== L ) throw new Error('more_thuente_abc()(fg)(X0,f0,G0): negDir and G0 must have the same shape.')
+    if(  isNaN(f0)       ) throw new Error('more_thuente_abc()(fg)(X0,f0,G0): f0 is NaN.')
+    if(       αMin !== 0 ) throw new Error('more_thuente_abc()(fg)(X0,f0,G0, αMin,α0,αMax): αMin !== 0 not (yet) supported.')
 
     negDir = negDir.data;
-
-    if( negDir.some(isNaN) )
-      throw new Error('Assertion failed.');
 
     // TODO: Instead of a specified αMin, we could compute
     //       the smallest αMin that still results in an
@@ -114,8 +110,8 @@ export const more_thuente_u123 = (opt={}) =>
     if( null == α0 )
       α0 = Math.min(1, αMax/2);
 
-    if( !(αMin <= α0) ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0, αMin,α0,αMax): αMin must not be greater than α0.')
-    if( !(αMax >= α0) ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0, αMin,α0,αMax): αMax must not be less than α0.')
+    if( !(αMin <= α0) ) throw new Error('more_thuente_abc()(fg)(X0,f0,G0, αMin,α0,αMax): αMin must not be greater than α0.')
+    if( !(αMax >= α0) ) throw new Error('more_thuente_abc()(fg)(X0,f0,G0, αMin,α0,αMax): αMax must not be less than α0.')
 
     if( 0 === αMax )
       throw new LineSearchNoProgressError();
@@ -130,9 +126,9 @@ export const more_thuente_u123 = (opt={}) =>
       f *= 1;
       G = array('float64', G);
 
-      if( isNaN(f)        ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0): fg returned NaN.');
-      if(G.ndim     !== 1 ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0): fg returned gradient with invalid shape.');
-      if(G.shape[0] !== L ) throw new Error('more_thuente_u123()(fg)(X0,f0,G0): fg returned gradient with invalid shape.');
+      if( isNaN(f)        ) throw new Error('more_thuente_abc()(fg)(X0,f0,G0): fg returned NaN.');
+      if(G.ndim     !== 1 ) throw new Error('more_thuente_abc()(fg)(X0,f0,G0): fg returned gradient with invalid shape.');
+      if(G.shape[0] !== L ) throw new Error('more_thuente_abc()(fg)(X0,f0,G0): fg returned gradient with invalid shape.');
 
       const         p = projGrad(G);
       return [X,f,G,p];
@@ -140,7 +136,7 @@ export const more_thuente_u123 = (opt={}) =>
 
     const  p0 = projGrad(G0); // <- projected gradient
     if(0===p0) throw new LineSearchNoProgressError();
-    if(0 < p0) throw new                     Error('more_thuente_u123: Initial projected gradient not negative.');
+    if(0 < p0) throw new                     Error('more_thuente_abc: Initial projected gradient not negative.');
 
     let αLo =  0, αHi = Infinity, α = α0,
         fLo = f0, fHi = NaN,
@@ -152,7 +148,7 @@ export const more_thuente_u123 = (opt={}) =>
     bracketing: for(;;)
     {
       if( ! isFinite(α) )
-        throw new Error('Assertion failed.');
+        throw new Error('Assertion failed: ' + α);
 
       const [X,f,G,p] = xfgp(α);
 
@@ -160,7 +156,7 @@ export const more_thuente_u123 = (opt={}) =>
       if(  f-f0 <= fRed*α*p0  &&  Math.abs(p) <= -gRed*p0  )
         return [X,f,G];
 
-      if( f - fLo > fRed*(α-αLo)*p0 )
+      if( f > fLo )
       {
         αHi = α;
         fHi = f;
@@ -176,8 +172,8 @@ export const more_thuente_u123 = (opt={}) =>
         break bracketing;
       }
 
-      if( ! (α < αMax) ) throw new LineSearchBoundReachedError(X,f,G);
-      if( ! (α < Number.MAX_VALUE) ) throw new Error('more_thuente_u123: Infinity reached.');
+      if( ! (α < αMax            ) ) throw new LineSearchBoundReachedError(X,f,G);
+      if( ! (α < Number.MAX_VALUE) ) throw new Error('more_thuente_abc: Infinity reached.');
 
       let αTrial;
 
@@ -198,7 +194,7 @@ export const more_thuente_u123 = (opt={}) =>
       pLo = p;
     }
 
-    if( αLo === αHi ) throw new LineSearchError('more_thuente_u123: bracketing failed.');
+    if( αLo === αHi ) throw new LineSearchError('more_thuente_abc: bracketing failed.');
 
     const noProgress = (X,f,G) => {
       if( αLo === 0 ) // <- TODO FIXME
@@ -242,8 +238,7 @@ export const more_thuente_u123 = (opt={}) =>
             α = Math.abs(αs - αHi) <= Math.abs(αc - αHi) ? αc : αs; // <- TODO: Looking for a minimum might not be smart, we should consider trying to find a strong wolfe range instead
           }
           else
-          {
-            // α = αMid;
+          { // α = αMid;
             α = _min1d_interp_ffg(
               αLo,αHi,
               fLo,fHi,
@@ -254,9 +249,6 @@ export const more_thuente_u123 = (opt={}) =>
                if( !(αLst <= α) ) α = αLst; // < handles NaN
           else if( !(αMst >= α) ) α = αMst; // < handles NaN
         }
-
-/*DEBUG*/        if( ! (αLil <= α) ) throw new Error('Assertion failed.');
-/*DEBUG*/        if( ! (αBig >= α) ) throw new Error('Assertion failed.');
       }
 
       const [X,f,G,p] = xfgp(α);
@@ -265,7 +257,7 @@ export const more_thuente_u123 = (opt={}) =>
       if(  f-f0 <= fRed*α*p0  &&  Math.abs(p) <= -gRed*p0  )
         return [X,f,G];
 
-      if( f - fLo > fRed*(α-αLo)*p0 ) {
+      if( f > fLo ) {
         if( αHi === α )
           noProgress(X,f,G);
         αHi = α;
@@ -289,7 +281,7 @@ export const more_thuente_u123 = (opt={}) =>
     }
   };
 
-  Object.defineProperty(line_search, 'name', {value: `more_thuente_u123(${JSON.stringify(opt)})`, writable: false});
+  Object.defineProperty(line_search, 'name', {value: `more_thuente_abc(${JSON.stringify(opt)})`, writable: false});
   Object.assign(line_search, opt);
   Object.freeze(line_search);
   return line_search;

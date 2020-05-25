@@ -58,12 +58,23 @@ export function generic_test_line_search_with_test_fn( line_search, test_fn, x_r
     let nNoProgress = 0;
 
     forEachItemIn(
-      function(){
+      function*(){
         const N = Math.round( 2**(16/test_fn.nIn) );
 
-        return cartesian_prod(
+        const samples = cartesian_prod(
           ...x_range.map( r => linspace(...r,N) )
         )
+
+        let nSamples = 0;
+        for( const x of samples )
+        {
+          ++nSamples;
+          yield x;
+        }
+
+        expect(nNoProgress).toBeLessThan(nSamples*0.003) // <- less than 0.3% fail rate
+
+        // console.log(`${test_fn.name}\n---------------\n  ${nNoProgress}\n`)
       }()
     ).it(`works given generated ${test_fn.name} examples`, x0 => {
       x0 = Object.freeze(x0);
@@ -86,7 +97,7 @@ export function generic_test_line_search_with_test_fn( line_search, test_fn, x_r
       catch(err)
       { if( err instanceof LineSearchError )
         {
-          expect(++nNoProgress).toBeLessThan(2);
+          ++nNoProgress;
           return;
         }
         throw err
@@ -113,7 +124,7 @@ export function generic_test_line_search_with_test_fn( line_search, test_fn, x_r
       expect( Math.abs(p) ).toBeAllLessOrClose( -gRed*p0 )
 
       let α = norm( zip_elems([x,x0], (x,y) => x-y) ) / norm(negDir)
-      expect( f - f0 ).toBeAllLessOrClose( fRed*α*p0 )
+      expect( f - f0 ).toBeAllLessOrClose( fRed*α*p0, {atol: 1e-4} )
     });
   }
 }
