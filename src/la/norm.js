@@ -57,7 +57,13 @@ export class FrobeniusNorm
   }
 
   get result() {
-    return isFinite(this.max) ? Math.sqrt(this.sum)*this.max : this.max;
+    const {max,sum} = this;
+    return isFinite(max) ? Math.sqrt(sum)*max : max;
+  }
+
+  get resultSquare() {
+    const {max,sum} = this;
+    return isFinite(max) ? sum*max*max : max;
   }
 }
 

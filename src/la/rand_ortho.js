@@ -60,7 +60,7 @@ export function rand_ortho( dtype, ...shape )
     // INIT Q TO IDENTITY
     for( let i=0; i < L; i++ )
     for( let j=0; j < L; j++ )
-      Q[L*i+j] = i===j;
+      Q[L*i+j] = (i===j)*1;
 
     d[0] = Math.random() <= 0.5 ? -1 : +1;
 
