@@ -16,6 +16,8 @@
  * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
+export * from './min_max'
+
 
 export function* linspace( start, end, num )
 {
@@ -81,4 +83,28 @@ export function* enumerate( seq )
   let i=0;
   for( const x of seq )
     yield [i++, x];
+}
+
+
+export function* zip( ...seqs )
+{
+  if( ! (0 < seqs.length) )
+    throw new Error('zip(...seqs): seqs.length must be at least 1.');
+
+  const N = seqs.length;
+
+  for( let i=N; i-- > 0; )
+    seqs[i] = seqs[i][Symbol.iterator]();
+
+  for(;;) {
+    const next = [];
+
+    for( let i=0; i < N; i++ ) {
+      const     item = seqs[i].next();
+             if(item.done ) return;
+      next.push(item.value);
+    }
+
+    yield next;
+  }
 }

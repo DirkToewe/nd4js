@@ -19,7 +19,8 @@
 import {cartesian_prod,
         enumerate,
         linspace,
-        range} from '.'
+        range,
+        zip} from '.'
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {_rand_int} from '../_test_data_generators'
 
@@ -154,5 +155,52 @@ describe('_iter_utils', () => {
       expect(x).toBe(arr[i])
     }
     expect(n).toBe(arr.length);
+  })
+
+
+  forEachItemIn(
+    function*(){
+      for( let run=0; run++ < 7*1337; )
+        yield Object.freeze([
+          Array.from({length: _rand_int(0,512)}, () => _rand_int(-1337,+1337) ),
+          Array.from({length: _rand_int(0,512)}, () => _rand_int(-1337,+1337) )
+        ]);
+    }()
+  ).it('zip works given random inputs of 2 arrays', ([L,R]) => {
+    const N = Math.min(L.length, R.length);
+
+    let n=0;
+
+    for( const lr of zip(L,R) )
+    {
+      expect(n).toBeLessThan(N);
+      expect(lr).toEqual([ L[n], R[n] ]);
+      n++;
+    }
+    expect(n).toBe(N);
+  })
+
+
+  forEachItemIn(
+    function*(){
+      for( let run=0; run++ < 7*1337; )
+        yield Object.freeze([
+          Array.from({length: _rand_int(0,512)}, () => _rand_int(-1337,+1337) ),
+          Array.from({length: _rand_int(0,512)}, () => _rand_int(-1337,+1337) ),
+          Array.from({length: _rand_int(0,512)}, () => _rand_int(-1337,+1337) )
+        ]);
+    }()
+  ).it('zip works given random inputs of 3 arrays', ([L,M,R]) => {
+    const N = Math.min(L.length, M.length, R.length);
+
+    let n=0;
+
+    for( const lmr of zip(L,M,R) )
+    {
+      expect(n).toBeLessThan(N);
+      expect(lmr).toEqual([ L[n], M[n], R[n] ]);
+      n++;
+    }
+    expect(n).toBe(N);
   })
 })
