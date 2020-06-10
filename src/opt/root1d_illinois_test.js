@@ -16,27 +16,9 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-// AGENDA:
-//   - Quadratic Programming
-//   - Orthogonal Distance Regression
-//   - Derivative-Free Multivariate Minimizers
+import {root1d_illinois} from "./root1d_illinois";
 
-import * as line_search from './line_search'
-import * as test_fn from './test_fn'
+import {generic_test_root1d_bracketed} from "./_generic_test_root1d";
 
-export {
-  line_search,
-  test_fn
-}
 
-export * from './dogleg'
-export * from './fit_lin'
-export * from './gss'
-export * from './lbfgs'
-export * from './lbfgsb'
-export * from './line_search' // <- FIXME: this should not be here remove in next major version
-export * from './lm'
-export * from './num_grad'
-export * from './root1d_bisect'
-export * from './root1d_brent'
-export * from './root1d_illinois'
+generic_test_root1d_bracketed(root1d_illinois);
