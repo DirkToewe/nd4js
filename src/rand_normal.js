@@ -48,3 +48,27 @@ export const rand_normal = function(){
     return z*y;
   };
 }();
+
+// export const rand_normal = function(){
+//   let next = NaN;
+
+//   return () => {
+//     if( ! isNaN(next) ) {
+//       const  nxt = next;
+//                    next = NaN;
+//       return nxt;
+//     }
+//     // https://en.wikipedia.org/wiki/Marsaglia_polar_method
+//     let x,y,r;
+//     do {
+//       x = Math.random()*2 - 1;
+//       y = Math.random()*2 - 1;
+//       r = Math.hypot(x,y);
+//     }
+//     while(r > 1 || r == 0);
+
+//     const  z = Math.sqrt( -Math.log(r) ) * 2/r;
+//     next = z*x;
+//     return z*y;
+//   };
+// }();

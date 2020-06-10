@@ -16,7 +16,7 @@
  * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {array, asarray, NDArray} from '../nd_array'
+import {array} from '../nd_array'
 import {lstsq} from '../la/lstsq'
 
 
@@ -31,9 +31,9 @@ export function* root_newton_gen( fJ, x0 )
 
   for(;;)
   {
-    const [f,J] = fJ(x).map( a => asarray(a) );
+    const [f,J] = fJ(x).map( a => array(a) ); // <- protection copy
 
-    yield [x,f,J];
+    yield [x,f,J].map( a => array(a) ); // <- protection copy
 
     if( J.ndim !== 2 || J.shape[0] !== N
                      || J.shape[1] !== N

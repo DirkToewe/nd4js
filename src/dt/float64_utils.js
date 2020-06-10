@@ -28,6 +28,8 @@ const val =   Float64Array.of(NaN),
 
 export function nextUp(x)
 {
+  x *= 1;
+
   if( 0 === x )
     return +Number.MIN_VALUE;
   if( ! (x < +Infinity) ) // <- handles NaN and Infinity
@@ -54,6 +56,8 @@ export function nextUp(x)
 
 export function nextDown(x)
 {
+  x *= 1;
+
   if( 0 === x )
     return -Number.MIN_VALUE;
   if( ! (x > -Infinity) ) // <- handles NaN and Infinity
@@ -75,4 +79,37 @@ export function nextDown(x)
   }
 
   return val[0];
+}
+
+
+export function midl( x, y )
+{
+  x *= 1;
+  y *= 1;
+  if( isNaN(x) ) throw new Error('mid(x,y): x must be number.');
+  if( isNaN(y) ) throw new Error('mid(x,y): x must be number.');
+
+  if( Math.sign(x)*y < 0 ) // <- check for opposite signs
+  {
+    const mid = (x+y) / 2; // <- avoids underflow if e.g x=+MAX_VALUE, y=-MAX_VALUE
+
+    if( ! (mid < Math.max(x,y)) ) throw new Error('Assertion failed.');
+    if( ! (mid > Math.min(x,y)) ) throw new Error('Assertion failed.');
+
+    return mid;
+  }
+  else
+  {
+    const [a,b] = Math.abs(x) <= Math.abs(y) ? [x,y] : [y,x];
+
+    // Returns the mid point between two floats (x,y) or x if there is no mid point
+    const mid = a + (b-a)*0.5; // <- avoids underflow if e.g x=y=MAX_VALUE
+
+    if( ! (mid <= Math.max(x,y)) ) throw new Error('Assertion failed.');
+    if( ! (mid >= Math.min(x,y)) ) throw new Error('Assertion failed.');
+
+    if( mid === y ) return x;
+
+    return mid;
+  }
 }

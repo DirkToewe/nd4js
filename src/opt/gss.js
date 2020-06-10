@@ -16,12 +16,18 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
+
+// REFERENCES
+// ----------
+// .. [1] https://en.wikipedia.org/wiki/Golden_section_search
+// .. [2] https://github.com/scipy/scipy/blob/master/scipy/optimize/optimize.py#L2306
+
+
 const γ = 1.5 - Math.sqrt(5/4);
 
 
 export function min1d_gss(F,x_min,x_max)
 {
-  // https://en.wikipedia.org/wiki/Golden_section_search
   if( x_min > x_max )
     throw new Error('opt1d_golden(F,x_min,x_max): x_max must not be less than x_min.');
 

@@ -34,16 +34,6 @@ import {LBFGSB_Solver} from "./_lbfgsb_solver";
 //         Dong C. Liu and Jorge Nocedal
 
 
-function dot( u, v )
-{
-  if(  u.length !== v.length ) throw new Error()
-  let result = 0
-  for( let i=u.length; i-- > 0; )
-    result += u[i] * v[i]
-  return result
-}
-
-
 export function* min_lbfgsb_gen(
   fg,
   x0,
