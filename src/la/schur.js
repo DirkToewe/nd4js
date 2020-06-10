@@ -21,8 +21,6 @@ import {MutableComplex} from '../dt/mutable_complex'
 import {math} from '../math'
 import {asarray, NDArray} from '../nd_array'
 
-import {root1d_bisect} from '../opt/root1d_bisect'
-
 import {_giv_rot_qr} from './_giv_rot'
 import {hessenberg_decomp} from './hessenberg'
 import {matmul2} from './matmul'
@@ -65,27 +63,19 @@ export function schur_eigenvals(T)
         // STEP1: compute eigenpairs of the 2x2 matrix
         const T_ii = t(i,i), T_ij = t(i,j),
               T_ji = t(j,i), T_jj = t(j,j),
-               tr = math.add(T_ii,T_jj),
-              det = math.sub(
-                math.mul(T_ii,T_jj),
-                math.mul(T_ij,T_ji)
-              );
-        let λ1,λ2;
-        const sqrt = math.sqrt( math.sub(
-          math.mul(tr,tr),
-          math.mul(det,4)
-        ));
-        if( tr*tr >= 4*det )
-        { throw new Error(`schur_eigenvals(T): T must not contain real eigenvalued 2x2 blocks.`);
-          let sign = tr < 0 ? -1.0 : +1.0;
-          λ1  =       0.5 * (tr + sign*sqrt);
-          λ2  = det * 2.0 / (tr + sign*sqrt); // <- Citardauq Formula
-        } else {
-          λ1 = math.mul( math.add(tr,sqrt), 0.5 );
-          λ2 = math.mul( math.sub(tr,sqrt), 0.5 );
-        }
-        Λ[Λ_off + i] = λ1;
-        Λ[Λ_off + j] = λ2;
+              diag = math.sub(T_ii,T_jj),
+                tr = math.add(T_ii,T_jj),
+               sqr = math.add(
+                 math.mul(diag,diag),
+                 math.mul( math.mul(4,T_ij), T_ji )
+               );
+        if( sqr >= 0 )
+          throw new Error(`schur_eigenvals(T): T must not contain real eigenvalued 2x2 blocks.`);
+
+        const   sqrt = math.mul(0.5, math.sqrt(sqr)),
+                half = math.mul(0.5, tr);
+        Λ[Λ_off + i] = math.add(half, sqrt);
+        Λ[Λ_off + j] = math.sub(half, sqrt);
         j--;
       }
     }
@@ -306,25 +296,19 @@ export function schur_eigen(Q,T)
         // STEP1: compute eigenpairs of the 2x2 matrix
         const T_ii = t(i,i), T_ij = t(i,j),
               T_ji = t(j,i), T_jj = t(j,j),
-               tr = math.add(T_ii,T_jj),
-              det = math.sub(
-                math.mul(T_ii,T_jj),
-                math.mul(T_ij,T_ji)
-              );
-        let λ1,λ2;
-        const sqrt = math.sqrt( math.sub(
-          math.mul(tr,tr),
-          math.mul(det,4)
-        ));
-        if( tr*tr >= 4*det )
-        { throw new Error('The given Schur decomposition must not contain 2x2 diagonal blocks with real eigenvalues.');
-          let sign = tr < 0 ? -1.0 : +1.0;
-          λ1  =       0.5 * (tr + sign*sqrt);
-          λ2  = det * 2.0 / (tr + sign*sqrt); // <- Citardauq Formula
-        } else {
-          λ1 = math.mul( math.add(tr,sqrt), 0.5 );
-          λ2 = math.mul( math.sub(tr,sqrt), 0.5 );
-        }
+              diag = math.sub(T_ii,T_jj),
+                tr = math.add(T_ii,T_jj),
+               sqr = math.add(
+                 math.mul(diag,diag),
+                 math.mul( math.mul(4,T_ij), T_ji )
+               );
+        if( sqr >= 0 )
+          throw new Error(`schur_eigenvals(T): T must not contain real eigenvalued 2x2 blocks.`);
+
+        const sqrt = math.mul(0.5, math.sqrt(sqr)),
+              half = math.mul(0.5, tr),
+                λ1 = math.add(half, sqrt),
+                λ2 = math.sub(half, sqrt);
         // TODO: the whole following section should be feasible with only a single temporary vector instead of two (vec1,vec2)
         v1_arr.fill(0.0, 0,2*(j+1));
         v2_arr.fill(0.0, 0,2*(j+1));
@@ -623,23 +607,48 @@ function schur_qrfrancis_inplace(Q,H)
         // │ sin(α)  cos(α) │ │ H_ji  H_jj │ │ sin(α)  cos(α) │   │ 0  λ₂│ => 0 == (H_ji⋅cos(α) - H_ii⋅sin(α))⋅cos(α) + (H_jj⋅cos(α) - H_ij⋅sin(α))⋅sin(α)
         // └                ┘ └            ┘ └                ┘   └      ┘ => 0 == (H_jj-H_ii)⋅sin(2⋅α) + (H_ij+H_ji)⋅cos(2⋅α) + H_ji-H_ij =: f(α)
         //
-        // A simple and very numerically accurate solution would be Binary Search. In order to do that, we have to bracket a solution. So let's determine the extrema of f(α).
+        // This brings us to a standard trigonometry equation:
+        //   A*sin(x) + B*cos(x) = C
+        // Where
+        //   A = H_jj-H_ii
+        //   B = H_ij+H_ji
+        //   C = H_ij-H_ji
+        //
+        // Solution:
+        //   x = 360° * n + 2*atan2( a ± sqrt(a² + b² - c²), b+c )
+        //   (n=0)
+        //     = 2*atan2( H_jj-H_ii + sqrt( (H_jj-H_ii)² + 4*H_ij*H_ji ), 2*H_ij )
+        //
+        // Another simple and very numerically accurate solution would be Binary Search. In order to do that, we have to bracket a solution. So let's determine the extrema of f(α).
         // 
         // f'(α_max) =!= 0 = 2*(H_jj-H_ii)⋅cos(2⋅α_max) - 2*(H_ij+H_ji)⋅sin(2⋅α_max) => α_max = atan2( H_jj-H_ii, H_ij+H_ji ) / 2 + n*π/2
         const H_ii = H[off+N*i+i], H_ij = H[off+N*i+j],
-              H_ji = H[off+N*j+i], H_jj = H[off+N*j+j], tr = H_ii+H_jj, det= H_ii*H_jj - H_ij*H_ji;
+              H_ji = H[off+N*j+i], H_jj = H[off+N*j+j];
 
-        if( tr*tr < 4*det ) continue;
+        // const α_min =         Math.atan2(H_jj-H_ii, H_ij+H_ji) / 2,
+        //       α_max = α_min + Math.PI/2 * (α_min <= 0 ? +1 : -1),
+        //       α = 0.5 * root1d_bisect(
+        //         α => ( (H_ij+H_ji) * Math.cos(α)
+        //              + (H_ji-H_ij)
+        //              + (H_jj-H_ii) * Math.sin(α) ),
+        //         2*α_min, 2*α_max
+        //       ),
+        //       c = Math.cos(α),
+        //       s = Math.sin(α);
 
-        const α_min =         Math.atan2(H_jj-H_ii, H_ij+H_ji) / 2,
-              α_max = α_min + Math.PI/2 * (α_min <= 0 ? +1 : -1),
-              α = root1d_bisect(
-                α => ( ( H_ji*Math.cos(α) - H_ii*Math.sin(α) ) * Math.cos(α)
-                     + ( H_jj*Math.cos(α) - H_ij*Math.sin(α) ) * Math.sin(α) ),
-                α_min, α_max
-              ),
-              c = Math.cos(α),
-              s = Math.sin(α);
+        const A = H_jj-H_ii,
+            ABC = A*A + 4*H_ij*H_ji; // = A² + B² - C²
+        if( ABC < 0 ) continue;
+
+        const [c,s] = function(){
+          if( 0===H_ij )
+            return [0,1];
+          const  T = A + (A < 0 ? -1 : +1)*Math.sqrt(ABC),
+                 R = H_ij*2,        TR  =  Math.hypot(T,R), // α = atan2(T,R)
+            s = (R < 0 ? -T : +T) / TR,
+            c =       Math.abs(R) / TR;
+          return [c,s];
+        }();
 
         for( let k=i; k < N; k++ ) // ROTATE ROWS IN H
         { const H_i = H[off + N*i+k],
