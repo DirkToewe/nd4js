@@ -13,18 +13,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
+ * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-export class OptimizationError extends Error
-{
-}
-
-export class OptimizationNoProgressError extends OptimizationError
-{
-}
-
-export class OptimizationTooManyIterationsError extends OptimizationError
-{
-  
-}
+export * from './simplex'

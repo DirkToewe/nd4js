@@ -26,6 +26,7 @@ export * from './stack'
 export * from './tabulate'
 export * from './zip_elems'
 
+import * as geom from './geom'
 import * as integrate from './integrate'
 import * as io  from './io'
 import * as iter from './iter'
@@ -33,4 +34,4 @@ import * as la  from './la'
 import * as opt from './opt'
 import * as spatial from './spatial'
 
-export {dt,io,la,opt,integrate,iter,spatial}
+export {dt,geom,io,la,opt,integrate,iter,spatial}
