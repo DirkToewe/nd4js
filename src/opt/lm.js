@@ -43,9 +43,10 @@ export function* lsq_lm_gen(
   x0,//: float[nInputs] - THE START POINT OF THE OPTIMIZATION
   /*opt=*/{
     r0   = 1.1,               // <-   START TRUST REGION RADIUS. r0=1 MEANS THE TRUST REGION CONTAINS THE CAUCHY POINT ON ITS RADIUS.
-    rMin = 0,                 // <- MINIMUM TRUST REGION RADIUS (meaning radius AFTER scaling) TODO should relative to norm(D) or something
-    rMax = Infinity,          // <- MAXIMUM TRUST REGION RADIUS (meaning radius AFTER scaling) TODO should relative to norm(D) or something
-    rTol = 0.05,              // <-         TRUST REGION RADIUS TOLERANCE,
+    rMin = 0,                 // <- MINIMUM TRUST REGION RADIUS (meaning radius AFTER scaling) TODO should be scaled, i.e. relative to norm(D) or something // TODO rMin could be computed to be the smallest radius that still allows some progress, i.e. x[i] + rMin = 
+    rMax = Infinity,          // <- MAXIMUM TRUST REGION RADIUS (meaning radius AFTER scaling) TODO should be scaled, i.e. relative to norm(D) or something
+    rGN  = 2,                 // <- IF GAUSS-NEWTON INSIDE TRUST RADIUS AND IMPROVEMENT OKAY (according to expectGainMin), RADIUS IS SET TO rGN*distance(x,gaussNewton)
+    rTol = 0.05,              // <-         TRUST REGION RADIUS TOLERANCE
     lmLower = 0.001,          // <- LOWER RELATIVE PER-STEP BOUND OF THE LEVENBERG-MARQUARDT PARAMETER ITERATION (USED TO AVOID EXCEEDINGLY SMALL LAMBDA PARAMETERS)
     shrinkLower= 0.05,        // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT MOST
     shrinkUpper= 0.95,        // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT LEAST
@@ -72,6 +73,7 @@ export function* lsq_lm_gen(
   if( !(         rMin <= rMax        ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.rMin must not be greater than opt.rMax.');
   if( !(         rMin <= r0          ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.r0 must not be less than opt.rMin.');
   if( !(         rMax >= r0          ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.r0 must not be greater than opt.rMax.');
+  if( !(   1/(1+rTol) <  rGN         ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.rGN must be greater than 1/(1+rTol).');
   if( !(            0 <  shrinkLower ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.shrinkLower must be positive number.');
   if( !(  shrinkLower <= shrinkUpper ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.shrinkLower must not be greater than opt.shrinkUpper.');
   if( !(  shrinkUpper < 1            ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.shrinkUpper must be less than 1.');
@@ -95,22 +97,26 @@ export function* lsq_lm_gen(
   const X_shape = x0.shape,
       mse_shape = new Int32Array(0);
 
-  let [ff,JJ] = fJ( new NDArray(X_shape, X.slice()) );
-  ff = array(ff);
-  JJ = array(JJ);
-  if( ff.ndim !== 1 ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ(x) returned [f,J] with f.ndim !== 1.');
-  if( JJ.ndim !== 2 ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ(x) returned [f,J] with J.ndim !== 2.');
+  let [f,J] = fJ( new NDArray(X_shape, X.slice()) );
+  f = array('float64', f);
+  J = array('float64', J);
+  if( f.ndim !== 1 ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ(x) returned [f,J] with f.ndim !== 1.');
+  if( J.ndim !== 2 ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ(x) returned [f,J] with J.ndim !== 2.');
 
-  const                  solver = new TrustRegionSolverLSQ(...JJ.shape),
+  const f_shape = f.shape,
+        J_shape = J.shape;
+
+  const                  solver = new TrustRegionSolverLSQ(...J.shape),
     {M,N, D, X: dX, G} = solver;
 
   if( x0.shape[0] !== N )
     throw new Error('lsq_dogleg_gen(fJ, x0): fJ(x) returned [f,J] where J.shape[1] did not match x0.shape[0].');
 
-  let f = ff.data,
-      J = JJ.data;
+  solver.update(f,J);
 
-  solver.update(ff,JJ);
+  f = f.data,
+  J = J.data;
+
 //  let R = r0; // <- TODO maybe there is a better starting value for R0 like r0*solver.scaledNorm(G) order something like that
   let R = -r0 * solver.cauchyPointTravel() * solver.scaledNorm(G);
 
@@ -129,13 +135,15 @@ export function* lsq_lm_gen(
         new NDArray(  X_shape, X.slice()),
         new NDArray(mse_shape, Float64Array.of(err_now / M) ),
         new NDArray(  X_shape, G.map(g => g*2/M) ),
-        new NDArray( ff.shape, ff.data.slice() ),
-        new NDArray( JJ.shape, JJ.data.slice() )
+        new NDArray( f_shape, f.slice() ),
+        new NDArray( J_shape, J.slice() )
       ];
 
     solver.computeMinGlobal();
 
-    if( ! (solver.scaledNorm(dX) <= R*(1+rTol)) )
+    const              distanceToGN = solver.scaledNorm(dX), // <- distance to Gauss-Newton point
+          gnInRadius = distanceToGN <= R*(1+rTol);
+    if( ! gnInRadius )
     {
       NORM.reset();
       for( let i=N; i-- > 0; ) {
@@ -194,15 +202,11 @@ export function* lsq_lm_gen(
 /*DEBUG*/      if( !(Math.abs(solver.scaledNorm(dX)-R) <= R*rTol) ) // <- check that solution is in radius
 /*DEBUG*/        throw new Error('Assertion failed.');
     }
-    else {
-      // TODO In [1] Algorithm (7.1) (d), a method is described to adjust trust radius
-      //      when global min is inside trust region. Might be worth implementing.
-    }
 
 /*DEBUG*/    if( !(solver.scaledNorm(dX) <= R*(1+rTol)) )
 /*DEBUG*/      throw new Error('Assertion failed.');
 
-    let same_x = true;
+    let same_x = true; // <- TRUE IF X REMAINS COMPLETELY UNCHANGED (THIS COULD BE AVOIDED BY COMPUTING AN APPROPRIATE rMin)
     for( let i=N; i-- > 0; ) {
       W[i] = dX[i] + X[i];
       same_x &= (W[i] === X[i]);
@@ -220,29 +224,34 @@ export function* lsq_lm_gen(
 
 //*DEBUG*/    if( !(err_predict <= err_now) ) throw new Error('Assertion failed.');
 
-    let [_f,_J] = fJ( new NDArray(X_shape, W.slice()) );
-    _f = array(_f);
-    _J = array(_J);
-    if(_f.ndim !== 1 ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ(x) returned [f,J] with f.ndim !== 1.');
-    if(_J.ndim !== 2 ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ(x) returned [f,J] with J.ndim !== 2.');
+    let [f_next,
+         J_next] = fJ( new NDArray(X_shape, W.slice()) );
+    f_next = array('float64', f_next);
+    J_next = array('float64', J_next);
+    if( f_next.ndim !== 1 ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ(x) returned [f,J] with f.ndim !== 1.');
+    if( J_next.ndim !== 2 ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ(x) returned [f,J] with J.ndim !== 2.');
 
-    if( M !== _f.shape[0] ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ must return [f,J] with consistent shapes');
-    if( M !== _J.shape[0] ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ must return [f,J] with consistent shapes');
-    if( N !== _J.shape[1] ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ must return [f,J] with consistent shapes');
+    if( M !== f_next.shape[0] ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ must return [f,J] with consistent shapes');
+    if( M !== J_next.shape[0] ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ must return [f,J] with consistent shapes');
+    if( N !== J_next.shape[1] ) throw new Error('lsq_dogleg_gen(fJ, x0): fJ must return [f,J] with consistent shapes');
 
-    f = _f.data;
+    const f_now = f,
+          J_now = J;
+    f = f_next.data;
+    J = J_next.data;
+
     let err_next = 0;
     for( let i=M; i-- > 0; ) {
       const       s = f[i];
       err_next += s*s;
     }
 
-    const rScale = () => solver.scaledNorm(G); // <- TODO: examine scaling alternatives
+    const rScale = () => 1;
+    // const rScale = () => solver.scaledNorm(G); // <- TODO: examine scaling alternatives for the radius limits
 
-    const   predict = err_now - err_predict,
-             actual = err_now - err_next;
-         if( actual > predict*expectGainMax || same_x ) R = Math.min(rMax*rScale(), Math.max(nextUp(R), R*grow) ); // PREDICTION GREAT -> INCREASE TRUST RADIUS TODO: Consider using [1] Algorithm (7.1) (d)
-    else if( actual < predict*expectGainMin )
+    const predict = err_now - err_predict,
+           actual = err_now - err_next;
+    if(    actual < predict*expectGainMin )
     {
       // PREDICTION BAD -> REDUCE TRUST RADIUS
       // (by fitting a quadratic polynomial through err_now, grad_now and err_next)
@@ -250,58 +259,47 @@ export function* lsq_lm_gen(
       for( let i=N; i-- > 0; )
         grad_now += dX[i] * G[i];
       grad_now *= 2;
-//*DEBUG*/      const func = s => {
-//*DEBUG*/        const Z = new Float64Array(N);
-//*DEBUG*/        for( let i=N; i-- > 0; )
-//*DEBUG*/          Z[i] = X[i] + dX[i] * s;
-//*DEBUG*/        let [{data: f}] = fJ( new NDArray(X_shape,Z) );
-//*DEBUG*/        return f.reduce((x,y) => x + y*y, 0);
-//*DEBUG*/      };
-//*DEBUG*/      const grad = num_grad(func);
-//*DEBUG*/
-//*DEBUG*/      if( !(Math.abs(func(0) - err_now ) <= 1e-6) ) throw new Error('Assertion failed.');
-//*DEBUG*/      if( !(Math.abs(func(1) - err_next) <= 1e-6) ) throw new Error('Assertion failed.');
-//*DEBUG*/      if( !(Math.abs(grad(0) - grad_now) <= 1e-6) ) throw new Error('Assertion failed.');
-//*DEBUG*/
-//*DEBUG*/      // minimize quadratic polynomial through {err_now, grad_now, err_next} to compute shrink
-//*DEBUG*/      const a = err_now,
-//*DEBUG*/            b = grad_now,
-//*DEBUG*/            c = err_next - err_now - grad_now;
-//*DEBUG*/
-//*DEBUG*/      const poly = s => a + b*s + c*s*s,
-//*DEBUG*/            goly = s =>     b   + c*s*2;
-//*DEBUG*/
-//*DEBUG*/      if( !(Math.abs(goly(0) -grad_now ) <= 1e-6) ) throw new Error('Assertion failed.');
-//*DEBUG*/      if( !(Math.abs(poly(0) - err_now ) <= 1e-6) ) throw new Error('Assertion failed.');
-//*DEBUG*/      if( !(Math.abs(poly(1) - err_next) <= 1e-6) ) throw new Error('Assertion failed.');
-      let shrink = 0.5 * grad_now / (grad_now + err_now - err_next);
-//*DEBUG*/      if( !(Math.abs(goly(shrink)) <= 1e-6) ) {
-//*DEBUG*/        console.log({a,b,err_now,err_next,grad_now})
-//*DEBUG*/        throw new Error('Assertion failed: ' + Math.abs(grad(shrink)));
-//*DEBUG*/      }
-      if( !(shrinkLower <= shrink) ) shrink = shrinkLower;
-      if( !(shrinkUpper >= shrink) ) shrink = shrinkUpper;
+
+      let   shrink = 0.5 * grad_now / (grad_now + err_now - err_next);
+      if( !(shrink >= shrinkLower) ) shrink = shrinkLower;
+      if( !(shrink <= shrinkUpper) ) shrink = shrinkUpper;
       const r = Math.max(rMin*rScale(), R*shrink);
-      if( r === R && !(err_now > err_next) )
+      if(   r === R && !(err_now > err_next) )
         throw new OptimizationNoProgressError();
       R = r;
+    }
+    else if( gnInRadius )
+    {
+      // See [1] Algorithm (7.1) (d). If Gauss-Newton point is inside the trust radius and
+      // prediction is not bad, set the radius to rGN times the distance to the Gauss-Newton
+      // point. This also avoids that the trust radius grows uncontrollably while the
+      // Gauss-Newton point is inside the trust region for a few iterations.
+      const        rs = rScale();
+      R = Math.max(rs*rMin,
+          Math.min(rs*rMax, rGN*distanceToGN));
+    }
+    else if( actual > predict*expectGainMax || same_x )
+    {
+      // PREDICTION GREAT -> INCREASE TRUST RADIUS
+      R = Math.min(rMax*rScale(),
+          Math.max(nextUp(R), R*grow));
     }
 
     // ONLY ACCEPT NEW X IF BETTER
     if( err_now > err_next ) {
         err_now = err_next;
       [W,X] = [X,W];
-      ff = _f;
-      JJ = _J;
-      solver.update(ff,JJ);
+      solver.update(f_next, J_next);
       stuckometer = 0;
     }
-    else if( ++stuckometer > stuckLimit )
-      throw new OptimizationNoProgressError();
-    // TODO IF WE DON'T ACCEPT NEW X, WE COULD REUSE OLD SOLVER STATE
-
-    f = ff.data;
-    J = JJ.data;
+    else
+    {
+      if( ++stuckometer > stuckLimit )
+        throw new OptimizationNoProgressError();
+      // Rollback
+      f = f_now;
+      J = J_now;
+    }
   }
 }
 

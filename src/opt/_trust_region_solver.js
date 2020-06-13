@@ -165,7 +165,7 @@ export class TrustRegionSolverLSQ
       G[j] += J[N*i+j] * F[i];
   }
 
-  computeMinGlobal()
+  computeMinGlobal() // <- TODO THIS SHOULD BE CALLED computeGaussNewton
   {
     if( this._state !== 1 &&
         this._state !== 2 &&

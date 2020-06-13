@@ -23,6 +23,10 @@ import {lstsq} from '../la/lstsq'
 
 export function fit_lin(x,y, regularization, funcs)
 {
+  // TODO:
+  //  - Allow weights
+  //  - Allow different norms (e.g. Huber penalty function, see: https://www.youtube.com/watch?v=gH13lxieYFU)
+  //  - Allow diagonal matrix for regularization
   if(funcs == null) {  
      funcs = regularization;
              regularization = 0;

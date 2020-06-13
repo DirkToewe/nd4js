@@ -69,7 +69,8 @@ export function generic_test_lsq_gen_with_test_fn( lsq_gen, test_fn, x_range )
 
     let nCalls = 0
     const fJ = x => {
-      expect(++nCalls).toBeLessThan(16*1024);
+      if( ++nCalls > 16*1024 )
+        throw new Error('Assertion failed.');
       const f = test_fn.lsq(x),
             J = test_fn.lsq_jac(x);
       return [f,J];
@@ -160,16 +161,17 @@ export function generic_test_lsq_gen( lsq_gen )
 
     generic_test_lsq_gen_with_test_fn( lsq_gen, new JennrichSampson(10), [[-1, 0.35],
                                                                           [-1, 0.35]] );
-/*
-    generic_test_lsq_gen_with_test_fn( lsq_gen, powell_badscale, [[-12.1, +12.0], // <- avoids starting at x1=x2 which leads to a saddle point
-                                                                  [-12.0, +12.1]] );
-*/
-/* TODO: get the following test to work
-    for( const length of range(1,4) )
-      generic_test_lsq_gen_with_test_fn(
-        lsq_gen, new Rastrigin(length), Array.from({length}, () => [-Math.PI*11,+Math.PI*11])
-      );
-*/
+
+    // TODO: get the following to work with `lsq_lbfgs`
+    // generic_test_lsq_gen_with_test_fn( lsq_gen, powell_badscale, [[-12.1, +12.0], // <- avoids starting at x1=x2 which leads to a saddle point
+    //                                                               [-12.0, +12.1]] );
+
+    // // TODO: get the following test to work with `lsq_lm` and `lsq_lbfgs`
+    // for( const length of range(1,4) )
+    //   generic_test_lsq_gen_with_test_fn(
+    //     lsq_gen, new Rastrigin(length), Array.from({length}, () => [-Math.PI*11,+Math.PI*11])
+    //   );
+
     for( const length of range(2,4) )
       generic_test_lsq_gen_with_test_fn(
         lsq_gen, new Rosenbrock(length), Array.from({length}, () => [-Math.PI*3,+Math.PI*3])
