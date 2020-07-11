@@ -16,9 +16,6 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {array, asarray, NDArray} from '../nd_array'
-import {TrustRegionSolverLSQ} from './_trust_region_solver'
-
 
 // TODO implemented double-dogleg method as well as described in
 // "An Improved Optimization Method for iSAM2"

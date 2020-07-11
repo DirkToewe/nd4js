@@ -38,7 +38,7 @@ const REPORT_STATE_READY    = 1,
 
 /** 
  */
-export class TrustRegionSolverLSQ_V2
+export class TrustRegionSolverLSQ
 {
   constructor( fJ, x0 )
   {

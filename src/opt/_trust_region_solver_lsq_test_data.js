@@ -18,7 +18,7 @@
 
 import {NDArray} from '../nd_array'
 
-export function* computeMinGlobal_overdet_gen()
+export function* computeNewtonRegularized0_overdet_gen()
 {
   yield [
     new NDArray( Int32Array.of(1),   Float64Array.of(-1.3652641113821375) ),
@@ -838,7 +838,7 @@ export function* computeMinGlobal_overdet_gen()
   ];
 }
 
-export function* computeMinGlobal_underdet_gen()
+export function* computeNewtonRegularized0_underdet_gen()
 {
   yield [
     new NDArray( Int32Array.of(1),   Float64Array.of(-1.3652641113821375) ),

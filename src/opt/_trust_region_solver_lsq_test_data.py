@@ -75,7 +75,7 @@ def generate_test_data():
 
   print('\n'*7)
 
-  print('''export function* computeNewton_overdet_gen()
+  print('''export function* computeNewtonRegularized0_overdet_gen()
 {''')
   for [J,f, r,dr] in overdet:
     print('''  yield [
@@ -93,7 +93,7 @@ def generate_test_data():
 
   print('''}
 
-export function* computeNewton_underdet_gen()
+export function* computeNewtonRegularized0_underdet_gen()
 {''')
   for [J,f, r,dr] in underdet:
     print('''  yield [

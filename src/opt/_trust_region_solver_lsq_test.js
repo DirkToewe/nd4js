@@ -49,10 +49,10 @@ import {Rosenbrock}        from './test_fn/rosenbrock'
 
 
 import {num_grad} from './num_grad'
-import {TrustRegionSolverLSQ_V2} from './_trust_region_solver_lsq'
+import {TrustRegionSolverLSQ} from './_trust_region_solver_lsq'
 
-import {computeMinGlobal_overdet_gen,
-        computeMinGlobal_underdet_gen} from './_trust_region_solver_lsq_test_data'
+import {computeNewtonRegularized0_overdet_gen,
+        computeNewtonRegularized0_underdet_gen} from './_trust_region_solver_lsq_test_data'
 
 const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
 
@@ -113,7 +113,7 @@ describe('TrustRegionSolverLSQ', () => {
       x0 = zip_elems([x0,dx], (x,dx) => x+dx);
 
       if( undefined === solver ) {
-        solver = new TrustRegionSolverLSQ_V2(fJ, x0);
+        solver = new TrustRegionSolverLSQ(fJ, x0);
         expect(iter).toBe(0);
       }
       else {
@@ -207,7 +207,7 @@ describe('TrustRegionSolverLSQ', () => {
       x0 = zip_elems([x0,dx], (x,dx) => x+dx);
 
       if( undefined === solver ) {
-        solver = new TrustRegionSolverLSQ_V2(fJ, x0);
+        solver = new TrustRegionSolverLSQ(fJ, x0);
         expect(iter).toBe(0);
       }
       else {
@@ -318,7 +318,7 @@ describe('TrustRegionSolverLSQ', () => {
       x0 = zip_elems([x0,dx], (x,dx) => x+dx);
 
       if( undefined === solver ) {
-        solver = new TrustRegionSolverLSQ_V2(fJ, x0);
+        solver = new TrustRegionSolverLSQ(fJ, x0);
         expect(iter).toBe(0);
       }
       else {
@@ -431,7 +431,7 @@ describe('TrustRegionSolverLSQ', () => {
       x0 = zip_elems([x0,dx], (x,dx) => x+dx);
 
       if( undefined === solver ) {
-        solver = new TrustRegionSolverLSQ_V2(fJ, x0);
+        solver = new TrustRegionSolverLSQ(fJ, x0);
         expect(iter).toBe(0);
       }
       else {
@@ -482,7 +482,7 @@ describe('TrustRegionSolverLSQ', () => {
 
 
   forEachItemIn(
-    computeMinGlobal_overdet_gen()
+    computeNewtonRegularized0_overdet_gen()
   ).it(`computeNewtonRegularized(0) works for pre-generated  over-determined examples`, ([f,J, R,DR]) => {
 
     const fJ = function(){
@@ -495,7 +495,7 @@ describe('TrustRegionSolverLSQ', () => {
     }();
 
     const [M,N] = J.shape,                        x0 = tabulate([N], 'float64', () => Math.random()*4-2),
-         solver = new TrustRegionSolverLSQ_V2(fJ, x0);
+         solver = new TrustRegionSolverLSQ(fJ, x0);
 
     for( let i=4; i-- > 0; )
     {
@@ -528,7 +528,7 @@ describe('TrustRegionSolverLSQ', () => {
 
 
   forEachItemIn(
-    computeMinGlobal_underdet_gen()
+    computeNewtonRegularized0_underdet_gen()
   ).it(`computeNewtonRegularized(0) works for pre-generated under-determined examples`, ([f,J, R,DR]) => {
 
     const fJ = function(){
@@ -541,7 +541,7 @@ describe('TrustRegionSolverLSQ', () => {
     }();
 
     const [M,N] = J.shape,                        x0 = tabulate([N], 'float64', () => Math.random()*4-2),
-         solver = new TrustRegionSolverLSQ_V2(fJ, x0);
+         solver = new TrustRegionSolverLSQ(fJ, x0);
 
     for( let i=4; i-- > 0; )
     {
@@ -645,7 +645,7 @@ describe('TrustRegionSolverLSQ', () => {
       x0 = zip_elems([x0,dx], (x,dx) => x+dx);
 
       if( undefined === solver ) {
-        solver = new TrustRegionSolverLSQ_V2(fJ, x0);
+        solver = new TrustRegionSolverLSQ(fJ, x0);
         expect(iter).toBe(0);
       }
       else {
@@ -768,7 +768,7 @@ describe('TrustRegionSolverLSQ', () => {
       x0 = zip_elems([x0,dx], (x,dx) => x+dx);
 
       if( undefined === solver ) {
-        solver = new TrustRegionSolverLSQ_V2(fJ, x0);
+        solver = new TrustRegionSolverLSQ(fJ, x0);
         expect(iter).toBe(0);
       }
       else {
@@ -899,7 +899,7 @@ describe('TrustRegionSolverLSQ', () => {
       x0 = zip_elems([x0,dx], (x,dx) => x+dx);
 
       if( undefined === solver ) {
-        solver = new TrustRegionSolverLSQ_V2(fJ, x0);
+        solver = new TrustRegionSolverLSQ(fJ, x0);
         expect(iter).toBe(0);
       }
       else {
@@ -1030,7 +1030,7 @@ describe('TrustRegionSolverLSQ', () => {
       x0 = zip_elems([x0,dx], (x,dx) => x+dx);
 
       if( undefined === solver ) {
-        solver = new TrustRegionSolverLSQ_V2(fJ, x0);
+        solver = new TrustRegionSolverLSQ(fJ, x0);
         expect(iter).toBe(0);
       }
       else {
@@ -1123,7 +1123,7 @@ describe('TrustRegionSolverLSQ', () => {
           {
             let x0 = new Float64Array(N);
 
-            const solver = new TrustRegionSolverLSQ_V2(fJ, x0);
+            const solver = new TrustRegionSolverLSQ(fJ, x0);
 
             for( const x of data_gen_fn() )
             {
@@ -1243,7 +1243,7 @@ describe('TrustRegionSolverLSQ', () => {
       x0 = zip_elems([x0,dx], (x,dx) => x+dx);
 
       if( undefined === solver ) {
-        solver = new TrustRegionSolverLSQ_V2(fJ, x0);
+        solver = new TrustRegionSolverLSQ(fJ, x0);
         expect(iter).toBe(0);
       }
       else {
@@ -1321,7 +1321,7 @@ describe('TrustRegionSolverLSQ', () => {
       x0 = zip_elems([x0,dx], (x,dx) => x+dx);
 
       if( undefined === solver ) {
-        solver = new TrustRegionSolverLSQ_V2(fJ, x0);
+        solver = new TrustRegionSolverLSQ(fJ, x0);
         expect(iter).toBe(0);
       }
       else {
