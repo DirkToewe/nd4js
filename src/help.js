@@ -1642,7 +1642,7 @@ Examples
 ...        LDL  = nd.la.matmul(L,D,L.T),
 ...       PLDL  = nd.la.unpermute_rows( LDL,P),
 ...       PLDLP = nd.la.unpermute_cols(PLDL,P);
-... console.log('PLDLᵀPᵀ =\n' + PLDLP);
+... console.log('PLDLᵀPᵀ =\\n' + PLDLP);
   [[ 25, -50],
    [-50, 101]]
 `

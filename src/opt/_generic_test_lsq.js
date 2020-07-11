@@ -79,17 +79,16 @@ export function generic_test_lsq_gen_with_test_fn( lsq_gen, test_fn, x_range )
     const N = test_fn.nIn,
           M = test_fn.nOut;
 
-    let x, mse, mse_grad;
+    let x, mse, mse_grad, res, res_jac;
     try
     {
-      for( [x, mse, mse_grad] of lsq_gen(fJ, x0) )
+      for( [x, mse, mse_grad, res, res_jac] of lsq_gen(fJ, x0) )
       {
         expect(x       ).toEqual( jasmine.any(NDArray) )
-        expect(mse     ).toEqual( jasmine.any(NDArray) )
+        expect(mse     ).toEqual( jasmine.any(Number ) )
         expect(mse_grad).toEqual( jasmine.any(NDArray) )
 
         expect(x       .ndim).toBe(1)
-        expect(mse     .ndim).toBe(0)
         expect(mse_grad.ndim).toBe(1)
 
         expect(x       .shape).toEqual( Int32Array.of(N) )
@@ -97,6 +96,9 @@ export function generic_test_lsq_gen_with_test_fn( lsq_gen, test_fn, x_range )
 
         expect(mse     ).toBeAllCloseTo( test_fn(x) / M )
         expect(mse_grad).toBeAllCloseTo( test_fn.grad(x).mapElems(x => x/M) )
+
+        expect(res    ).toBeAllCloseTo( test_fn.lsq    (x) )
+        expect(res_jac).toBeAllCloseTo( test_fn.lsq_jac(x) )
 
         const gNorm = norm(mse_grad);
         if(   gNorm <= 1e-5 )

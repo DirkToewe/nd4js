@@ -19,8 +19,10 @@
 import {generic_test_fit_gen} from "./_generic_test_fit";
 import {generic_test_lsq_gen} from "./_generic_test_lsq";
 import {fit_dogleg_gen,
-        lsq_dogleg_gen} from "./dogleg";
+        lsq_dogleg_gen,
+        lsq_dogleg_v2_gen} from "./dogleg";
 
+generic_test_lsq_gen(lsq_dogleg_v2_gen);
 
 generic_test_fit_gen(fit_dogleg_gen);
 generic_test_lsq_gen(lsq_dogleg_gen);

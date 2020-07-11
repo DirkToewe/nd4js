@@ -448,8 +448,7 @@ export function* lsq_lbfgs_gen(
   for(;;)
   {
     yield [
-      new NDArray(shape_x, x.data.slice()),
-      new NDArray(shape_e, Float64Array.of(e)),
+      new NDArray(shape_x, x.data.slice()), e,
       new NDArray(shape_x, g.data.slice()),
       new NDArray(shape_f, f.data.slice()),
       new NDArray(shape_j, j.data.slice())

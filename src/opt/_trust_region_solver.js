@@ -91,7 +91,7 @@ export class TrustRegionSolverLSQ
   {
     if( this._state !== 1 ) throw new Error('TrustRegionSolverLSQ.prototype.cauchyPointTravel(): can only be called directly after update(f,J) call.');
 
-    const {M,N, X, F,T: J,G} = this;
+    const {M,N, T: J,G} = this;
 
     // polynomial along the gradient const1 + 2ax + bx² = const2 + (a/b + x)² * b
     let a=0,
@@ -123,7 +123,7 @@ export class TrustRegionSolverLSQ
   {
     this._state = 1;
 
-    const {M,N, D, P,Q,T,F, G, norm} = this;
+    const {M,N, D, P,T,F, G, norm} = this;
 
     // ASSERTIONS
     if( ! (f instanceof NDArray) ) throw new Error('Assertion failed.');

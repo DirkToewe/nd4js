@@ -23,6 +23,7 @@ import {nextUp} from "../dt/float64_utils";
 import {OptimizationNoProgressError} from "./optimization_error";
 import {roots1d_polyquad} from './polyquad'
 import {TrustRegionSolverLSQ} from './_trust_region_solver'
+import {TrustRegionSolverLSQ_V2} from './_trust_region_solver_lsq'
 
 
 // References
@@ -88,8 +89,7 @@ export function* lsq_dogleg_gen(
       W = new Float64Array(X.length), // <- 'W' as in working (temp.) memory
      dX = new Float64Array(X.length);
 
-  const X_shape = x0.shape,
-      mse_shape = new Int32Array(0);
+  const X_shape = x0.shape;
 
   let [f,J] = fJ( new NDArray(X_shape, X.slice()) );
   f = array('float64', f);
@@ -130,11 +130,10 @@ export function* lsq_dogleg_gen(
 
     if( stuckometer === 0 )
       yield [
-        new NDArray(  X_shape, X.slice()),
-        new NDArray(mse_shape, Float64Array.of(err_now / M) ),
-        new NDArray(  X_shape, G.map(g => g*2/M) ),
-        new NDArray(  f_shape, f.slice() ),
-        new NDArray(  J_shape, J.slice() )
+        new NDArray( X_shape, X.slice()),         err_now / M,
+        new NDArray( X_shape, G.map(g => g*2/M) ),
+        new NDArray( f_shape, f.slice() ),
+        new NDArray( J_shape, J.slice() )
       ];
 
     { const t = Math.max(-R/gNorm, cp); // <- don't go beyond trust region radius
@@ -202,7 +201,7 @@ export function* lsq_dogleg_gen(
       err_predict += s*s;
     }
 
-//*DEBUG*/    if( !(err_predict <= err_now) ) throw new Error('Assertion failed.');
+/*DEBUG*/    if( !(err_predict <= err_now+1e-6) ) throw new Error('Assertion failed.');
 
     let [f_next,
          J_next] = fJ( new NDArray(X_shape, W.slice()) );
@@ -365,4 +364,191 @@ export function* fit_dogleg_gen(
   };
 
   yield* lsq_dogleg_gen(fJ, p0, opt);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+export const lsq_dogleg_v2_gen = (fJ, x0, opt) => _dogleg(new TrustRegionSolverLSQ_V2(fJ,x0), opt);
+
+export function* _dogleg(
+  solver,
+  /*opt=*/{
+    r0   = 1.1,               // <-   START TRUST REGION RADIUS (meaning radius AFTER scaling)
+    rMin = 0,                 // <- MINIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
+    rMax = Infinity,          // <- MAXIMUM TRUST REGION RADIUS (meaning radius AFTER scaling)
+    rNewton = 2,              // <- IF NEWTON-POINT INSIDE TRUST RADIUS AND IMPROVEMENT OKAY (according to expectGainMin), RADIUS IS SET TO rNewton*distance(x,xNewton)
+    shrinkLower= 0.05,        // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT MOST
+    shrinkUpper= 0.95,        // <-  SHRINK TRUST REGION RADIUS BY THIS FACTOR AT LEAST
+    grow = 1.4142135623730951,// <-    GROW TRUST REGION RADIUS BY THIS FACTOR
+    expectGainMin = 0.25,     // <- IF ACTUAL IMPROVEMENT RELATIVE TO PREDICTION IS WORSE  THAN THIS FACTOR, SHRINK TRUST REGION
+    expectGainMax = 0.75,     // <- IF ACTUAL IMPROVEMENT RELATIVE TO PREDICTION IS BETTER THAN THIS FACTOR, GROW   TRUST REGION
+    stuckLimit = 32           // <- MAX. NUMBER OF CONSECUTIVE ITERATIONS WITHOUT PROGRESS
+  } = {}
+)
+{
+  if( !(            0 <  r0          ) ) throw new Error('dogleg_gen(fJ, x0, opt): opt.r0 must be positive number.');
+  if( !(            0 <= rMin        ) ) throw new Error('dogleg_gen(fJ, x0, opt): opt.rMin must be non-negative.');
+  if( !(         rMin <= rMax        ) ) throw new Error('dogleg_gen(fJ, x0, opt): opt.rMin must not be greater than opt.rMax.');
+  if( !(         rMin <= r0          ) ) throw new Error('dogleg_gen(fJ, x0, opt): opt.r0 must not be less than opt.rMin.');
+  if( !(         rMax >= r0          ) ) throw new Error('dogleg_gen(fJ, x0, opt): opt.r0 must not be greater than opt.rMax.');
+  if( !(            1 <  rNewton     ) ) throw new Error('dogleg_gen(fJ, x0, opt): opt.rGN must be greater than 1.');
+  if( !(            0 <  shrinkLower ) ) throw new Error('dogleg_gen(fJ, x0, opt): opt.shrinkLower must be positive number.');
+  if( !(  shrinkLower <= shrinkUpper ) ) throw new Error('dogleg_gen(fJ, x0, opt): opt.shrinkLower must not be greater than opt.shrinkUpper.');
+  if( !(  shrinkUpper < 1            ) ) throw new Error('dogleg_gen(fJ, x0, opt): opt.shrinkUpper must be less than 1.');
+  if( !(            1 < grow         ) ) throw new Error('dogleg_gen(fJ, x0, opt): opt.grow must be number greater than 1.');
+  if( !(            0 < expectGainMin) ) throw new Error('dogleg_gen(fJ, x0, opt): opt.expectGainMin must be positive number.');
+  if( !(expectGainMin < expectGainMax) ) throw new Error('dogleg_gen(fJ, x0, opt): opt.expectGainMin must be less than expectGainMax.');
+  if( !(expectGainMax < 1            ) )    console.warn('dogleg_gen(fJ, x0, opt): opt.expectGainMax should be less than 1.');
+  if(   0!== stuckLimit%1              ) throw new Error('dogleg_gen(fJ, x0, opt): opt.stuckLimit must be an integer.');
+  if( !(0 <= stuckLimit              ) ) throw new Error('dogleg_gen(fJ, x0, opt): opt.stuckLimit must not be negative.');
+
+  const {N, D, newton_dX, G0: G} = solver,
+                      dX = new Float64Array(N);
+  let     gNorm = solver.scaledNorm(G),
+             cp = solver.cauchyTravel(),
+              R = r0 * -gNorm*cp,
+           loss = solver.loss,
+    stuckometer = 0; // <- indicates how stuck we are, i.e. counts the number of consecutive operations without progress
+
+  for(;;)
+  {
+/*DEBUG*/    if( !(cp <= 0) ) throw new Error('Assertion failed.');
+
+    if( 0 === stuckometer )
+      yield solver.report();
+
+    { const t = Math.max(-R/gNorm, cp); // <- don't go beyond trust region radius
+      for( let i=N; i-- > 0; )
+        dX[i] = t*G[i]; // <- FIXME: Shouldn't the scaling be used here?!?!
+    };
+
+    let gnInRadius = false;
+
+    if( -gNorm*cp < R ) // <- IF CAUCHY POINT INSIDE TRUST RADIUS
+    {
+      solver.computeNewton(); // <- computes Gauss-Newton point
+
+      // TODO In [2], a method is described to adjust trust radius when global min is
+      //      inside trust region. Maybe it could be used in the Dogleg method as well.
+
+      // let's find the travel t from cauchy point (cp) to gauss-newton point (gp) which intersects
+      // with the trust region boundary. t=0 means cauchy point t=1 mean gauss-newton point.
+      // The travel is the solution to following the quadratic equation:
+      //   R² = a + 2bt + ct²
+      let a = 0,
+          b = 0,
+          c = 0;
+      for( let i=N; i-- > 0; ) {
+        const d =  D[i],
+          u = d * dX[i],
+          v = d * (newton_dX[i] - dX[i]);
+        a += u*u;
+        b += u*v;
+        c += v*v;
+      } a -= R*R;
+        b *= 2;
+
+      let t = roots1d_polyquad(a,b,c)[1];
+
+/*DEBUG*/      if( !(0 <= t) ) throw new Error('Assertion failed.');
+
+      if( t > 1 ) { // <- don't go beyond gauss-newton point (i.e. when it lies inside rust region)
+          t = 1;
+          gnInRadius = true;
+      }
+
+      for( let i=N; i-- > 0; ) {
+        const    v = newton_dX[i] - dX[i];
+        dX[i] += v*t;
+      }
+    }
+
+/*DEBUG*/    if( !gnInRadius ) { if( !(Math.abs(solver.scaledNorm(dX) - R) <= R*   1e-6  ) ) throw new Error('Assertion failed: ' + Math.abs(solver.scaledNorm(dX) - R)); } // <- check that solution is on ellipsoid boundary
+/*DEBUG*/    else                if( !(         solver.scaledNorm(dX)      <= R*(1+1e-6) ) ) throw new Error('Assertion failed.');   // <- check that solution is in ellipsoid
+
+    const [
+      loss_predict,
+      loss_consider,
+      same_x // <- returns true is dX was too small to make a difference
+    ] = solver.considerMove(dX);
+
+/*DEBUG*/    if( !(loss_predict <= loss+1e-6) ) throw new Error('Assertion failed.');
+
+    const rScale = () => 1;
+    // const rScale = () => gNorm; // <- TODO: examine scaling alternatives
+
+    const predict = loss - loss_predict,
+           actual = loss - loss_consider;
+    if(    actual < predict*expectGainMin )
+    {
+      // PREDICTION BAD -> REDUCE TRUST RADIUS
+      // (by fitting a quadratic polynomial through err_now, grad_now and err_next)
+      let grad = 0;
+      for( let i=N; i-- > 0; )
+        grad += dX[i] * G[i];
+
+      let   shrink = grad / (2*grad + loss - loss_consider);
+      if( !(shrink >= shrinkLower) ) shrink = shrinkLower;
+      if( !(shrink <= shrinkUpper) ) shrink = shrinkUpper;
+      const r = Math.max(rMin*rScale(), R*shrink);
+      if(   r === R && !(loss > loss_consider) )
+        throw new OptimizationNoProgressError();
+      R = r;
+    }
+    else if( gnInRadius )
+    {
+      // See [2] Algorithm (7.1) (d). If Gauss-Newton point is inside the trust radius and
+      // prediction is not bad, set the radius to rGN times the distance to the Gauss-Newton
+      // point. This also avoids that the trust radius grows uncontrollably while the
+      // Gauss-Newton point is inside the trust region for a few iterations.
+      const distanceToNewton = solver.scaledNorm(dX),
+                        rs   = rScale();
+      R = Math.max(rMin*rs,
+          Math.min(rMax*rs, rNewton*distanceToNewton));
+    }
+    else if( actual > predict*expectGainMax || same_x )
+    {
+      // PREDICTION GREAT -> INCREASE TRUST RADIUS
+      R = Math.min(rMax*rScale(),
+          Math.max(nextUp(R), R*grow));
+    }
+
+    // ONLY ACCEPT NEW X IF BETTER
+    if( loss > loss_consider ) {
+        loss = loss_consider;
+      solver.makeConsideredMove();
+      gNorm = solver.scaledNorm(G);
+      cp    = solver.cauchyTravel();
+      stuckometer = 0;
+    }
+    else if( ++stuckometer > stuckLimit )
+      throw new OptimizationNoProgressError('Too many unsuccessfull iterations.');
+  }
 }
