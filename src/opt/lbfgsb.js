@@ -34,11 +34,6 @@ import {LBFGSB_Solver} from "./_lbfgsb_solver";
 //         Dong C. Liu and Jorge Nocedal
 
 
-const softMax = (x,y) => x < y
-  ? (Math.exp(x-y)*x + y) / (Math.exp(x-y) + 1)
-  : (Math.exp(y-x)*y + x) / (Math.exp(y-x) + 1);
-
-
 export function* min_lbfgsb_gen(
   fg,
   x0,
@@ -47,7 +42,7 @@ export function* min_lbfgsb_gen(
     historySize = 8,
     lineSearch = more_thuente_u123({fRed: 1e-3, gRed: 0.8}), // <- there's not always a minimum along search direction (due to bounds) -> use _u123 instead of _abc
     updateTol = 1e-14,
-    initScale = 1 / 1024
+    scaleInit = 1e-3
   } = {}
 )
 {
@@ -68,7 +63,11 @@ export function* min_lbfgsb_gen(
   if(bounds.ndim     !== 2 ) throw new Error('min_lbfgsb_gen(fg,x0,bounds): bounds.ndim must be 2.');
   if(bounds.shape[0] !== L ) throw new Error('min_lbfgsb_gen(fg,x0,bounds): bounds.shape[0] must be x0.shape[0].');
   if(bounds.shape[1] !== 2 ) throw new Error('min_lbfgsb_gen(fg,x0,bounds): bounds.shape[1] must be 2.');
-  if(  ! (updateTol >= 0)  ) throw new Error('min_lbfgsb_gen(fg,x0,bounds,opt): opt.updateTol most be non-negative.');
+  
+  updateTol      *= 1;
+  scaleInit      *= 1;
+  if( ! (0 <= updateTol) ) throw new Error('min_lbfgsb_gen(fg,x0,bounds,opt): opt.updateTol most be non-negative.');
+  if( ! (0 <  scaleInit) ) throw new Error('min_lbfgsb_gen(fg,x0,bounds,opt): opt.scaleInit most be greater than 0.');
 
   bounds = bounds.data;
   updateTol *= 1;
@@ -89,7 +88,7 @@ export function* min_lbfgsb_gen(
   lineSearch = lineSearch(fg);
 
   const solver = new LBFGSB_Solver(historySize, L);
-  solver.scale = 1 / initScale; // TODO: Implement scaling as described in [1]
+  solver.scale = 1 / scaleInit; // TODO: Implement scaling as described in [1]
 
   const indices =       Int32Array.from({length: L}, (_,i) => i),
              dx = new Float64Array(L),
@@ -192,8 +191,8 @@ export function* min_lbfgsb_gen(
     if( updateTol*gg < gx )
     {
       solver.update(dx,dg);
-      // solver.scale = gg/gx;
-      solver.scale = softMax(solver.scale, gg/gx);
+      // solver.scale = Math.max(solver.scale, gg/gx);
+      solver.scale = gg/gx;
     }
 
     x = X;

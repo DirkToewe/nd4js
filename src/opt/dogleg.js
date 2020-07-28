@@ -30,10 +30,9 @@ export function min_dogleg_gen(fg, x0, opt={})
 {
   const { updateTol = 1e-14,
         historySize = 8,
-          scaleInit = 1e-3,
-          scaleSharpness = 0.5 } = opt;
+          scaleInit = 1e-2 } = opt;
   return _dogleg(
-    new TrustRegionSolverLBFGS(fg, x0, {updateTol, historySize, scaleInit, scaleSharpness}),
+    new TrustRegionSolverLBFGS(fg, x0, {updateTol, historySize, scaleInit}),
     opt
   );
 }

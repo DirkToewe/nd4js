@@ -38,11 +38,6 @@ import {more_thuente_abc} from './line_search/more_thuente_abc';
 // TODO: Implement scaling as described in [1].
 
 
-const softMax = (x,y) => x < y
-  ? (Math.exp(x-y)*x + y) / (Math.exp(x-y) + 1)
-  : (Math.exp(y-x)*y + x) / (Math.exp(y-x) + 1);
-
-
 export function* min_lbfgs_gen(
   fg,
   x0,
@@ -52,7 +47,7 @@ export function* min_lbfgs_gen(
     updateTol = 1e-14,
     negDir0 = g => g,
     scaling = function(){
-      let scale = 1/1024;
+      let scale = 1024;
       return {
         update( dx, dg ) {
           if( dx.ndim !== 1 ) throw new Error('Assertion failed.');
@@ -69,14 +64,14 @@ export function* min_lbfgs_gen(
               gx = 0;
     
           for( let i=dg.length; i-- > 0; )
-          { const       gi = dg[i]/mx,
-                        xi = dx[i]/mx;
+          { const gi = dg[i]/mx,
+                  xi = dx[i]/mx;
             gg += gi*gi;
             gx += xi*gi;
           }
 
-          // scale = gx/gg;
-          scale = softMax(scale, gx/gg);
+          scale = gg/gx;
+          // scale = Math.max(scale, gg/gx);
 
           if( ! isFinite(scale) )
             throw new Error('Assertion failed.');
@@ -87,7 +82,7 @@ export function* min_lbfgs_gen(
           const d = negDir.data;
 
           for( let i=d.length; i-- > 0; )
-            d[i] *= scale;
+            d[i] /= scale;
 
           return negDir;
         }
