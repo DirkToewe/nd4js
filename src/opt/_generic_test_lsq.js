@@ -69,8 +69,8 @@ export function generic_test_lsq_gen_with_test_fn( lsq_gen, test_fn, x_range )
 
     let nCalls = 0
     const fJ = x => {
-      if( ++nCalls > 16*1024 )
-        throw new Error('Assertion failed.');
+      if( ++nCalls > 32*1024 )
+        throw new Error('Too Many iterations.');
       const f = test_fn.lsq(x),
             J = test_fn.lsq_jac(x);
       return [f,J];

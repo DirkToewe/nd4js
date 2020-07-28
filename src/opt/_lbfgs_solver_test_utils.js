@@ -37,7 +37,7 @@ export function* _rand_updates( N )
 
   const shape = Int32Array.of(N,1);
 
-  const updateTol = 0.05;
+  const updateTol = 1/16;
 
   loop:for(;;)
   {

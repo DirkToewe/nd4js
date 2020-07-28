@@ -79,8 +79,8 @@ describe('LBFGS_Solver', () => {
         Object.freeze(indices.buffer);
 
         const {B} = ref,
-              Z  = tabulate([N,N], (i,j) => 1*(i === indices[j]) ),
-              y  = tabulate([N,1], () => Math.random()*8 - 4);
+               Z  = tabulate([N,N], (i,j) => 1*(i === indices[j]) ),
+               y  = tabulate([N,1], () => Math.random()*8 - 4);
 
         const b = matmul(Z.T, B, Z),
               x = solve(b,y);

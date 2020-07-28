@@ -37,6 +37,7 @@ import {JennrichSampson}   from './test_fn/jennrich_sampson';
 import {powell_badscale}   from './test_fn/powell_badscale';
 import {Rastrigin}         from './test_fn/rastrigin'
 import {Rosenbrock}        from './test_fn/rosenbrock'
+import { OptimizationNoProgressError } from './optimization_error';
 
 
 export function generic_test_min_gen_with_test_fn( minimize_gen, test_fn, x_range )
@@ -69,7 +70,8 @@ export function generic_test_min_gen_with_test_fn( minimize_gen, test_fn, x_rang
 
     let nCalls = 0
     const fg = x => {
-      expect(++nCalls).toBeLessThan(32*1024)
+      if( ++nCalls > 512*1024 )
+        throw new Error('Too many iterations.');
       return [
         test_fn(x),
         test_fn.grad(x)
@@ -97,11 +99,12 @@ export function generic_test_min_gen_with_test_fn( minimize_gen, test_fn, x_rang
         const gNorm = norm(g) / Math.sqrt(g.data.length);
         if(   gNorm <= 1e-8 )
           break
-        expect(++nIter).toBeLessThan(8*1024)
+        expect(++nIter).toBeLessThan(128*1024)
       }
     }
     catch( err ) {
-      if( ! (err instanceof LineSearchNoProgressError) )
+      if(    ! (err instanceof   LineSearchNoProgressError)
+          && ! (err instanceof OptimizationNoProgressError) )
         throw err;
     }
 
@@ -149,28 +152,29 @@ export function generic_test_min_gen( minimize_gen )
     generic_test_min_gen_with_test_fn( minimize_gen, brown_badscale, [[1e+6 - 2e+5, 1e+6 + 2e+5],
                                                                       [2e-6 - 4e-7, 2e-6 + 4e-7]] ); // <- TODO: increase range of starting points once line search improved
 
-    generic_test_min_gen_with_test_fn( minimize_gen, freudenstein_roth, [[-Math.PI/2, +16],
-                                                                         [-Math.PI/2,  +8]] );
+    generic_test_min_gen_with_test_fn( minimize_gen, freudenstein_roth, [[ 4, Math.PI*4],
+                                                                         [-Math.PI/2, 5]] );
 
     generic_test_min_gen_with_test_fn( minimize_gen, helical_valley, [[-Math.PI/2, +2],
                                                                       [-Math.PI/2, +2],
                                                                       [-Math.PI/2, +2]] );
 
-    generic_test_min_gen_with_test_fn( minimize_gen, new JennrichSampson(10), [[-1, 0.35],
-                                                                               [-1, 0.35]] );
+    generic_test_min_gen_with_test_fn( minimize_gen, new JennrichSampson(10), [[0.15, 0.32],
+                                                                               [0.15, 0.32]] );
 /*
-    generic_test_min_gen_with_test_fn( minimize_gen, powell_badscale, [[-10.1, +10.0], // <- avoids starting at x1=x2 which leads to a saddle point
-                                                                       [-10.0, +10.1]] );
+    generic_test_min_gen_with_test_fn( minimize_gen, powell_badscale, [[-9.6, +9.5], // <- avoids starting at x1=x2 which leads to a saddle point
+                                                                       [-9.5, +9.6]] );
 */
-    for( const length of range(1,4) )
-      generic_test_min_gen_with_test_fn(
-        minimize_gen, new Rastrigin(length), Array.from({length}, () => [-Math.PI*11,+Math.PI*11])
-      );
 
     for( const length of range(2,4) )
       generic_test_min_gen_with_test_fn(
         minimize_gen, new Rosenbrock(length), Array.from({length}, () => [-Math.PI*3,+Math.PI*3])
       );
-
+/*
+    for( const length of range(1,4) )
+      generic_test_min_gen_with_test_fn(
+        minimize_gen, new Rastrigin(length), Array.from({length}, () => [-Math.PI*11,+Math.PI*11])
+      );
+*/
   });
 }

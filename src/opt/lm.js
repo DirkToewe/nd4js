@@ -87,8 +87,6 @@ export function* _lm(
            loss = solver.loss,
     stuckometer = 0;
 
-  solver.computeNewton();
-
   for(;;)
   {
     if( 0 === stuckometer )
@@ -161,8 +159,7 @@ export function* _lm(
 
     const [
       loss_predict,
-      loss_consider,
-      same_x // <- returns true is dX was too small to make a difference
+      loss_consider
     ] = solver.considerMove(dX);
 
     /*DEBUG*/    if( !(loss_predict <= loss+1e-6) ) throw new Error('Assertion failed.');
@@ -199,7 +196,7 @@ export function* _lm(
       R = Math.max(rs*rMin,
           Math.min(rs*rMax, rNewton*r));
     }
-    else if( actual > predict*expectGainMax || same_x )
+    else if( actual > predict*expectGainMax || actual===0 )
     {
       // PREDICTION GREAT -> INCREASE TRUST RADIUS
       R = Math.min(rMax*rScale(),
@@ -210,7 +207,6 @@ export function* _lm(
     if( loss > loss_consider ) {
         loss = loss_consider;
       solver.makeConsideredMove();
-      solver.computeNewton();
       stuckometer = 0;
     }
     else if( ++stuckometer > stuckLimit )

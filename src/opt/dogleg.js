@@ -22,7 +22,21 @@ import {nextUp} from "../dt/float64_utils";
 
 import {OptimizationNoProgressError} from "./optimization_error";
 import {roots1d_polyquad} from './polyquad'
-import {TrustRegionSolverLSQ} from './_trust_region_solver_lsq'
+import {TrustRegionSolverLBFGS} from './_trust_region_solver_lbfgs'
+import {TrustRegionSolverLSQ  } from './_trust_region_solver_lsq'
+
+
+export function min_dogleg_gen(fg, x0, opt={})
+{
+  const { updateTol = 1e-14,
+        historySize = 8,
+          scaleInit = 1e-3,
+          scaleSharpness = 0.5 } = opt;
+  return _dogleg(
+    new TrustRegionSolverLBFGS(fg, x0, {updateTol, historySize, scaleInit, scaleSharpness}),
+    opt
+  );
+}
 
 
 // References
@@ -53,7 +67,7 @@ export function* _dogleg(
     grow = 1.4142135623730951,// <-    GROW TRUST REGION RADIUS BY THIS FACTOR
     expectGainMin = 0.25,     // <- IF ACTUAL IMPROVEMENT RELATIVE TO PREDICTION IS WORSE  THAN THIS FACTOR, SHRINK TRUST REGION
     expectGainMax = 0.75,     // <- IF ACTUAL IMPROVEMENT RELATIVE TO PREDICTION IS BETTER THAN THIS FACTOR, GROW   TRUST REGION
-    stuckLimit = 32           // <- MAX. NUMBER OF CONSECUTIVE ITERATIONS WITHOUT PROGRESS
+    stuckLimit = 64           // <- MAX. NUMBER OF CONSECUTIVE ITERATIONS WITHOUT PROGRESS
   } = {}
 )
 {
@@ -134,16 +148,15 @@ export function* _dogleg(
       }
     }
 
-/*DEBUG*/    if( !gnInRadius ) { if( !(Math.abs(solver.scaledNorm(dX) - R) <= R*   1e-6  ) ) throw new Error('Assertion failed: ' + Math.abs(solver.scaledNorm(dX) - R)); } // <- check that solution is on ellipsoid boundary
-/*DEBUG*/    else                if( !(         solver.scaledNorm(dX)      <= R*(1+1e-6) ) ) throw new Error('Assertion failed.');   // <- check that solution is in ellipsoid
+/*DEBUG*/    if( !gnInRadius ) { if( !(Math.abs(solver.scaledNorm(dX) - R) <= R*   1e-5 + 1e-8 ) ) throw new Error( 'Assertion failed: ' + JSON.stringify({cp, err: Math.abs(solver.scaledNorm(dX) - R), D: [...D], G: [...G], dX: [...dX]}) ); } // <- check that solution is on ellipsoid boundary
+/*DEBUG*/    else                if( !(         solver.scaledNorm(dX)      <= R*(1+1e-5) ) ) throw new Error('Assertion failed.');   // <- check that solution is in ellipsoid
 
     const [
       loss_predict,
-      loss_consider,
-      same_x // <- returns true is dX was too small to make a difference
+      loss_consider
     ] = solver.considerMove(dX);
 
-/*DEBUG*/    if( !(loss_predict <= loss+1e-6) ) throw new Error('Assertion failed.');
+/*DEBUG*/    if( !(loss_predict <= loss+1e-12) ) throw new Error('Assertion failed: ' + JSON.stringify({loss, loss_consider, loss_predict, gnInRadius}));
 
     const rScale = () => 1;
     // const rScale = () => gNorm; // <- TODO: examine scaling alternatives
@@ -177,7 +190,7 @@ export function* _dogleg(
       R = Math.max(rMin*rs,
           Math.min(rMax*rs, rNewton*distanceToNewton));
     }
-    else if( actual > predict*expectGainMax || same_x )
+    else if( actual > predict*expectGainMax || actual===0 )
     {
       // PREDICTION GREAT -> INCREASE TRUST RADIUS
       R = Math.min(rMax*rScale(),
@@ -188,12 +201,13 @@ export function* _dogleg(
     if( loss > loss_consider ) {
         loss = loss_consider;
       solver.makeConsideredMove();
-      gNorm = solver.scaledNorm(G);
-      cp    = solver.cauchyTravel();
       stuckometer = 0;
     }
     else if( ++stuckometer > stuckLimit )
-      throw new OptimizationNoProgressError('Too many unsuccessfull iterations.');
+      solver.wiggle();
+
+    gNorm = solver.scaledNorm(G);
+    cp = solver.cauchyTravel();
   }
 }
 

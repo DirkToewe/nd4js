@@ -34,6 +34,11 @@ import {LBFGSB_Solver} from "./_lbfgsb_solver";
 //         Dong C. Liu and Jorge Nocedal
 
 
+const softMax = (x,y) => x < y
+  ? (Math.exp(x-y)*x + y) / (Math.exp(x-y) + 1)
+  : (Math.exp(y-x)*y + x) / (Math.exp(y-x) + 1);
+
+
 export function* min_lbfgsb_gen(
   fg,
   x0,
@@ -41,7 +46,8 @@ export function* min_lbfgsb_gen(
   {
     historySize = 8,
     lineSearch = more_thuente_u123({fRed: 1e-3, gRed: 0.8}), // <- there's not always a minimum along search direction (due to bounds) -> use _u123 instead of _abc
-    updateTol = 1e-14
+    updateTol = 1e-14,
+    initScale = 1 / 1024
   } = {}
 )
 {
@@ -83,7 +89,7 @@ export function* min_lbfgsb_gen(
   lineSearch = lineSearch(fg);
 
   const solver = new LBFGSB_Solver(historySize, L);
-  solver.scale = 1024; // TODO: Implement scaling as described in [1]
+  solver.scale = 1 / initScale; // TODO: Implement scaling as described in [1]
 
   const indices =       Int32Array.from({length: L}, (_,i) => i),
              dx = new Float64Array(L),
@@ -186,7 +192,8 @@ export function* min_lbfgsb_gen(
     if( updateTol*gg < gx )
     {
       solver.update(dx,dg);
-      solver.scale = gg/gx;
+      // solver.scale = gg/gx;
+      solver.scale = softMax(solver.scale, gg/gx);
     }
 
     x = X;
@@ -224,11 +231,8 @@ export function* min_lbfgsb_gen(
         break loop;
       }
       catch(err) {
-        if( err instanceof LineSearchError && solver.m > 0 ) {
+        if( err instanceof LineSearchError && solver.m > 0 )
           solver.forget(solver.m+1 >>> 1);
-          // if( solver.m === 0 )
-          //   solver.scale = 1024;
-        }
         else
           throw err;
       }

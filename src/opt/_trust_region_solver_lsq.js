@@ -30,6 +30,8 @@ import {_triu_solve,
         _triu_t_solve} from '../la/tri'
 import {_urv_decomp_full} from '../la/urv'
 
+import {OptimizationNoProgressError} from './optimization_error';
+
 
 const REPORT_STATE_READY    = 1,
       REPORT_STATE_NA       = 2,
@@ -109,6 +111,13 @@ export class TrustRegionSolverLSQ
     this.makeConsideredMove();
   }
 
+
+  wiggle()
+  {
+    throw new OptimizationNoProgressError('Too many unsuccessfull iterations.');
+  }
+
+
   _considerMove_computeMSE()
   {
     const { M,N, report_f: {data: F},
@@ -126,8 +135,9 @@ export class TrustRegionSolverLSQ
       mse_grad[j] += J[N*i+j] * F[i] / M * 2;
 
     this.report_loss      = mse;
-    this.report_loss_grad = new NDArray(Int32Array.of(N), mse_grad);
+    this.report_loss_grad = new NDArray(Int32Array.of(N), mse_grad); // <- TODO: computation of loss_grad could probably be delayed until makeConsideredMove() is called
   }
+
 
   scaledNorm( X )
   {
@@ -142,6 +152,7 @@ export class TrustRegionSolverLSQ
 
     return norm.result;
   }
+
 
   cauchyTravel()
   {
@@ -203,11 +214,8 @@ export class TrustRegionSolverLSQ
     const X_shape = Int32Array.of(N),
           X = new Float64Array(N);
 
-    let same_x = true;
-    for( let i=N; i-- > 0; ) {
+    for( let i=N; i-- > 0; )
       X[i] = X0[i] + dX[i];
-      same_x &= X[i] === X0[i];
-    }
 
     let [f,J] = this.fJ(
       new NDArray( X_shape, X.slice() )
@@ -239,20 +247,19 @@ export class TrustRegionSolverLSQ
       predict_loss += s*s / M;
     }
 
-    return [
-      predict_loss,
-      this.report_loss,
-      same_x
-    ];
+    return [ predict_loss,
+         this.report_loss ];
   }
 
 
   makeConsideredMove()
   {
+    if( this._report_state !== REPORT_STATE_CONSIDER )
+      throw new Error('Assertion failed.');
+
     this._report_state = REPORT_STATE_READY;
     this.rank = -1;
 
-    // discard consideration
     this.loss = this.report_loss;
 
     const {M,N, D, tmp: norm, X0, F0, J0, G0} = this;
@@ -286,6 +293,7 @@ export class TrustRegionSolverLSQ
     for( let j=0; j < N; j++ )
       D[j] = Math.max( D[j], _norm(norm,j) );
   }
+
 
   computeNewton()
   {
@@ -405,13 +413,11 @@ export class TrustRegionSolverLSQ
   //
   // On top of that we can utilize the fact that J has already
   // been RRQR decomposed in computeNewton().
-
-
-
   computeNewtonRegularized( λ )
   {
-    if( ! (0 <= this.rank) )
-      throw new Error('TrustRegionSolverLSQ.prototype.computeMinRegularized(λ): Can only be called after computeNewton().');
+    this.computeNewton();
+    // if( ! (0 <= this.rank) )
+    //   throw new Error('TrustRegionSolverLSQ.prototype.computeMinRegularized(λ): Can only be called after computeNewton().');
 
     const {
       M,N, D, rank: rnk,
@@ -497,6 +503,8 @@ export class TrustRegionSolverLSQ
 
         const       j = (i-rnk+N) % N;
         T[rnk*N + N*j+i] = Dλ;
+
+        // TODO: if we were to eliminate each regularization row right away, TMP could be smaller
       }
 
       // COMPLETE QR DECOMPOSITION

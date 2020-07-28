@@ -38,5 +38,5 @@ const min_lbfgsb_gen_unbounded = (fg,x0) => {
 Object.defineProperty(min_lbfgsb_gen_unbounded, 'name', {value: `${min_lbfgsb_gen.name} [unbounded]`, writable: false});
 
 
-generic_test_min_gen_bounded(min_lbfgsb_gen);
 generic_test_min_gen        (min_lbfgsb_gen_unbounded);
+generic_test_min_gen_bounded(min_lbfgsb_gen);

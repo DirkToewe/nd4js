@@ -350,7 +350,7 @@ export class LBFGSB_Solver
   }
 
 
-  compute_be( j, hej )
+  compute_be( j, bej )
   {
     const {m,M,N, dG,
                 dXdG,
@@ -362,24 +362,24 @@ export class LBFGSB_Solver
 
     if( !(j >= 0) ) throw new Error('Assertion failed.');
     if( !(j <  N) ) throw new Error('Assertion failed.');
-    if( hej.length !== 2*M ) throw new Error('Assertion failed.');
+    if( bej.length !== 2*M ) throw new Error('Assertion failed.');
 
-    hej.fill(0.0, 0,2*m);
+    bej.fill(0.0, 0,2*m);
 
     for( let i=0; i < m; i++ )
-      hej[i] += dG[N*i+j];
+      bej[i] += dG[N*i+j];
 
     for( let i=1; i < m; i++ )
     for( let j=0; j < i; j++ )
-      hej[m+i] += dXdG[M*i+j] * hej[j] / dXdG[M*j+j];
+      bej[m+i] += dXdG[M*i+j] * bej[j] / dXdG[M*j+j];
 
     for( let i=0; i < m; i++ )
-      hej[i] /= D[i];
+      bej[i] /= D[i];
 
     for( let i=0; i < m; i++ )
-      hej[m+i] += dX[N*i+j] * scale;
+      bej[m+i] += dX[N*i+j] * scale;
 
-    _tril_solve(m,M,1, J,0, hej,m);
+    _tril_solve(m,M,1, J,0, bej,m);
   }
 
 
@@ -697,6 +697,88 @@ export class LBFGSB_Solver
       Hv[i] += dX[N*j+i] * u[m+j];
 
     for( const i of free_indices )
+      Hv[i] += v[i] / scale;
+  }
+
+
+  compute_Hv( v, Hv )
+  {
+    const {m,M,N, dX, dXdG,
+                  dG, dGdG, M_WAAW, Bei: u, scale} = this;
+
+    if(  v.length !== N ) throw new Error('Assertion failed.');
+    if( Hv.length !== N ) throw new Error('Assertion failed.');
+
+    //
+    // RIGHT PART
+    //
+    for( let i=0; i < m; i++ )
+    { let sum = 0;
+      for( let j=0; j < N; j++ )
+        sum += dG[N*i+j] * v[j];
+      u[i] = sum / scale;
+    }
+
+    for( let i=0; i < m; i++ )
+    { let sum = 0;
+      for( let j=0; j < N; j++ )
+        sum += dX[N*i+j] * v[j];
+      u[m+i] = sum;
+    }
+
+    //              _
+    // MIDDLE PART (M PART)
+    //
+    for( let i=0; i < m*2; i++ )
+    for( let j=0; j <=i  ; j++ )
+      M_WAAW[2*m*i+j] = 0;
+
+    // UPPER LEFT BLOCK
+    for( let i=0; i < m; i++ )
+    for( let j=0; j <=i; j++ ) {
+      M_WAAW[2*m*i+j] -= dGdG[M*i+j];
+      M_WAAW[2*m*i+j] /= scale
+    }
+
+    for( let i=0; i < m; i++ )
+      M_WAAW[2*m*i+i] -= dXdG[M*i+i];
+
+    // LOWER LEFT BLOCK
+    for( let i=0; i < m; i++ )
+    for( let j=i; j < m; j++ )
+      M_WAAW[2*m*(m+i) + j] -= dXdG[M*i+j];
+
+    // FIXME: It remains to be seen whether or not LDL is accurate enough.
+    //        If it isn't, we have to switch to PLDLP (Bunch-Kaufman).
+    if( 0 < m ) {
+      if( USE_LDL ) {
+        _ldl_decomp(2*m,2*m,   M_WAAW,0);
+        _ldl_solve (2*m,2*m,1, M_WAAW,0, u,0);
+      }
+      else {
+        const { Bdx: tmp, P } = this;
+        _pldlp_decomp(2*m,2*m,   M_WAAW,0, P,0);
+        _pldlp_solve (2*m,2*m,1, M_WAAW,0, P,0, u,0, tmp);
+      }
+    }
+
+    //
+    // LEFT PART
+    //
+    Hv.fill(0.0, 0,N);
+
+    for( let j=0; j < m; j++ )
+    for( let i=0; i < N; i++ )
+      Hv[i] += dG[N*j+i] * u[j];
+
+    for( let i=0; i < N; i++ )
+      Hv[i] /= scale;
+
+    for( let j=0; j < m; j++ )
+    for( let i=0; i < N; i++ )
+      Hv[i] += dX[N*j+i] * u[m+j];
+
+    for( let i=0; i < N; i++ )
       Hv[i] += v[i] / scale;
   }
 }

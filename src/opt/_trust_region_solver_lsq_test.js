@@ -25,11 +25,8 @@ import {_rand_cols0,
 import {zip_elems} from '../zip_elems'
 
 import {diag_mat} from '../la/diag'
-import {lstsq} from '../la/lstsq'
-import {matmul,
-        matmul2} from '../la/matmul'
+import {matmul2} from '../la/matmul'
 import {FrobeniusNorm, norm} from '../la/norm'
-import {rand_ortho} from '../la/rand_ortho'
 import {solve} from '../la/solve'
 import {svd_lstsq} from '../la/svd'
 import {svd_jac_2sided} from '../la/svd_jac_2sided'

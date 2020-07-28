@@ -21,5 +21,5 @@ import {generic_test_lsq_gen} from "./_generic_test_lsq";
 import {fit_lm_gen,
         lsq_lm_gen} from "./lm";
 
-generic_test_fit_gen(fit_lm_gen);
 generic_test_lsq_gen(lsq_lm_gen);
+generic_test_fit_gen(fit_lm_gen);

@@ -38,14 +38,9 @@ import {more_thuente_abc} from './line_search/more_thuente_abc';
 // TODO: Implement scaling as described in [1].
 
 
-function dot( u, v )
-{
-  if(  u.length !== v.length ) throw new Error()
-  let result = 0
-  for( let i=u.length; i-- > 0; )
-    result += u[i] * v[i]
-  return result
-}
+const softMax = (x,y) => x < y
+  ? (Math.exp(x-y)*x + y) / (Math.exp(x-y) + 1)
+  : (Math.exp(y-x)*y + x) / (Math.exp(y-x) + 1);
 
 
 export function* min_lbfgs_gen(
@@ -54,7 +49,7 @@ export function* min_lbfgs_gen(
   {
     historySize=8,
     lineSearch=more_thuente_abc(),
-    updateTol = 1e-13,
+    updateTol = 1e-14,
     negDir0 = g => g,
     scaling = function(){
       let scale = 1/1024;
@@ -80,7 +75,8 @@ export function* min_lbfgs_gen(
             gx += xi*gi;
           }
 
-          scale = gx/gg;
+          // scale = gx/gg;
+          scale = softMax(scale, gx/gg);
 
           if( ! isFinite(scale) )
             throw new Error('Assertion failed.');

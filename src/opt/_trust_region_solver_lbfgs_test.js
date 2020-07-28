@@ -16,11 +16,17 @@
  * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {lsq_lbfgs_gen,
-        min_lbfgs_gen} from './lbfgs';
-import {generic_test_lsq_gen} from "./_generic_test_lsq";
-import {generic_test_min_gen} from './_generic_test_min';
+import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
+
+import {TrustRegionSolverLBFGS} from "./_trust_region_solver_lbfgs";
+import {LBFGS_SolverRefImpl,
+        _rand_updates      } from './_lbfgs_solver_test_utils'
 
 
-generic_test_min_gen(min_lbfgs_gen);
-generic_test_lsq_gen(lsq_lbfgs_gen);
+describe('TrustRegionSolverLBFGS', () => {
+  beforeEach( () => {
+    jasmine.addMatchers(CUSTOM_MATCHERS)
+  })
+
+  // FIXME: add tests!!!
+})

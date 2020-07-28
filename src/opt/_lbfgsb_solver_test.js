@@ -346,14 +346,54 @@ describe('LBFGSB_Solver', () => {
         for( let N=0; N++ < 16; )
           yield [M,N];
       }()
-    ).it('compute_subspace_Hv works with all free variables (n_fix=0) given random updates' + suffix, ([M,N]) => {
+    ).it('compute_Hv works with all free variables (n_fix=0) given random updates' + suffix, ([M,N]) => {
       const ref = new LBFGS_SolverRefImpl(M,N),
             tst = new LBFGSB_Solver      (M,N);
 
       expect(M).toBeGreaterThan(0);
       expect(N).toBeGreaterThan(0);
 
-      const shape = Int32Array.of(N,1);
+      let i=0;
+      for( let [dx,dg] of _rand_updates(N) )
+      {
+        ref.update(dx.data, dg.data);
+        tst.update(dx.data, dg.data);
+
+        const       scale = rand_scale();
+        ref.scale = scale;
+        tst.scale = scale;
+
+        const {B} = ref,
+               y  = tabulate([N,1], () => Math.random()*8 - 4);
+
+        const x = solve(B,y),
+              X = new Float64Array(N);
+
+        tst.compute_Hv(y.data, X);
+
+        const tol = {
+          rtol: 0,
+          atol: 1e-4 * Math.max(norm(X), norm(x))
+        };
+        expect(X).toBeAllCloseTo(x.data, tol);
+
+        if( ++i >= 64 ) break;
+      }
+    })
+
+    forEachItemIn(
+      function*(){
+        for( let run=0; run++ < 2; )
+        for( let M=0; M++ <  8; )
+        for( let N=0; N++ < 16; )
+          yield [M,N];
+      }()
+    ).it('compute_subspace_Hv works with all free variables (n_fix=0) given random updates' + suffix, ([M,N]) => {
+      const ref = new LBFGS_SolverRefImpl(M,N),
+            tst = new LBFGSB_Solver      (M,N);
+
+      expect(M).toBeGreaterThan(0);
+      expect(N).toBeGreaterThan(0);
 
       let i=0;
       for( let [dx,dg] of _rand_updates(N) )
