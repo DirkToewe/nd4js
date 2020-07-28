@@ -226,7 +226,7 @@ export class TrustRegionSolverLBFGS
               const     B_ii = lbfgs.compute_ubbv(bv,1,bv);
               if( !(0 < B_ii) )
                 throw new Error('Assertion failed: LBFGS model not positive definite.');
-              D[i] = Math.max(D[i], Math.sqrt(B_ii));
+              D[i] = Math.max(D[i], Math.sqrt(B_ii)); // <- TODO: improve/rethink
             }
 
             for( let i=N; i-- > 0; ) last_X[i] = X0[i] + dX[i];

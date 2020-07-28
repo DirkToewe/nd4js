@@ -90,8 +90,8 @@ export class TrustRegionSolverODR
       _consider_J21 = new Float64Array(J21.length),
       _consider_J22 = new Float64Array(J22.length),
 
-      R1 = new Float64Array( MX * (NX*(NX+1)>>>1) ),
-      R2 = new Float64Array( M*NP ),
+      R11 = new Float64Array( MX * (NX*(NX+1)>>>1) ),
+      R22 = new Float64Array( MX * NP ),
 
       QF = new Float64Array(M),
 
@@ -103,8 +103,8 @@ export class TrustRegionSolverODR
 
       P = new Int32Array(NP),
 
-      tmp = new Float64Array( Math.max(MX*NX, 2*NP) ),
-      norm= tmp.subarray(0,2*NP);
+      tmp = new Float64Array(MX*NX),
+      norm= new Float64Array(2*NP);
 
     Object.assign(this, {
       MX,NX, NP, M,N,
@@ -123,8 +123,8 @@ export class TrustRegionSolverODR
       x_shape: samples_x.shape,
       y_shape: samples_y.shape,
       p_shape:        p0.shape,
-      J11,     R1,
-      J21,J22, R2,
+      J11,     R11,
+      J21,J22, R22,
       _consider_J11,
       _consider_J21,
       _consider_J22,
@@ -482,8 +482,8 @@ export class TrustRegionSolverODR
 
     const {
       M,N, MX,NX,NP,
-           R1,
-      tmp: R21,R2
+           R11,
+      tmp: R21,R22
     } = this;
 
     if( !( i < M ) ) throw new Error('Assertion failed.');
@@ -504,15 +504,21 @@ export class TrustRegionSolverODR
         j = Math.floor(j/MX) - I;
         i = i%MX;
 
-        return R1[off + (NX-I)*i+j];
+        return R11[off + (NX-I)*i+j];
       }
 
       i -= MX*NX;
       j = Math.floor(j/MX);
       return R21[NX*i+j];
     }
-                   j-= MX*NX;
-    return R2[NP*i+j];
+
+    if( i < MX*NX )
+      return NaN;
+
+    i -= MX*NX;
+    j -= MX*NX;
+
+    return R22[NP*i+j];
   }
 
 
@@ -558,11 +564,11 @@ export class TrustRegionSolverODR
   computeNewton()
   {
     const {
-      M,N, MX,NX,NP,
+      M, MX,NX,NP,
       J11,
       J21,J22,
-           R1,
-      tmp: R21,R2,
+           R11,
+      tmp: R21,R22,
       F0, QF,
       newton_dX: X,
       P, norm
@@ -610,13 +616,13 @@ export class TrustRegionSolverODR
     //
     // STEP 1: MEMORY INITIALIZATION
     //
-    R1.fill(0.0);
+    R11.fill(0.0);
     for( let j=NX; j-- > 0; )
     {
       const off = MX*( NX*j - (j*(j-1) >>> 1) );
 
       for( let i=MX; i-- > 0; )
-        R1[off + (NX-j)*i] = J11[MX*j+i];
+        R11[off + (NX-j)*i] = J11[MX*j+i];
     }
 
     // J21 memory is orderd left to right, basically going down the diagonals one after another
@@ -635,98 +641,80 @@ export class TrustRegionSolverODR
     for( let j=NX; j-- > 0; )
       R21[NX*i+j] = J21[MX*j+i];
 
-    const R22_off = MX*NX*NP;
-
     for( let i=MX*NP; i-- > 0; )
-      R2[R22_off + i] = J22[i];
-    R2.fill(0.0, 0,R22_off);
+      R22[i] = J22[i];
 
     for( let i=M; i-- > 0; )
       QF[i] = F0[i];
 
     //
     // STEP 2.1: ELIMINATE R21 USING GIVENS ROTATIONS
-    //           O( max(NP,NX)*NX*MX ) operations
+    //           O( MX*NX² ) operations
     //
+    X.fill(1.0, 0,MX); // <- temp. stores the (accumulated) cosines of the givens rotations
+
     for( let I=0; I < NX; I++ ) // <- for each block top to bottom
     {
-      const R1_off = MX*( NX*I - (I*(I-1) >>> 1) );
+      const R11_off = MX*( NX*I - (I*(I-1) >>> 1) );
 
       for( let i=0; i < MX; i++ ) // <- for each diagonal entry in block
       {
         // COMPUTE GIVENS ROTATION
-        const     i1 = R1_off + (NX-I)* i,
-                  i2 =           NX   * i+I,
-                  r1 = R1 [i1],
-                  r2 = R21[i2],
-          [c,s,norm] =_giv_rot_qr(r1,r2);
-        if(0 === s) continue;
-        R1 [i1] = norm;
+        const    i1 = R11_off + (NX-I)* i,
+                 i2 =            NX   * i+I,
+                 r1 = R11[i1],
+                 r2 = R21[i2],
+         [c,s,norm] =_giv_rot_qr(r1,r2);
+
+        R21[i2] = s * X[i];
+                      X[i] *= c; if( s === 0 ) continue;
+        R11[i1] = norm;
 
         // ROTATE R1 & R21
         for( let j=0; ++j < NX-I; ) // <- for earch non-zero entry in row
         { const         rj = R21[i2+j];
-          R1 [i1+j] = s*rj;
+          R11[i1+j] = s*rj;
           R21[i2+j] = c*rj;
         }
 
         // ROTATE QF
-        let off1 = MX*I +i,
-            off2 = MX*NX+i;
-        _giv_rot_rows(QF,1, off1,off2, c,s);
-
-        // ROTATE R2
-        off1 *= NP;
-        off2 *= NP;
-        for( let i=0; i < NP; i++ )
-        { const          ri = R2[off2+i];
-          R2[off1+i] = s*ri;
-          R2[off2+i] = c*ri;
-        }
+        _giv_rot_rows(QF,1, MX*I +i,
+                            MX*NX+i, c,s);
       }
     }
 
-    for( let i=NP; i-- > 0; ) P[i] = i;
+    //
+    // STEP 2.2: APPLY TO R22 THE SCALE WHICH RESULTS FROM THE GIVENS ROTATIONS IN STEP 2.1
+    //           O( MX*NP ) operations
+    //
+    for( let i=MX; i-- > 0; )
+    for( let j=NP; j-- > 0; )
+      R22[NP*i+j] *= X[i];
 
     //
-    // STEP 2.2: RRQR-DECOMPOSE R22
-    //           O( Math.min(MX,NP)*NP*MX ) operations
+    // STEP 2.3: RRQR-DECOMPOSE R22
+    //           O( min(MX,NP)*NP*MX ) operations
     //
-     _rrqr_decomp_inplace(MX,NP,1, R2,R22_off, QF,MX*NX*1, P,0, norm);
-    const rnk =_rrqr_rank(MX,NP,   R2,R22_off,                  norm);
-    this.rank = rnk+MX*NX;
+    for( let i=NP; i-- > 0; ) P[i] = i;
+
+     _rrqr_decomp_inplace(MX,NP,1, R22,0, QF,MX*NX, P,0, norm);
+    const rnk =_rrqr_rank(MX,NP,   R22,0,                norm);
+    this.rank = rnk + MX*NX;
 
     for( let i=MX*NX+rnk; i-- > 0; )
       X[i] = QF[i];
 
     if( rnk !== NP )
     { //
-      // STEP 3, BRANCH A: (underdetermined or rank-deficient case)
-      // O( M*rnk*(NP-rnk) + MX²*NX²*(NP-rnk) ) operations
-      //
-      // This branch is deemed to be very unlikely in cases like curve fitting
-      // since it would usually mean that we have found a minimum for at least
-      // one curve parameter.
-      //
-      // If however Branch A is likely, there is another approach that would
-      // make this branch significantly faster by starting with a RQ-Decomposition
-      // before Step 2.1. This way we could eliminate the rank-deficient columns
-      // first which will make the remaining steps faster and simpler even.
-      //
+      // STEP 2.4: ELIMINATE RANK-DEFICIENT COLUMS
+      //           O( rnk² * (NP-rnk) ) operations
       X.fill(0.0, MX*NX+rnk);
 
-      // APPLY P TO UPPER REGION OF R2
-      for( let i=MX*NX; i-- > 0; )
-      {
-        for( let j=NP; j-- > 0; )              norm[j]  = R2[NP*i+P[j]];
-        for( let j=NP; j-- > 0; ) R2[NP*i+j] = norm[j];
-      }
-
-      // eliminate lower part of linear dependent columns of R2
-      for( let i=rnk; i-- > 0; ) {     const ii = R22_off + NP*i+i;
-        for( let j= NP; j-- > rnk; ) { const ij = R22_off + NP*i+j,
-                                   R_ii = R2[ii],
-                                   R_ij = R2[ij];
+      // eliminate lower part of linear dependent columns of R22
+      for( let i=rnk; i-- > 0; ) {     const ii = NP*i+i;
+        for( let j= NP; j-- > rnk; ) { const ij = NP*i+j,
+                                  R_ii = R22[ii],
+                                  R_ij = R22[ij];
           // compute Givens rot.
           let [c,s,nrm] = _giv_rot_qr(R_ii,R_ij);
           if( s !== 0 )
@@ -736,92 +724,89 @@ export class TrustRegionSolverODR
               nrm *= -1;
             }
             // apply Givens rot.
-            for( let k=MX*NX+i; k-- > 0; )
-            { const        R_ki = R2[NP*k+i],
-                           R_kj = R2[NP*k+j];
-              R2[NP*k+i] = R_kj*s + c*R_ki;
-              R2[NP*k+j] = R_kj*c - s*R_ki;
+            for( let k=i; k-- > 0; )
+            { const         R_ki = R22[NP*k+i],
+                            R_kj = R22[NP*k+j];
+              R22[NP*k+i] = R_kj*s + c*R_ki;
+              R22[NP*k+j] = R_kj*c - s*R_ki;
             }
-            R2[ii] = nrm;
-          } R2[ij] = s;
+            R22[ii] = nrm;
+          } R22[ij] = s;
         }
       }
-
-      // BACKWARDS SUBSITUTION OF R2-PART
-      _triu_solve(rnk,NP,1, R2,R22_off, X,MX*NX);
-
-      // MOVE SOLVED R2-PART TO THE RIGHT
-      for( let i=MX*NX; i-- > 0; )
-      for( let j=rnk  ; j-- > 0; )
-        X[i] -= R2[NP*i+j] * X[MX*NX + j];
-
-      // BACKWARD SUBSTITUTION OF R1-PART
-      for( let I=NX; I-- > 0; ) // <- for each block bottom to top
-      {
-        const R1_off = MX*( NX*I - (I*(I-1) >>> 1) );
-
-        for( let i=MX; i-- > 0; ) // <- for each diagonal entry in block bottom to top
-        {
-          const iX = MX*I+i,
-                iR = R1_off + (NX-I)*i;
-
-          for( let j=NX-I; --j > 0; )
-            X[iX] -= X[iX + MX*j] * R1[iR + j];
-
-          X[iX] /= R1[iR];
-        }
-      }
-
-      // APPLY GIVENS ROTATIONS TO X
-      for( let i= 0 ; i < MX*NX+rnk; i++ )
-      for( let j=rnk; j < NP       ; j++ )
-      {
-        const s = R2[NP*i+j]; if( 0 === s ) continue;
-        const c = Math.sqrt(1-s*s),
-             Xi = X[        i],
-             Xj = X[MX*NX + j];
-        X[        i] = Xi*c - s*Xj;
-        X[MX*NX + j] = Xi*s + c*Xj;
-      }
-
-      // APPLY P TO R2-PART OF X
-      for( let i=NP; i-- > 0; )                norm[P[i]] = X[MX*NX + i];
-      for( let i=NP; i-- > 0; ) X[MX*NX + i] = norm[  i ];
     }
-    else
+
+    //
+    // STEP 3.1: BACKWARDS SUBSITUTION OF R2-PART
+    //           O( rnk² ) operations
+    //
+    _triu_solve(rnk,NP,1, R22,0, X,MX*NX);
+
+    if( rnk != NP )
     { //
-      // STEP 3, BRANCH B: (overdetermined, full-rank case) COMPUTE SOLUTION (solves triangular sparse system using backward substitution)
+      // STEP 3.2: APPLY GIVENS ROTATIONS TO X (UNDO 2.4)
+      //           O( rnk * (NP-rnk) ) operations
       //
-      if(  rnk !== NP  ) throw new Error('Assertion failed.');
-      if( ! (MX >= NP) ) throw new Error('Assertion failed.');
-
-      // BACKWARDS SUBSITUTION OF R2-PART
-      _triu_solve(NP,NP,1, R2,R22_off, X,MX*NX);
-
-      // APPLY P TO R2-PART OF X
-      for( let i=NP; i-- > 0; )                norm[P[i]] = X[MX*NX + i];
-      for( let i=NP; i-- > 0; ) X[MX*NX + i] = norm[  i ];
-
-      // MOVE SOLVED R2-PART TO THE RIGHT
-      for( let i=MX*NX; i-- > 0; )
-      for( let j=NP   ; j-- > 0; )
-        X[i] -= R2[NP*i+j] * X[MX*NX + j];
-
-      // BACKWARD SUBSTITUTION OF R1-PART
-      for( let I=NX; I-- > 0; ) // <- for each block bottom to top
+      for( let i= 0 ; i < rnk; i++ )
+      for( let j=rnk; j < NP ; j++ )
       {
-        const R1_off = MX*( NX*I - (I*(I-1) >>> 1) );
+        const s = R22[NP*i+j]; if( 0 === s ) continue;
+        const c = Math.sqrt(1-s*s);
+        _giv_rot_rows(X,1, MX*NX + j,
+                           MX*NX + i, c,s);
+      }
+    }
 
-        for( let i=MX; i-- > 0; ) // <- for each diagonal entry in block bottom to top
-        {
-          const iX = MX*I+i,
-                iR = R1_off + (NX-I)*i;
+    //
+    // STEP 3.3: APPLY COLUMN PERMUTATIONS P TO X (UNDO 2.3)
+    //           O( NP ) operations
+    //
+    for( let i=NP; i-- > 0; )                norm[P[i]] = X[MX*NX + i];
+    for( let i=NP; i-- > 0; ) X[MX*NX + i] = norm[  i ];
 
-          for( let j=NX-I; --j > 0; )
-            X[iX] -= X[iX + MX*j] * R1[iR + j];
+    //
+    // STEP 3.4: MOVE SOLVED R22-PART TO THE RIGHT
+    //           O( max(NP,NX)*MX ) operations
+    // -------------------------------------------
+    // As a result of steps 2.1 and 2.2, each row in R12 can be described as
+    // a scaled row of J22, i.e.:
+    //
+    // R12[MX*j+i,:] = s[i,j] * J22[i,:]
+    //
+    // Where:
+    //
+    // s[i,j] = R21[i,j] * c[i,j-1]
+    // s[i,0] = R21[i,0]
+    // c[i,j] = sqrt( 1 - (s[i,j])² )
+    //
+    for( let i=MX; i-- > 0; )
+    {
+      let xj = 0.0;
+      for( let j=NP; j-- > 0; )
+        xj += J22[NP*i+j] * X[MX*NX + j];
 
-          X[iX] /= R1[iR];
-        }
+      for( let j=0; j < NX; j++ )
+      { const        s = R21[NX*i+j];
+        X[MX*j+i] -= s*xj;
+      }
+    }
+
+    //
+    // STEP 3.5: BACKWARD SUBSTITUTION OF R11
+    //           O( MX*NX² ) operations
+    for( let I=NX; I-- > 0; ) // <- for each block bottom to top
+    {
+      const R11_off = MX*( NX*I - (I*(I-1) >>> 1) );
+
+      for( let i=MX; i-- > 0; ) // <- for each diagonal entry in block bottom to top
+      {
+        const iX = MX*I+i,
+              iR = R11_off + (NX-I)*i;
+
+        for( let j=NX-I; --j > 0; )
+          X[iX] -= X[iX + MX*j] * R11[iR + j];
+
+        X[iX] /= R11[iR];
       }
     }
   }

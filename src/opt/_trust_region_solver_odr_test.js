@@ -212,7 +212,7 @@ for( const [name,{NP,NX,NDIM,f,fgg}] of Object.entries(funcs) )
           const MX = _rand_int(1,16),
             shape = [MX,NX].slice(0,NDIM),
                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
+               p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
 
           let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
