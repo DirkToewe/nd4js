@@ -105,8 +105,8 @@ export class TrustRegionSolverLBFGS
 
   wiggle()
   {
-    const {lbfgs, D, scaleInit} = this,
-                            {m} = lbfgs;
+    const {lbfgs} = this,
+              {m} = lbfgs;
     if( 0===m )
       throw new OptimizationNoProgressError('Too many unsuccessfull iterations.'); 
 
