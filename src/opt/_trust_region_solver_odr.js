@@ -90,20 +90,23 @@ export class TrustRegionSolverODR
       _consider_J21 = new Float64Array(J21.length),
       _consider_J22 = new Float64Array(J22.length),
 
-      R11 = new Float64Array( MX * (NX*(NX+1)>>>1) ),
-      R22 = new Float64Array( MX * NP ),
-
       QF = new Float64Array(M),
 
       X0 = new Float64Array(N),
       F0 = new Float64Array(M),
       G0 = new Float64Array(N),
 
-      newton_dX = new Float64Array(N),
+      newton_R11 = new Float64Array( MX * NX ), // <- after computeNewton(), contains diagonal of R11
+      newton_R21 = new Float64Array( MX * NX ), // <- after computeNewton(), contains sines of givens rotations used to compute off diagonal entries of R11 and R12
+      newton_R22 = new Float64Array( MX * NP ), // <- after computeNewton(), contains R22 which is dense
+      newton_dX  = new Float64Array(N),
+
+      regularized_R11 = new Float64Array( MX * NX ),
+      regularized_R21 = new Float64Array( MX * NX ),
+      regularized_R22 = new Float64Array( MX * NP ),
+      regularized_dX  = new Float64Array(N),
 
       P = new Int32Array(NP),
-
-      tmp = new Float64Array(MX*NX),
       norm= new Float64Array(2*NP);
 
     Object.assign(this, {
@@ -123,12 +126,15 @@ export class TrustRegionSolverODR
       x_shape: samples_x.shape,
       y_shape: samples_y.shape,
       p_shape:        p0.shape,
-      J11,     R11,
-      J21,J22, R22,
+      J11,
+      J21,J22,
+      newton_R11,
+      newton_R21,
+      newton_R22,
       _consider_J11,
       _consider_J21,
       _consider_J22,
-      D, tmp, norm,
+      D, norm,
       X0,F0,G0, QF, P,
       newton_dX
     });
@@ -264,7 +270,7 @@ export class TrustRegionSolverODR
     this._considerMove(dX);
 
     const {
-      M,N, MX,NX,NP,
+      M, MX,NX,NP,
 
       J11,
       J21,J22,
@@ -482,38 +488,28 @@ export class TrustRegionSolverODR
 
     const {
       M,N, MX,NX,NP,
-           R11,
-      tmp: R21,R22
+      newton_R11: R11,
+      newton_R21: R21,
+      newton_R22: R22
     } = this;
 
     if( !( i < M ) ) throw new Error('Assertion failed.');
     if( !( j < N ) ) throw new Error('Assertion failed.');
 
-    if( j < MX*NX )
-    {
-      if( i%MX !== j%MX ) return 0;
-
-      if( i < MX*NX )
-      {
-        if( j < i ) return 0;
-
-        const I = Math.floor(i/MX);
-
-        const off = MX*( NX*I - (I*(I-1) >>> 1) );
-
-        j = Math.floor(j/MX) - I;
-        i = i%MX;
-
-        return R11[off + (NX-I)*i+j];
-      }
-
-      i -= MX*NX;
-      j = Math.floor(j/MX);
-      return R21[NX*i+j];
-    }
+    if( i > j ) return 0;
 
     if( i < MX*NX )
-      return NaN;
+    {
+      if( i === j ) return R11[i];
+
+      const s = R21[NX*(i%MX) + (i/MX|0)],
+         J_ij = this.__DEBUG_J(MX*NX + i%MX, j);
+
+      return s*J_ij;
+    }
+
+    if( j < MX*NX )
+      return 0;
 
     i -= MX*NX;
     j -= MX*NX;
@@ -567,62 +563,25 @@ export class TrustRegionSolverODR
       M, MX,NX,NP,
       J11,
       J21,J22,
-           R11,
-      tmp: R21,R22,
+      newton_R11: R11,
+      newton_R21: R21,
+      newton_R22: R22,
       F0, QF,
       newton_dX: X,
       P, norm
     } = this;
 
-    if( !(R21.length >= MX*NX) ) throw new Error('Assertion failed.');
-
     if( ! (0 > this.rank) )
       throw new Error('Assertion failed.');
 
     //
-    // INIT R
-    //
-    // In J11, memory order is like (example with MX=3,NX=2):
-    //   0
-    //     4
-    //       8
-    //        12
-    //          15
-    //            18
-    //              21
-    //                23
-    //                  25
-    //                    27
-    //                      28
-    //                        29
-    //
-    // In R1, memory order is like:
-    //
-    //   0     1     2     3
-    //     4     5     6     7
-    //       8     9    10    11
-    //        12    13    14
-    //          15    16    17
-    //            18    19    20
-    //              21    22
-    //                23    24
-    //                  25    26
-    //                    27
-    //                      28
-    //                        29
-    //
-    // Where the new indices are initialized to zero.
-
-    //
     // STEP 1: MEMORY INITIALIZATION
     //
-    R11.fill(0.0);
-    for( let j=NX; j-- > 0; )
-    {
-      const off = MX*( NX*j - (j*(j-1) >>> 1) );
 
-      for( let i=MX; i-- > 0; )
-        R11[off + (NX-j)*i] = J11[MX*j+i];
+    // for R11, only the diagonal is stored in memory explicitly. Off-diagonal entries are computed "on-demand"
+    for( let i=MX*NX; i-- > 0; ) {
+      if(0 === J11[i]) throw new Error('Assertion failed: J11 must be all non-zero.');
+      R11[i] = J11[i];
     }
 
     // J21 memory is orderd left to right, basically going down the diagonals one after another
@@ -654,33 +613,26 @@ export class TrustRegionSolverODR
     X.fill(1.0, 0,MX); // <- temp. stores the (accumulated) cosines of the givens rotations
 
     for( let I=0; I < NX; I++ ) // <- for each block top to bottom
+    for( let i=0; i < MX; i++ ) // <- for each diagonal entry in block
     {
-      const R11_off = MX*( NX*I - (I*(I-1) >>> 1) );
+      // COMPUTE GIVENS ROTATION
+      const   i1 = MX*I+i,
+              i2 = NX*i+I,
+              r1 = R11[i1],
+              r2 = R21[i2],
+       [c,s,norm]=_giv_rot_qr(r1,r2);
 
-      for( let i=0; i < MX; i++ ) // <- for each diagonal entry in block
-      {
-        // COMPUTE GIVENS ROTATION
-        const    i1 = R11_off + (NX-I)* i,
-                 i2 =            NX   * i+I,
-                 r1 = R11[i1],
-                 r2 = R21[i2],
-         [c,s,norm] =_giv_rot_qr(r1,r2);
+      R21[i2] = s * X[i];
+                    X[i] *= c; if( s === 0 ) continue;
+      R11[i1] = norm;
 
-        R21[i2] = s * X[i];
-                      X[i] *= c; if( s === 0 ) continue;
-        R11[i1] = norm;
+      // ROTATE R21
+      for( let j=0; ++j < NX-I; ) // <- for earch non-zero entry in row
+        R21[i2+j] *= c;
 
-        // ROTATE R1 & R21
-        for( let j=0; ++j < NX-I; ) // <- for earch non-zero entry in row
-        { const         rj = R21[i2+j];
-          R11[i1+j] = s*rj;
-          R21[i2+j] = c*rj;
-        }
-
-        // ROTATE QF
-        _giv_rot_rows(QF,1, MX*I +i,
-                            MX*NX+i, c,s);
-      }
+      // ROTATE QF
+      _giv_rot_rows(QF,1, MX*I +i,
+                          MX*NX+i, c,s);
     }
 
     //
@@ -795,19 +747,15 @@ export class TrustRegionSolverODR
     // STEP 3.5: BACKWARD SUBSTITUTION OF R11
     //           O( MX*NX² ) operations
     for( let I=NX; I-- > 0; ) // <- for each block bottom to top
+    for( let i=MX; i-- > 0; ) // <- for each diagonal entry in block bottom to top
     {
-      const R11_off = MX*( NX*I - (I*(I-1) >>> 1) );
+      const Ii =     MX*I+i,
+             s = R21[NX*i+I];
 
-      for( let i=MX; i-- > 0; ) // <- for each diagonal entry in block bottom to top
-      {
-        const iX = MX*I+i,
-              iR = R11_off + (NX-I)*i;
+      for( let j=MX*NX + i; (j-=MX) > Ii; )
+        X[Ii] -= X[j] * J21[j] * s;
 
-        for( let j=NX-I; --j > 0; )
-          X[iX] -= X[iX + MX*j] * R11[iR + j];
-
-        X[iX] /= R11[iR];
-      }
+      X[Ii] /= R11[Ii];
     }
   }
 

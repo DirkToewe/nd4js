@@ -413,7 +413,6 @@ for( const [name,{NP,NX,NDIM,f,fgg}] of Object.entries(funcs) )
       const J1 = tabulate( [M,    MX*NX], 'float64', (i,j) => solver.__DEBUG_J(i,j) ),
             R1 = tabulate( [MX*NX,MX*NX], 'float64', (i,j) => solver.__DEBUG_R(i,j) ),
             QF = new NDArray( Int32Array.of(MX*NX,1), solver.QF.slice(0,MX*NX) );
-            
 
       const [Q,r1] = qr_decomp(J1);
 
