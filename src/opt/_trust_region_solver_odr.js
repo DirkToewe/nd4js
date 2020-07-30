@@ -24,7 +24,8 @@ import {_giv_rot_qr,
 import {FrobeniusNorm} from "../la/norm";
 import {_rrqr_decomp_inplace,
         _rrqr_rank} from "../la/rrqr";
-import {_triu_solve} from "../la/tri";
+import {_triu_solve,
+        _triu_t_solve} from "../la/tri";
 
 import {OptimizationNoProgressError} from "./optimization_error";
 
@@ -90,8 +91,6 @@ export class TrustRegionSolverODR
       _consider_J21 = new Float64Array(J21.length),
       _consider_J22 = new Float64Array(J22.length),
 
-      QF = new Float64Array(M),
-
       X0 = new Float64Array(N),
       F0 = new Float64Array(M),
       G0 = new Float64Array(N),
@@ -99,14 +98,17 @@ export class TrustRegionSolverODR
       newton_R11 = new Float64Array( MX * NX ), // <- after computeNewton(), contains diagonal of R11
       newton_R21 = new Float64Array( MX * NX ), // <- after computeNewton(), contains sines of givens rotations used to compute off diagonal entries of R11 and R12
       newton_R22 = new Float64Array( MX * NP ), // <- after computeNewton(), contains R22 which is dense
+      newton_P   = new   Int32Array(NP),
+      newton_QF  = new Float64Array(M),
       newton_dX  = new Float64Array(N),
 
-      regularized_R11 = new Float64Array( MX * NX ),
-      regularized_R21 = new Float64Array( MX * NX ),
-      regularized_R22 = new Float64Array( MX * NP ),
+      regularized_R11 = new Float64Array(  MX    * NX ),
+      regularized_R21 = new Float64Array(  MX    * NX ),
+      regularized_R22 = new Float64Array( Math.max(MX,NP+1) * NP ),
+      regularized_P   = new   Int32Array(NP),
+      regularized_QF  = new Float64Array( Math.max(M,N+1) ),
       regularized_dX  = new Float64Array(N),
 
-      P = new Int32Array(NP),
       norm= new Float64Array(2*NP);
 
     Object.assign(this, {
@@ -128,15 +130,26 @@ export class TrustRegionSolverODR
       p_shape:        p0.shape,
       J11,
       J21,J22,
+
       newton_R11,
       newton_R21,
       newton_R22,
+      newton_P,
+      newton_QF,
+      newton_dX,
+
+      regularized_R11,
+      regularized_R21,
+      regularized_R22,
+      regularized_P,
+      regularized_QF,
+      regularized_dX,
+
       _consider_J11,
       _consider_J21,
       _consider_J22,
       D, norm,
-      X0,F0,G0, QF, P,
-      newton_dX
+      X0,F0,G0
     });
     Object.seal(this);
 
@@ -518,93 +531,17 @@ export class TrustRegionSolverODR
   }
 
 
-  // The Jacobian of the orthogonal least squares problem is sparse with the following structure:
-  //
-  //     ┏                 ╷    ┓   ┏                 ╷    ┓   
-  //     ┃  ╲              ┊    ┃   ┃                 ┊    ┃
-  //     ┃    ╲            ┊    ┃   ┃                 ┊    ┃
-  //     ┃      ╲          ┊    ┃   ┃                 ┊    ┃
-  //     ┃        ╲        ┊ 0  ┃   ┃       J11       ┊    ┃
-  // J = ┃          ╲      ┊    ┃ = ┃                 ┊    ┃
-  //     ┃            ╲    ┊    ┃   ┃                 ┊    ┃
-  //     ┃              ╲  ┊    ┃   ┃                 ┊    ┃
-  //     ┃┄┄┄┄┄┬┄┄┄┄┄┬┄┄┄┄┄┼┄┄┄┄┃   ┃┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┃
-  //     ┃ ╲   ┊ ... ┊ ╲   ┊ ██ ┃   ┃                 ┊    ┃
-  //     ┃   ╲ ┊     ┊   ╲ ┊ ██ ┃   ┃       J21       ┊ J22┃
-  //     ┗     ╵     ╵     ╵    ┛   ┗                 ╵    ┛
-  //
-  //  J  : float[MX*(NX+1),MX*NX+NP];
-  //  J11: float[MX*NX    ,MX*NX   ]; J11 is a Diagonal Matrix; Diag. represent the weights on Δ; Assumed to NOT be rank-deficient;
-  //  J21: float[MX       ,MX*NX   ]; J21 is a row of diagonal matrix blocks
-  //  J22: float[MX       ,        ]; J22 is a dense matrix
-  //
-  // If there are no rank deficiencies, J can be sparsely QR decomposed to solve ODR problem:
-  // 
-  //       ┏     ╷     ╷     ╷    ┓     ┏                 ╷    ┓  
-  //       ┃ ╲   ┊ ... ┊ ╲   ┊ ██ ┃     ┃                 ┊    ┃  
-  //       ┃   ╲ ┊     ┊   ╲ ┊ ██ ┃     ┃                 ┊    ┃  
-  //       ┃┄┄┄┄┄┼┄┄┄┄┄┼┄┄┄┄┄┤ ██ ┃     ┃                 ┊    ┃  
-  //       ┃     ┊ ⋱   ┊  ⋮  ┊ ██ ┃     ┃       R1        ┊    ┃  
-  // J = Q·┃     ┊   ⋱ ┊  ⋮  ┊ ██ ┃ = Q·┃                 ┊ R2 ┃  
-  //       ┃     └┄┄┄┄┄┼┄┄┄┄┄┤ ██ ┃     ┃                 ┊    ┃  
-  //       ┃           ┊ ╲   ┊ ██ ┃     ┃                 ┊    ┃  
-  //       ┃           ┊   ╲ ┊ ██ ┃     ┃                 ┊    ┃  
-  //       ┃     0     └┄┄┄┄┄┤ ██ ┃     ┃┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┤    ┃  
-  //       ┃                 ┊ ▜█ ┃     ┃        0        ┊    ┃  
-  //       ┃                 ┊  ▜ ┃     ┃                 ┊    ┃  
-  //       ┗                 ╵    ┛     ┗                 ╵    ┛  
-  //
-  // R1: float[MX*NX    ,MX*NX]; Upper (block) triangular matrix consisting of diagonal matrix blocks.
-  // R2: float[MX*(NX+1),   NP]; Dense Matrix. R2[-MX:, :] is upper triangular.
-  //
-  computeNewton()
+  _qr_decomp( R11,R21,R22, P, QF, X )
   {
     const {
-      M, MX,NX,NP,
-      J11,
-      J21,J22,
-      newton_R11: R11,
-      newton_R21: R21,
-      newton_R22: R22,
-      F0, QF,
-      newton_dX: X,
-      P, norm
+      MX,NX,NP, norm
     } = this;
 
-    if( ! (0 > this.rank) )
-      throw new Error('Assertion failed.');
-
-    //
-    // STEP 1: MEMORY INITIALIZATION
-    //
-
-    // for R11, only the diagonal is stored in memory explicitly. Off-diagonal entries are computed "on-demand"
-    for( let i=MX*NX; i-- > 0; ) {
-      if(0 === J11[i]) throw new Error('Assertion failed: J11 must be all non-zero.');
-      R11[i] = J11[i];
-    }
-
-    // J21 memory is orderd left to right, basically going down the diagonals one after another
-    // R21 on the other hand is ordered row by row top to bottom
-    //
-    // In other words: Memory order in J21 is like (example with MX=3,NX=4):
-    //   0     3     6     9
-    //     1     4     7    10
-    //       2     5     8    11
-    //
-    // And memory order in R21 is like:
-    //   0     1     2     3
-    //     4     5     6     7    
-    //       8     9    10    11
-    for( let i=MX; i-- > 0; )
-    for( let j=NX; j-- > 0; )
-      R21[NX*i+j] = J21[MX*j+i];
-
-    for( let i=MX*NP; i-- > 0; )
-      R22[i] = J22[i];
-
-    for( let i=M; i-- > 0; )
-      QF[i] = F0[i];
+    if( ! ( P instanceof Int32Array ) ) throw new Error('Assertion failed.');
+    if(     P.length !== NP    ) throw new Error('Assertion failed.');
+    if(   R11.length !== MX*NX ) throw new Error('Assertion failed.');
+    if(   R21.length !== MX*NX ) throw new Error('Assertion failed.');
+    if( !(R22.length  >= MX*NP)) throw new Error('Assertion failed.');
 
     //
     // STEP 2.1: ELIMINATE R21 USING GIVENS ROTATIONS
@@ -616,15 +553,15 @@ export class TrustRegionSolverODR
     for( let i=0; i < MX; i++ ) // <- for each diagonal entry in block
     {
       // COMPUTE GIVENS ROTATION
-      const   i1 = MX*I+i,
-              i2 = NX*i+I,
-              r1 = R11[i1],
-              r2 = R21[i2],
-       [c,s,norm]=_giv_rot_qr(r1,r2);
+      const  i1 = MX*I+i,
+             i2 = NX*i+I,
+             r1 = R11[i1],
+             r2 = R21[i2],
+       [c,s,nrm]=_giv_rot_qr(r1,r2);
 
       R21[i2] = s * X[i];
                     X[i] *= c; if( s === 0 ) continue;
-      R11[i1] = norm;
+      R11[i1] = nrm;
 
       // ROTATE R21
       for( let j=0; ++j < NX-I; ) // <- for earch non-zero entry in row
@@ -650,43 +587,33 @@ export class TrustRegionSolverODR
     for( let i=NP; i-- > 0; ) P[i] = i;
 
      _rrqr_decomp_inplace(MX,NP,1, R22,0, QF,MX*NX, P,0, norm);
-    const rnk =_rrqr_rank(MX,NP,   R22,0,                norm);
-    this.rank = rnk + MX*NX;
+    const rnk =_rrqr_rank(MX,NP,   R22,0, norm);
 
-    for( let i=MX*NX+rnk; i-- > 0; )
-      X[i] = QF[i];
+    const                   L = Math.min(MX,NP);
+    R22.fill(0.0, NP*rnk,NP*L);
 
-    if( rnk !== NP )
-    { //
-      // STEP 2.4: ELIMINATE RANK-DEFICIENT COLUMS
-      //           O( rnk² * (NP-rnk) ) operations
-      X.fill(0.0, MX*NX+rnk);
+    return rnk;
+  }
 
-      // eliminate lower part of linear dependent columns of R22
-      for( let i=rnk; i-- > 0; ) {     const ii = NP*i+i;
-        for( let j= NP; j-- > rnk; ) { const ij = NP*i+j,
-                                  R_ii = R22[ii],
-                                  R_ij = R22[ij];
-          // compute Givens rot.
-          let [c,s,nrm] = _giv_rot_qr(R_ii,R_ij);
-          if( s !== 0 )
-          { if( c < 0 ) {
-                c *= -1;
-                s *= -1;
-              nrm *= -1;
-            }
-            // apply Givens rot.
-            for( let k=i; k-- > 0; )
-            { const         R_ki = R22[NP*k+i],
-                            R_kj = R22[NP*k+j];
-              R22[NP*k+i] = R_kj*s + c*R_ki;
-              R22[NP*k+j] = R_kj*c - s*R_ki;
-            }
-            R22[ii] = nrm;
-          } R22[ij] = s;
-        }
-      }
-    }
+
+  _qr_solve( R11,R21,R22, P, rnk, X )
+  {
+    const {
+      MX,NX,NP,
+      J21,J22,
+      D, norm: tmp
+    } = this;
+
+    if( ! ( P instanceof Int32Array ) ) throw new Error('Assertion failed.');
+    if(     P.length !== NP    ) throw new Error('Assertion failed.');
+    if(   R11.length !== MX*NX ) throw new Error('Assertion failed.');
+    if(   R21.length !== MX*NX ) throw new Error('Assertion failed.');
+    if( !(R22.length  >= MX*NP)) throw new Error('Assertion failed.');
+
+    if(  0 !== rnk%1) throw new Error('Assertion failed.');
+    if(!(0  <= rnk) ) throw new Error('Assertion failed.');
+    if(!(NP >= rnk) ) throw new Error('Assertion failed.');
+    rnk |= 0;
 
     //
     // STEP 3.1: BACKWARDS SUBSITUTION OF R2-PART
@@ -702,8 +629,8 @@ export class TrustRegionSolverODR
       for( let i= 0 ; i < rnk; i++ )
       for( let j=rnk; j < NP ; j++ )
       {
-        const s = R22[NP*i+j]; if( 0 === s ) continue;
-        const c = Math.sqrt(1-s*s);
+        const s = R22[NP*i+j]; if(s===0) continue;
+        const c = Math.sqrt(1 - s*s);
         _giv_rot_rows(X,1, MX*NX + j,
                            MX*NX + i, c,s);
       }
@@ -713,8 +640,18 @@ export class TrustRegionSolverODR
     // STEP 3.3: APPLY COLUMN PERMUTATIONS P TO X (UNDO 2.3)
     //           O( NP ) operations
     //
-    for( let i=NP; i-- > 0; )                norm[P[i]] = X[MX*NX + i];
-    for( let i=NP; i-- > 0; ) X[MX*NX + i] = norm[  i ];
+    for( let i=NP; i-- > 0; )                tmp[P[i]] = X[MX*NX + i];
+    for( let i=NP; i-- > 0; ) X[MX*NX + i] = tmp[  i ];
+
+    // factor out scaling
+    if( rnk !== NP )
+    {
+      for( let i=NP; i-- > 0; ) {
+        const     d = D[MX*NX + i];
+        if( 0 !== d )
+          X[MX*NX + i] /= d;
+      }
+    }
 
     //
     // STEP 3.4: MOVE SOLVED R22-PART TO THE RIGHT
@@ -760,8 +697,327 @@ export class TrustRegionSolverODR
   }
 
 
-  // computeNewtonRegularized( λ )
-  // {
-  //   throw new Error('Not yet implemented.');
-  // }
+  _rt_solve( R11,R21,R22, P, rnk, X )
+  {
+    const {
+      M,N,MX,NX,NP,
+      J21,J22,
+      norm,
+    } = this;
+
+    if( ! ( P instanceof Int32Array ) ) throw new Error('Assertion failed.');
+    if(     P.length !== NP           ) throw new Error('Assertion failed.');
+    if(   R11.length !== MX*NX        ) throw new Error('Assertion failed.');
+    if(   R21.length !== MX*NX        ) throw new Error('Assertion failed.');
+    if( !(R22.length  >= MX*NP    )   ) throw new Error('Assertion failed.');
+    if( !(  X.length  >= MX*NX+rnk)   ) throw new Error('Assertion failed.');
+
+    if(  0 !== rnk%1) throw new Error('Assertion failed.');
+    if(!(0  <= rnk) ) throw new Error('Assertion failed.');
+    if(!(NP >= rnk) ) throw new Error('Assertion failed.');
+    rnk |= 0;
+
+    // SOLVE SPARSE PART
+    for( let I=0; I < NX; I++ ) // <- for each block top to bottom
+    for( let i=0; i < MX; i++ ) // <- for each diagonal entry in block top to bottom
+    {
+      const s = R21[NX*i+I],
+           Ii =     MX*I+i,
+         X_Ii = X[Ii] /= R11[Ii];
+
+      for( let j=Ii; (j+=MX) < MX*NX; )
+        X[j] -= X_Ii * J21[j] * s;
+    }
+
+    // MOVE SPARSE PART TO RIGHT SIDE
+    for( let i=MX; i-- > 0; )
+    {
+      let sum = 0.0;
+
+      for( let I=NX; I-- > 0; )
+        sum += X[MX*I+i] * R21[NX*i+I];
+
+      for( let j=rnk; j-- > 0; )
+        X[MX*NX + j] -= J22[NP*i+j] * sum;
+    }
+
+    _triu_t_solve(rnk,NP,1, R22,0, X,MX*NX);
+  }
+
+
+  // The Jacobian of the orthogonal least squares problem is sparse with the following structure:
+  //
+  //     ┏                 ╷    ┓   ┏                 ╷     ┓   
+  //     ┃  ╲              ┊    ┃   ┃                 ┊     ┃
+  //     ┃    ╲            ┊    ┃   ┃                 ┊     ┃
+  //     ┃      ╲          ┊    ┃   ┃                 ┊     ┃
+  //     ┃        ╲        ┊ 0  ┃   ┃       J11       ┊     ┃
+  // J = ┃          ╲      ┊    ┃ = ┃                 ┊     ┃
+  //     ┃            ╲    ┊    ┃   ┃                 ┊     ┃
+  //     ┃              ╲  ┊    ┃   ┃                 ┊     ┃
+  //     ┃┄┄┄┄┄┬┄┄┄┄┄┬┄┄┄┄┄┼┄┄┄┄┃   ┃┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┄┃
+  //     ┃ ╲   ┊ ... ┊ ╲   ┊ ██ ┃   ┃                 ┊     ┃
+  //     ┃   ╲ ┊     ┊   ╲ ┊ ██ ┃   ┃       J21       ┊ J22 ┃
+  //     ┗     ╵     ╵     ╵    ┛   ┗                 ╵     ┛
+  //
+  //  J  : float[MX*(NX+1),MX*NX+NP];
+  //  J11: float[MX*NX    ,MX*NX   ]; J11 is a Diagonal Matrix; Diag. represent the weights on Δ; Assumed to NOT be rank-deficient;
+  //  J21: float[MX       ,MX*NX   ]; J21 is a row of diagonal matrix blocks
+  //  J22: float[MX       ,        ]; J22 is a dense matrix
+  //
+  // If there are no rank deficiencies, J can be sparsely QR decomposed to solve ODR problem:
+  // 
+  //       ┏     ╷       ╷     ╷    ┓     ┏                 ╷     ┓
+  //       ┃ ╲   ┊ . . . ┊ ╲   ┊ ▓▓ ┃     ┃                 ┊     ┃
+  //       ┃   ╲ ┊       ┊   ╲ ┊ ▓▓ ┃     ┃                 ┊     ┃
+  //       ┃┄┄┄┄┄┼┄┄┄┄┄┄┄┼┄┄┄┄┄┤ ▓▓ ┃     ┃                 ┊     ┃
+  //       ┃     ┊ ·     ┊  ·  ┊ ▓▓ ┃     ┃       R11       ┊ R21 ┃
+  //       ┃     ┊   ·   ┊  ·  ┊ ▓▓ ┃     ┃                 ┊     ┃
+  // J = Q·┃     ┊     · ┊  ·  ┊ ▓▓ ┃ = Q·┃                 ┊     ┃
+  //       ┃     └┄┄┄┄┄┄┄┼┄┄┄┄┄┤ ▓▓ ┃     ┃                 ┊     ┃
+  //       ┃             ┊ ╲   ┊ ▓▓ ┃     ┃                 ┊     ┃
+  //       ┃             ┊   ╲ ┊ ▓▓ ┃     ┃                 ┊     ┃
+  //       ┃      0      └┄┄┄┄┄┼┄┄┄┄┃     ┃┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┄┃
+  //       ┃                   ┊ ▜█ ┃     ┃                 ┊     ┃
+  //       ┃                   ┊  ▜ ┃     ┃        0        ┊ R22 ┃
+  //       ┗                   ╵    ┛     ┗                 ╵     ┛
+  //
+  // R11: float[MX*NX,MX*NX]; Sparse upper (block) triangular matrix consisting of diagonal matrix blocks. Off-diagonal entries can be computed "on-demand".
+  // R21: float[MX*NX,   NP]; Dense matrix. Entries can be computed implicitly.
+  // R22: float[MX   ,   NP]; Dense upper triangular matrix.
+  //
+  computeNewton()
+  {
+    const {
+      M, MX,NX,NP,
+      J11,
+      J21,J22,
+      newton_R11: R11,
+      newton_R21: R21,
+      newton_R22: R22,
+      newton_P  : P,
+      newton_QF : QF,
+      newton_dX : X,
+      F0, D
+    } = this;
+
+    if( 0 <= this.rank )
+      return;
+    if( this.rank !== -1 )
+      throw new Error('Assertion failed.');
+
+    //
+    // STEP 1: MEMORY INITIALIZATION
+    //
+
+    // for R11, only the diagonal is stored in memory explicitly. Off-diagonal entries are computed "on-demand"
+    for( let i=MX*NX; i-- > 0; ) {
+      if(0 === J11[i]) throw new Error('Assertion failed: J11 must be all non-zero.');
+      R11[i] = J11[i];
+    }
+
+    // J21 memory is orderd left to right, basically going down the diagonals one after another
+    // R21 on the other hand is ordered row by row top to bottom
+    //
+    // In other words: Memory order in J21 is like (example with MX=3,NX=4):
+    //   0     3     6     9
+    //     1     4     7    10
+    //       2     5     8    11
+    //
+    // And memory order in R21 is like:
+    //   0     1     2     3
+    //     4     5     6     7    
+    //       8     9    10    11
+    for( let i=MX; i-- > 0; )
+    for( let j=NX; j-- > 0; )
+      R21[NX*i+j] = J21[MX*j+i];
+
+    for( let i=MX*NP; i-- > 0; )
+      R22[i] = J22[i];
+
+    for( let i=M; i-- > 0; )
+      QF[i] = F0[i];
+
+    const       rnk = this._qr_decomp(R11,R21,R22, P, QF, X);
+    this.rank = rnk + MX*NX;
+
+    for( let i=MX*NX+rnk; i-- > 0; )
+      X[i] = QF[i];
+
+    if( rnk !== NP )
+    { //
+      // STEP 2.4: ELIMINATE RANK-DEFICIENT COLUMS
+      //           O( rnk² * (NP-rnk) ) operations
+      X.fill(0.0, MX*NX+rnk);
+
+      // factor in scaling into R22
+      for( let j=NP; j-- > 0; ) {
+        const  d = D[ MX*NX + P[j] ];
+        if(0!==d)
+          for( let i=rnk; i-- > 0; )
+            R22[NP*i+j] /= d;
+      }
+
+      // eliminate lower part of linear dependent columns of R22
+      for( let i=rnk; i-- > 0; ) {     const ii = NP*i+i;
+        for( let j= NP; j-- > rnk; ) { const ij = NP*i+j,
+                                  R_ii = R22[ii],
+                                  R_ij = R22[ij];
+          // compute Givens rot.
+          let [c,s,nrm] = _giv_rot_qr(R_ii,R_ij);
+          if( s !== 0 )
+          { if( c < 0 ) {
+                c *= -1;
+                s *= -1;
+              nrm *= -1;
+            }
+            // apply Givens rot.
+            for( let k=i; k-- > 0; )
+            { const         R_ki = R22[NP*k+i],
+                            R_kj = R22[NP*k+j];
+              R22[NP*k+i] = R_kj*s + c*R_ki;
+              R22[NP*k+j] = R_kj*c - s*R_ki;
+            }
+            R22[ii] = nrm;
+          } R22[ij] = s;
+        }
+      }
+    }
+
+    this._qr_solve(R11,R21,R22, P, rnk, X);
+  }
+
+
+
+  computeNewtonRegularized( λ )
+  {
+          λ *= 1;
+    if( !(λ >= 0) ) throw new Error('Assertion failed.');
+
+    const {
+      M,N,MX,NX,NP,
+      J11,
+      J21,J22,
+      regularized_R11: R11,
+      regularized_R21: R21,
+      regularized_R22: R22,
+      regularized_P  : P,
+      regularized_QF : QF,
+      regularized_dX : X,
+      newton_dX,
+      F0, D
+    } = this;
+
+    if( R22.length !== Math.max(MX,NP+1)*NP ) throw new Error('Assertion failed.');
+    if(  QF.length !== Math.max(M ,N +1)    ) throw new Error('Assertion failed.');
+
+    if( 0 === λ )
+    {
+      this.computeNewton();
+
+      for( let i=N; i-- > 0; )
+        X[i] = newton_dX[i];
+
+      return;
+    }
+
+    //
+    // STEP 4: MEMORY INITIALIZATION
+    //
+
+    // for R11, only the diagonal is stored in memory explicitly. Off-diagonal entries are computed "on-demand"
+    for( let i=MX*NX; i-- > 0; ) {
+      if(0 === J11[i]) throw new Error('Assertion failed: J11 must be all non-zero.');
+      R11[i] = J11[i];
+    }
+
+    // J21 memory is orderd left to right, basically going down the diagonals one after another
+    // R21 on the other hand is ordered row by row top to bottom
+    //
+    // In other words: Memory order in J21 is like (example with MX=3,NX=4):
+    //   0     3     6     9
+    //     1     4     7    10
+    //       2     5     8    11
+    //
+    // And memory order in R21 is like:
+    //   0     1     2     3
+    //     4     5     6     7    
+    //       8     9    10    11
+    for( let i=MX; i-- > 0; )
+    for( let j=NX; j-- > 0; )
+      R21[NX*i+j] = J21[MX*j+i];
+
+    for( let i=MX*NP; i-- > 0; )
+      R22[i] = J22[i];
+
+    for( let i=M; i-- > 0; )
+      QF[i] = F0[i];
+
+    const λSqrt = Math.sqrt(λ);
+
+    // eliminate the upper part of regularization before _qr_decomp
+    // O(MX*NX) operations
+    for( let i=MX*NX; i-- > 0; )
+    {
+      const  Dλ = D[i] * λSqrt;
+      if( ! (Dλ > 0) ) throw new Error('Assertion failed.');
+
+      const [c,s,nrm] = _giv_rot_qr(R11[i],Dλ);
+      R11[i] = nrm;
+       QF[i]*= c;
+    }
+
+    const rnk = this._qr_decomp(R11,R21,R22, P, QF, X);
+
+    // fill up the rank-deficient rows with regularization
+    R22.fill(0.0, MX*NP, NP*NP);
+    for( let i=NP; i-- > rnk; )
+    { let    Dλ = D[MX*NX + P[i]];
+      if(0===Dλ)
+             Dλ = 1;
+      else   Dλ *= λSqrt;
+      if( ! (Dλ > 0) ) throw new Error('Assertion failed.');
+
+      R22[NP*i + i] = Dλ;
+      QF[MX*NX + i] = 0;
+    }
+
+    // use givens rotations to eliminate remaining regularization entries
+    const R22_end = NP*NP,
+           QF_end = N;
+
+    R22.fill(0.0, R22_end,
+                  R22_end+NP);
+
+    for( let i=rnk; i-- > 0; )
+    { let    Dλ = D[MX*NX + P[i]];
+      if(0===Dλ)
+             Dλ = 1;
+      else   Dλ *= λSqrt;
+      if( ! (Dλ > 0) ) throw new Error('Assertion failed.');
+
+      R22[R22_end + i] = Dλ;
+      QF [ QF_end    ] = 0;
+
+      for( let j=i; j < NP; j++ )
+      {
+        const  jj = NP*j+j,
+               ij = R22_end + j,
+             R_jj = R22[jj],
+             R_ij = R22[ij],
+         [c,s,nrm]= _giv_rot_qr(R_jj,R_ij); 
+        R22[ij] = 0; if( s === 0 ) continue;
+        R22[jj] = nrm;
+
+        _giv_rot_rows(R22,NP-j-1, jj+1,
+                                  ij+1, c,s);
+        _giv_rot_rows(QF,1, MX*NX + j,QF_end, c,s);
+      }
+    }
+
+    for( let i=N; i-- > 0; )
+      X[i] = QF[i];
+
+    this._qr_solve(R11,R21,R22, P, NP, X);
+  }
 }

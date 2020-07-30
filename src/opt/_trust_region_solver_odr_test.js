@@ -32,6 +32,7 @@ import {svd_jac_2sided} from "../la/svd_jac_2sided";
 
 import {num_grad} from "./num_grad";
 import {TrustRegionSolverODR} from "./_trust_region_solver_odr";
+import { tril_solve } from "../la/tri";
 
 
 const funcs = {
@@ -141,7 +142,7 @@ for( const [name,{NP,NX,NDIM,f,fgg}] of Object.entries(funcs) )
           const MX = _rand_int(1,16),
             shape = [MX,NX].slice(0,NDIM),
                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
+               p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
 
           let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
@@ -411,12 +412,15 @@ for( const [name,{NP,NX,NDIM,f,fgg}] of Object.entries(funcs) )
       expect(F).toBeAllCloseTo(  new NDArray( F_shape, solver.F0.slice() ) );
 
       const J1 = tabulate( [M,    MX*NX], 'float64', (i,j) => solver.__DEBUG_J(i,j) ),
+            J2 = tabulate( [M,    NP   ], 'float64', (i,j) => solver.__DEBUG_J(i,j+MX*NX) ),
             R1 = tabulate( [MX*NX,MX*NX], 'float64', (i,j) => solver.__DEBUG_R(i,j) ),
-            QF = new NDArray( Int32Array.of(MX*NX,1), solver.QF.slice(0,MX*NX) );
+            R2 = tabulate( [MX*NX,NP   ], 'float64', (i,j) => solver.__DEBUG_R(i,j+MX*NX) ),
+            QF = new NDArray( Int32Array.of(MX*NX,1), solver.newton_QF.slice(0,MX*NX) );
 
       const [Q,r1] = qr_decomp(J1);
 
       expect(R1).toBeAllCloseTo(r1);
+      expect(R2).toBeAllCloseTo( matmul2(Q.T,J2) );
       expect(QF).toBeAllCloseTo( matmul2(Q.T, F) ); // <- TODO only first (MX*NX) rows should be checked
     });
 
@@ -509,7 +513,12 @@ for( const [name,{NP,NX,NDIM,f,fgg}] of Object.entries(funcs) )
       for( let i=M; i-- > 0; )
         solver.F0[i] = Math.random()*4 - 2;
 
-      const J = tabulate( [M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j) );
+      for( let i=NP; i-- > 0; )
+        solver.D[i] = (Math.random() < 0.99) * (0.01 + Math.random()*2);
+
+      const J  = tabulate( [M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j) ),
+             D = new NDArray( Int32Array.of(N,1), solver.D.slice() ),
+            JD = zip_elems([J,D.T], (j,d) => d===0 ? j : j/d);
 
       const              F_shape = Int32Array.of(M,1),
         F = new NDArray( F_shape, solver.F0.slice() );
@@ -520,8 +529,9 @@ for( const [name,{NP,NX,NDIM,f,fgg}] of Object.entries(funcs) )
       expect(J).toBeAllCloseTo( tabulate( [M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j) ), {rtol:0, atol:0} );
       expect(F).toBeAllCloseTo(  new NDArray( F_shape, solver.F0.slice() ) );
 
-      const  X = new NDArray( Int32Array.of(N,1), solver.newton_dX.slice() );
-      expect(X).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(J),F) );
+      const   X = new NDArray( Int32Array.of(N,1), solver.newton_dX.slice() ),
+             DX = zip_elems([D,X], (d,x) => d===0 ? x : d*x );
+      expect(DX).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(JD),F) );
     });
 
 
@@ -562,20 +572,25 @@ for( const [name,{NP,NX,NDIM,f,fgg}] of Object.entries(funcs) )
       for( let i=M; i-- > 0; )
         solver.F0[i] = Math.random()*4 - 2;
 
-      const J = tabulate( [M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j) );
+      for( let i=NP; i-- > 0; )
+        solver.D[i] = (Math.random() < 0.99) * (0.01 + Math.random()*2);
+
+      const J  = tabulate( [M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j) ),
+             D = new NDArray( Int32Array.of(N,1), solver.D.slice() ),
+            JD = zip_elems([J,D.T], (j,d) => d===0 ? j : j/d);
 
       const              F_shape = Int32Array.of(M,1),
         F = new NDArray( F_shape, solver.F0.slice() );
 
       solver.computeNewton();
-      expect(solver.rank).toBe(MX*NX + rnk);
 
       // check that J,F is unmodified by computeNewton
       expect(J).toBeAllCloseTo( tabulate( [M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j) ), {rtol:0, atol:0} );
       expect(F).toBeAllCloseTo(  new NDArray( F_shape, solver.F0.slice() ) );
 
-      const  X = new NDArray( Int32Array.of(N,1), solver.newton_dX.slice() );
-      expect(X).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(J),F) );
+      const   X = new NDArray( Int32Array.of(N,1), solver.newton_dX.slice() ),
+              DX = zip_elems([D,X], (d,x) => d===0 ? x : d*x );
+      expect(DX).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(JD),F) );
     });
 
 
@@ -603,8 +618,6 @@ for( const [name,{NP,NX,NDIM,f,fgg}] of Object.entries(funcs) )
 
       const {M,N,MX} = solver;
 
-      // console.log({M,N,MX,NX,NP});
-
       for( let i=MX*NX; i-- > 0; )
         solver.J11[i] = 0.1 + Math.random()*1.8;
 
@@ -617,7 +630,12 @@ for( const [name,{NP,NX,NDIM,f,fgg}] of Object.entries(funcs) )
       for( let i=M; i-- > 0; )
         solver.F0[i] = Math.random()*4 - 2;
 
-      const J = tabulate( [M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j) );
+      for( let i=NP; i-- > 0; )
+        solver.D[i] = (Math.random() < 0.99) * (0.01 + Math.random()*2);
+
+      const J  = tabulate( [M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j) ),
+             D = new NDArray( Int32Array.of(N,1), solver.D.slice() ),
+            JD = zip_elems([J,D.T], (j,d) => d===0 ? j : j/d);
 
       const              F_shape = Int32Array.of(M,1),
         F = new NDArray( F_shape, solver.F0.slice() );
@@ -628,8 +646,9 @@ for( const [name,{NP,NX,NDIM,f,fgg}] of Object.entries(funcs) )
       expect(J).toBeAllCloseTo( tabulate( [M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j) ), {rtol:0, atol:0} );
       expect(F).toBeAllCloseTo(  new NDArray( F_shape, solver.F0.slice() ) );
 
-      const  X = new NDArray( Int32Array.of(N,1), solver.newton_dX.slice() );
-      expect(X).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(J),F) );
+      const   X = new NDArray( Int32Array.of(N,1), solver.newton_dX.slice() ),
+             DX = zip_elems([D,X], (d,x) => d===0 ? x : d*x );
+      expect(DX).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(JD),F) );
     });
 
 
@@ -670,19 +689,260 @@ for( const [name,{NP,NX,NDIM,f,fgg}] of Object.entries(funcs) )
       for( let i=M; i-- > 0; )
         solver.F0[i] = Math.random()*4 - 2;
 
-      const J = tabulate( [M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j) );
+      for( let i=NP; i-- > 0; )
+        solver.D[i] = (Math.random() < 0.99) * (0.01 + Math.random()*2);
+
+      const J  = tabulate( [M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j) ),
+             D = new NDArray( Int32Array.of(N,1), solver.D.slice() ),
+            JD = zip_elems([J,D.T], (j,d) => d===0 ? j : j/d);
 
       const              F_shape = Int32Array.of(M,1),
         F = new NDArray( F_shape, solver.F0.slice() );
 
       solver.computeNewton();
-      expect(solver.rank).toBe(MX*NX + rnk);
 
       // check that J,F is unmodified by computeNewton
       expect(J).toBeAllCloseTo( tabulate( [M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j) ), {rtol:0, atol:0} );
       expect(F).toBeAllCloseTo(  new NDArray( F_shape, solver.F0.slice() ) );
 
-      const  X = new NDArray( Int32Array.of(N,1), solver.newton_dX.slice() );
-      expect(X).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(J),F) );
+      const   X = new NDArray( Int32Array.of(N,1), solver.newton_dX.slice() ),
+             DX = zip_elems([D,X], (d,x) => d===0 ? x : d*x );
+      expect(DX).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(JD),F) );
+    });
+
+
+    forEachItemIn(
+      function*(){
+        for( let run=0; run++ < 3*512; )
+        {
+          const MX = _rand_int(NP,32),
+             shape = [MX,NX].slice(0,NDIM),
+                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
+                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
+               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
+
+          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
+              y = tabulate([MX], i => f(p)(x.sliceElems(i)) );
+
+          x = x.mapElems( x => x + rand_normal() / 8 );
+          y = y.mapElems( y => y + rand_normal() / 8 );
+
+          yield [x,y, p0,dx0]
+        }
+      }()
+    ).it(`_rt_solve() solves generated random over-determined examples`, ([x, y, p0, dx0]) => {
+      const solver = new TrustRegionSolverODR(x,y, fgg, p0,dx0);
+
+      const {M,N,MX} = solver;
+
+      for( let i=MX*NX; i-- > 0; )
+        solver.J11[i] = 0.1 + Math.random()*1.8;
+
+      for( let i=MX*NX; i-- > 0; )
+        solver.J21[i] = Math.random()*4 - 2;;
+
+      for( let i=MX*NP; i-- > 0; )
+        solver.J22[i] = Math.random()*4 - 2;
+
+      for( let i=M; i-- > 0; )
+        solver.F0[i] = Math.random()*4 - 2;
+
+      solver.computeNewton();
+
+      const L = solver.rank;
+
+      const R  = tabulate( [L,L], (i,j) => solver.__DEBUG_R(i,j) ),
+            R11= [...solver.newton_R11],
+            R21= [...solver.newton_R21],
+            R22= [...solver.newton_R22],
+            P  = solver.newton_P.slice(),
+            rnk= solver.rank - MX*NX;
+      Object.freeze(R11);
+      Object.freeze(R21);
+      Object.freeze(R22);
+
+      for( let i=MX*NX; i-- > 0; )
+        solver.newton_R11[i] = 0.1 + Math.random()*1.8;
+
+      for( let i=MX*NX; i-- > 0; )
+        solver.newton_R21[i] = Math.random()*4 - 2;;
+
+      for( let i=MX*NP; i-- > 0; )
+        solver.newton_R22[i] = Math.random()*4 - 2;
+
+      for( let i=NP; i-- > 0; )
+        solver.newton_P[i] = -1;
+
+      const Y = tabulate( [L,1], () => (Math.random()*4 - 2) ),
+            X = Y.mapElems();
+
+      solver._rt_solve(R11,R21,R22,P, rnk, X.data);
+
+      expect( X ).toBeAllCloseTo( tril_solve(R.T,Y) );
+    });
+
+
+    forEachItemIn(
+      function*(){
+        for( let run=0; run++ < 1024; )
+        {
+          const MX = _rand_int(1,16),
+             shape = [MX,NX].slice(0,NDIM),
+                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
+                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
+               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
+
+          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
+              y = tabulate([MX], i => f(p)(x.sliceElems(i)) );
+
+          x = x.mapElems( x => x + rand_normal() / 8 );
+          y = y.mapElems( y => y + rand_normal() / 8 );
+
+          const lambdas = Array.from({length: 6}, () => Math.random()*2);
+          lambdas[_rand_int(0,lambdas.length)] = 0;
+          lambdas[_rand_int(0,lambdas.length)] = 0;
+          Object.freeze(lambdas);
+
+          yield [x,y, p0,dx0, lambdas];
+        }
+      }()
+    ).it(`computeNewtonRegularized(λ) solves generated random examples`, ([x, y, p0, dx0, lambdas]) => {
+      const solver = new TrustRegionSolverODR(x,y, fgg, p0,dx0);
+
+      const {M,N,MX} = solver;
+
+      for( let i=MX*NX; i-- > 0; )
+        solver.J11[i] = 0.1 + Math.random()*1.8;
+
+      for( let i=MX*NX; i-- > 0; )
+        solver.J21[i] = Math.random()*4 - 2;;
+
+      for( let i=MX*NP; i-- > 0; )
+        solver.J22[i] = Math.random()*4 - 2;
+
+      for( let i=M; i-- > 0; )
+        solver.F0[i] = Math.random()*4 - 2;
+
+      solver.D.fill( 0.01 + Math.random()*2 );
+
+      const J1 = tabulate( [M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j) ),
+             D = new NDArray( Int32Array.of(N,1), solver.D.slice() );
+
+      const               F_shape = Int32Array.of(M,1),
+        F1 = new NDArray( F_shape, solver.F0.slice() );
+
+      for( const λ of lambdas )
+      {
+        const λSqrt = Math.sqrt(λ);
+
+        solver.computeNewtonRegularized(λ);
+
+        const X = new NDArray( Int32Array.of(N,1), solver.regularized_dX.slice() );
+
+        // check that J,F is unmodified by computeNewton
+        expect(J1).toBeAllCloseTo( tabulate( [M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j) ), {rtol:0, atol:0} );
+        expect(F1).toBeAllCloseTo( new NDArray( F_shape, solver.F0.slice() ) );
+        expect( D).toBeAllCloseTo( new NDArray( Int32Array.of(N,1), solver.D.slice() ) );
+
+        if( 0 === λ )
+        {
+          const  JD = zip_elems([J1,D.T], (j,d) => d===0 ? j : j/d),
+                 DX = zip_elems([D ,X  ], (d,x) => d===0 ? x : d*x);
+          expect(DX).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(JD),F1) );
+        }
+        else
+        {
+          const J2 = tabulate( [N,N], 'float64', (i,j) => i!==j ? 0 : (D(i,0)*λSqrt || 1) ),
+                F2 = tabulate( [N,1], 'float64',    () => 0 ),
+                J = concat([J1,J2]),
+                F = concat([F1,F2]);
+
+          const  X = new NDArray( Int32Array.of(N,1), solver.regularized_dX.slice() );
+          expect(X).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(J),F) );
+        }
+      }
+    });
+
+
+    forEachItemIn(
+      function*(){
+        for( let run=0; run++ < 1024; )
+        {
+          const MX = _rand_int(1,16),
+             shape = [MX,NX].slice(0,NDIM),
+                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
+                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
+               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
+
+          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
+              y = tabulate([MX], i => f(p)(x.sliceElems(i)) );
+
+          x = x.mapElems( x => x + rand_normal() / 8 );
+          y = y.mapElems( y => y + rand_normal() / 8 );
+
+          const lambdas = Array.from({length: 6}, () => Math.random()*2);
+          lambdas[_rand_int(0,lambdas.length)] = 0;
+          lambdas[_rand_int(0,lambdas.length)] = 0;
+          Object.freeze(lambdas);
+
+          yield [x,y, p0,dx0, lambdas];
+        }
+      }()
+    ).it(`computeNewtonRegularized(λ) solves generated random rank-deficient examples`, ([x, y, p0, dx0, lambdas]) => {
+      const solver = new TrustRegionSolverODR(x,y, fgg, p0,dx0);
+
+      const {M,N,MX} = solver;
+
+      for( let i=MX*NX; i-- > 0; )
+        solver.J11[i] = 0.1 + Math.random()*1.8;
+
+      for( let i=MX*NX; i-- > 0; )
+        solver.J21[i] = Math.random()*4 - 2;;
+
+      const [{data: J22}] = _rand_rankdef(MX,NP);
+      for( let i=MX*NP; i-- > 0; )
+        solver.J22[i] = J22[i];
+
+      for( let i=M; i-- > 0; )
+        solver.F0[i] = Math.random()*4 - 2;
+
+      solver.D.fill( 0.01 + Math.random()*2 );
+
+      const J1 = tabulate( [M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j) ),
+             D = new NDArray( Int32Array.of(N,1), solver.D.slice() );
+
+      const               F_shape = Int32Array.of(M,1),
+        F1 = new NDArray( F_shape, solver.F0.slice() );
+
+      for( const λ of lambdas )
+      {
+        const λSqrt = Math.sqrt(λ);
+
+        solver.computeNewtonRegularized(λ);
+
+        const X = new NDArray( Int32Array.of(N,1), solver.regularized_dX.slice() );
+
+        // check that J,F is unmodified by computeNewton
+        expect(J1).toBeAllCloseTo( tabulate( [M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j) ), {rtol:0, atol:0} );
+        expect(F1).toBeAllCloseTo( new NDArray( F_shape, solver.F0.slice() ) );
+        expect( D).toBeAllCloseTo( new NDArray( Int32Array.of(N,1), solver.D.slice() ) );
+
+        if( 0 === λ )
+        {
+          const  JD = zip_elems([J1,D.T], (j,d) => d===0 ? j : j/d),
+                 DX = zip_elems([D ,X  ], (d,x) => d===0 ? x : d*x);
+          expect(DX).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(JD),F1) );
+        }
+        else
+        {
+          const J2 = tabulate( [N,N], 'float64', (i,j) => i!==j ? 0 : (D(i,0)*λSqrt || 1) ),
+                F2 = tabulate( [N,1], 'float64',    () => 0 ),
+                J = concat([J1,J2]),
+                F = concat([F1,F2]);
+
+          const  X = new NDArray( Int32Array.of(N,1), solver.regularized_dX.slice() );
+          expect(X).toBeAllCloseTo( svd_lstsq(...svd_jac_2sided(J),F) );
+        }
+      }
     });
   });

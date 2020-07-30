@@ -338,11 +338,11 @@ export class TrustRegionSolverLSQ
     { // RANK DEFICIENT CASE -> USE COMPLETE ORTHOGONAL DECOMPOSITION
 
       // factor in scaling
-      for( let i=L; i-- > 0; )
       for( let j=N; j-- > 0; ) {
-        const         d = D[P[j]];
-        if(     0 !== d )
-          T[N*i+j] /= d;
+        const  d = D[P[j]];
+        if(0!==d)
+          for( let i=rank; i-- > 0; )
+            T[N*i+j] /= d;
       }
 
       // complete orthogonal decompositon
@@ -492,14 +492,12 @@ export class TrustRegionSolverLSQ
 
       const λSqrt = Math.sqrt(λ);
 
-      for( let i=N; i-- > 0; ) {
-        let Dλ = D[P[i]];
-        if( Dλ===0 )
-            Dλ = 1;
-        else
-            Dλ *= λSqrt;
-
-        if( !(0 < Dλ) ) throw new Error('TrustRegionSolverLSQ.prototype.computeMinRegularized(λ): λ too small (caused underflow).');
+      for( let i=N; i-- > 0; )
+      { let    Dλ = D[P[i]];
+        if(0===Dλ)
+               Dλ = 1;
+        else   Dλ *= λSqrt;
+        if( !( Dλ > 0 ) ) throw new Error('TrustRegionSolverLSQ.prototype.computeMinRegularized(λ): λ too small (caused underflow).');
 
         const       j = (i-rnk+N) % N;
         T[rnk*N + N*j+i] = Dλ;
