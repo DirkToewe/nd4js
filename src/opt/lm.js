@@ -23,7 +23,8 @@ import {nextUp} from "../dt/float64_utils";
 import {FrobeniusNorm} from '../la/norm'
 
 import {OptimizationNoProgressError} from "./optimization_error";
-import {TrustRegionSolverLSQ} from './_trust_region_solver_lsq'
+import {TrustRegionSolverLSQ} from './_trust_region_solver_lsq';
+import {TrustRegionSolverODR} from "./_trust_region_solver_odr";
 
 
 // References
@@ -80,7 +81,7 @@ export function* _lm(
   if( !(0 <= stuckLimit              ) ) throw new Error('lsq_lm_gen(fJ, x0, opt): opt.stuckLimit must not be negative.');
 
   const {N, D, regularized_dX: dX, G0: G} = solver,
-                                  NORM = new FrobeniusNorm();
+    NORM = new FrobeniusNorm();
 
 //  let R = r0; // <- TODO maybe there is a better starting value for R0 like r0*solver.scaledNorm(G) order something like that
   let         R = -r0 * solver.cauchyTravel() * solver.scaledNorm(G),
@@ -162,7 +163,7 @@ export function* _lm(
       loss_consider
     ] = solver.considerMove(dX);
 
-    /*DEBUG*/    if( !(loss_predict <= loss+1e-6) ) throw new Error('Assertion failed.');
+//*DEBUG*/    if( !(loss_predict <= loss+1e-6) ) throw new Error('Assertion failed.');
 
     const rScale = () => 1;
     // const rScale = () => solver.scaledNorm(G); // <- TODO: examine scaling alternatives for the radius limits
@@ -213,6 +214,10 @@ export function* _lm(
       throw new OptimizationNoProgressError('Too many unsuccessfull iterations.');
   }
 }
+
+
+export const odr_lm_gen    =   (x,y, fgg, p0,dx0,  opt) =>
+  _lm( new TrustRegionSolverODR(x,y, fgg, p0,dx0), opt );
 
 
 export function* fit_lm_gen(

@@ -73,7 +73,7 @@ export class TrustRegionSolverLSQ
     this.M = M;
     this.N = N;
     const L = Math.min(M,N),
-          K = Math.max(L+N, M);
+          K = Math.max(M,N+1);
 
     this.D = new Float64Array(N), // <- trust region scaling diagonal
 
@@ -322,7 +322,6 @@ export class TrustRegionSolverLSQ
 
     // SOLVE GLOBAL MINIMUM
     _rrqr_decomp_inplace(M,N,1, T,0, UF,0, P,0, Y);
-
     
     // backup the rrqr decomposition in R (for finding regularized minima)
     ;{
@@ -416,8 +415,6 @@ export class TrustRegionSolverLSQ
   computeNewtonRegularized( λ )
   {
     this.computeNewton();
-    // if( ! (0 <= this.rank) )
-    //   throw new Error('TrustRegionSolverLSQ.prototype.computeMinRegularized(λ): Can only be called after computeNewton().');
 
     const {
       M,N, D, rank: rnk,
@@ -436,7 +433,7 @@ export class TrustRegionSolverLSQ
       regularized_QF: QF
     } = this;
 
-    const L = Math.min(M,N);      
+    const L = Math.min(M,N);
 
     if( 0===λ )
     {
@@ -459,7 +456,7 @@ export class TrustRegionSolverLSQ
         Y.fill(0.0, 0,rnk);
         for( let i=rnk; i-- > 0; )
         for( let j= N ; j-- > 0; )
-          Y[i] += X[j]*D[j]*V[N*i+j];
+          Y[i] += V[N*i+j]*D[j]*X[j];
 
         _triu_t_solve(rnk,L,1, newton_R,0, Y,0);
 
@@ -474,65 +471,64 @@ export class TrustRegionSolverLSQ
     }
 
     if( !(0 <= λ) )
-      throw new Error('TrustRegionSolverLSQ.prototype.computeMinRegularized(λ): λ must be positive.');
+      throw new Error('TrustRegionSolverLSQ.prototype.computeMinRegularized(λ): λ must be non-negative.');
 
     // START AT RRQR FROM computeNewton() (by copying R0 -> T)
     for( let i=rnk*N; i-- > 0; )
       T[i] = R0[i];
 
-    for( let i=rnk; i-- > 0; )
-      QF[i] = -QF0[i];
-
     // TODO scale T to norm(T,'fro')=1 to avoid underflow ?
 
     if( 0 !== λ )
     {
-      T .fill(0.0, rnk*N,(rnk+N)*N);
-      QF.fill(0.0, rnk,   rnk+N   );
+      for( let i=rnk; i-- > 0; )
+        QF[i] = -QF0[i];
+
+       T.fill(0.0, rnk*N,(N+1)*N);
+      QF.fill(0.0, rnk,  (N+1)  );
 
       const λSqrt = Math.sqrt(λ);
 
-      for( let i=N; i-- > 0; )
-      { let    Dλ = D[P[i]];
+      for( let j=N; j-- > 0; )
+      { let    Dλ = D[P[j]];
         if(0===Dλ)
                Dλ = 1;
         else   Dλ *= λSqrt;
         if( !( Dλ > 0 ) ) throw new Error('TrustRegionSolverLSQ.prototype.computeMinRegularized(λ): λ too small (caused underflow).');
 
-        const       j = (i-rnk+N) % N;
-        T[rnk*N + N*j+i] = Dλ;
+        if( rnk <= j )
+          // fill up the rank-deficient rows with regularization
+           T[N*j+j] = Dλ;
+        else {
+          // eliminate remaining regularization entries (using Givens QR)
+           T[N*N+j] = Dλ;
+          QF[  N  ] = 0;
 
-        // TODO: if we were to eliminate each regularization row right away, TMP could be smaller
+          for( let i=j; i < N; i++ )
+          { const   ii = N*i+i,
+                    Ni = N*N+i,
+                  T_Ni = T[Ni]; if(0 === T_Ni) continue;
+            const T_ii = T[ii],
+            [c,s,norm] = _giv_rot_qr(T_ii,T_Ni);
+            T[Ni] = 0; if(0 === s) continue;
+            T[ii] = norm;
+            _giv_rot_rows(T, N-1-i, ii+1,
+                                    Ni+1, c,s);
+            _giv_rot_rows(QF, 1, i,N, c,s);
+          }
+        }
       }
 
-      // COMPLETE QR DECOMPOSITION
-      for( let i=0; i < N; i++ ) { const J = Math.min(i+1,rnk)+N;
-      for( let j=N; j < J; j++ )
-      {
-        // USE GIVENS ROTATION TO ELIMINATE ELEMENT R_ji
-        const ji = N*j+i, T_ji = T[ji]; if(0 === T_ji) continue;
-        const ii = N*i+i, T_ii = T[ii],
-         [c,s,norm] = _giv_rot_qr(T_ii,T_ji);
-            T[ji]= 0; if(0 === s) continue;
-            T[ii]= norm;
-        _giv_rot_rows(T, N-1-i, ii+1,
-                                ji+1, c,s);
-        _giv_rot_rows(QF, 1, i,j, c,s);
-      }}
-    }
-    else if( rnk !== N )
-      throw new Error('Assertion failed.');
+      for( let i=N; i-- > 0; )
+        Y[i] = QF[i];
 
-    for( let i=N; i-- > 0; )
-      Y[i] = QF[i];
-
-    if( 0 !== λ )
-    {
       _triu_solve(N,N,1, T,0, Y,0);
 
       for( let i=N; i-- > 0; )
         X[P[i]] = Y[i];
     }
+    else if( rnk !== N )
+      throw new Error('Assertion failed.');
 
     // COMPUTE DISTANCE
     const  r = this.scaledNorm(X); // <- the scaled length

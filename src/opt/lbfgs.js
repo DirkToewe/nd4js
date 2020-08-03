@@ -16,7 +16,7 @@
  * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {array, NDArray} from '../nd_array'
+import {array, asarray, NDArray} from '../nd_array'
 
 import {LineSearchBisectionError,
         LineSearchError,
@@ -457,4 +457,85 @@ export function* lsq_lbfgs_gen(
           throw err
       }
   }
+}
+
+
+export function* fit_lbfgs_gen(
+  x, //: float[nSamples,nDim]
+  y, //: float[nSamples]
+  fg,//: (params: float[nParam]) => (x: float[nDim]) => [f: float, g: float[nParam]],
+  p0,//: float[nParam]
+  opt
+)
+{
+  if( ! (fg instanceof Function) )
+    throw new Error('fit_lbfgs_gen(x,y, fg, p0): fg must be a function.');
+
+  x = array(           x ); // <- TODO allow non-ndarray x ?
+  y = array('float64', y );
+  p0= array('float64', p0);
+
+  const FloatArray = Float64Array;
+
+  if(x .ndim !== 2 ) throw new Error('fit_lbfgs_gen(x,y, fg, p0): x.ndim must be 2.');
+  if(y .ndim !== 1 ) throw new Error('fit_lbfgs_gen(x,y, fg, p0): y.ndim must be 1.');
+  if(p0.ndim !== 1 ) throw new Error('fit_lbfgs_gen(x,y, fg, p0): p0.ndim must be 1.');
+
+  const [P] = p0.shape,
+      [M,N] =  x.shape,
+    x_shape = Int32Array.of(N);
+
+  if( M != y.shape[0] )
+    throw new Error('fit_lbfgs_gen(x,y, fg, p0): x.shape[0] must be equal to y.shape[0].');
+
+  x = x.data.slice(); // <- TODO: TypedArray.subarray could be used here
+  y = y.data;
+
+  // if x is frozen, no protection copies are necessary while passing it to fg
+  Object.freeze(x.buffer);
+  x = Array.from(
+    {length: M},
+    (_,i) => Object.freeze(
+      new NDArray(x_shape, x.subarray(N*i,N*i+1))
+    )
+  );
+  Object.freeze(x);
+
+  const R  = new FloatArray(M  ),
+         J = new FloatArray(M*P),
+        RJ =[new NDArray(Int32Array.of(M  ), R),
+             new NDArray(Int32Array.of(M,P), J)];
+
+  const fJ = p =>
+  {
+    const fgp = fg(p);
+    if( !(fgp instanceof Function) )
+      throw new Error();
+
+    for( let i=M; i-- > 0; )
+    {
+      let [f,g] = fgp(x[i]);
+
+      f = asarray(f);
+      g = asarray(g);
+
+      if( f.ndim     !== 0 ) throw new Error('fit_lbfgs_gen(x,y, fg, p0): fg must have signature float[nParams] => float[nDim] => [float, float[nParams]].');
+      if( g.ndim     !== 1 ) throw new Error('fit_lbfgs_gen(x,y, fg, p0): fg must have signature float[nParams] => float[nDim] => [float, float[nParams]].');
+      if( g.shape[0] !== P ) throw new Error('fit_lbfgs_gen(x,y, fg, p0): fg must have signature float[nParams] => float[nDim] => [float, float[nParams]].');
+
+      f = f.data[0];
+      g = g.data;
+
+      if(       isNaN(f)) throw new Error('fit_lbfgs_gen(x,y, fg, p0): NaN encountered.');
+      if(g.some(isNaN)  ) throw new Error('fit_lbfgs_gen(x,y, fg, p0): NaN encountered.');
+
+      R[i] = f - y[i];
+
+      for( let j=P; j-- > 0; )
+        J[P*i+j] = g[j];
+    }
+    return RJ;
+  };
+
+  yield* lsq_lbfgs_gen(fJ, p0, opt);
 }

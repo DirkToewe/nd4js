@@ -37,6 +37,7 @@ export * from './lbfgsb'
 export * from './line_search' // <- FIXME: this should not be here remove in next major version
 export * from './lm'
 export * from './num_grad'
+export * from './optimization_error'
 export * from './root1d_bisect'
 export * from './root1d_brent'
 export * from './root1d_illinois'

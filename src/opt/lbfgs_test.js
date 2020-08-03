@@ -16,11 +16,14 @@
  * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {lsq_lbfgs_gen,
+import {fit_lbfgs_gen,
+        lsq_lbfgs_gen,
         min_lbfgs_gen} from './lbfgs';
+import {generic_test_fit_gen} from "./_generic_test_fit";
 import {generic_test_lsq_gen} from "./_generic_test_lsq";
 import {generic_test_min_gen} from './_generic_test_min';
 
 
 generic_test_min_gen(min_lbfgs_gen);
 generic_test_lsq_gen(lsq_lbfgs_gen);
+generic_test_fit_gen(fit_lbfgs_gen);

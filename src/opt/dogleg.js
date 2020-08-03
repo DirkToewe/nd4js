@@ -16,14 +16,15 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {array, asarray, NDArray} from '../nd_array'
+import {array, asarray, NDArray} from '../nd_array';
 
 import {nextUp} from "../dt/float64_utils";
 
 import {OptimizationNoProgressError} from "./optimization_error";
-import {roots1d_polyquad} from './polyquad'
-import {TrustRegionSolverLBFGS} from './_trust_region_solver_lbfgs'
-import {TrustRegionSolverLSQ  } from './_trust_region_solver_lsq'
+import {roots1d_polyquad} from './polyquad';
+import {TrustRegionSolverLBFGS} from './_trust_region_solver_lbfgs';
+import {TrustRegionSolverLSQ  } from './_trust_region_solver_lsq';
+import {TrustRegionSolverODR  } from "./_trust_region_solver_odr";
 
 
 export function min_dogleg_gen(fg, x0, opt={})
@@ -155,7 +156,7 @@ export function* _dogleg(
       loss_consider
     ] = solver.considerMove(dX);
 
-/*DEBUG*/    if( !(loss_predict <= loss+1e-12) ) throw new Error('Assertion failed: ' + JSON.stringify({loss, loss_consider, loss_predict, gnInRadius}));
+//*DEBUG*/    if( !(loss_predict <= loss+1e-12) ) throw new Error('Assertion failed: ' + JSON.stringify({loss, loss_consider, loss_predict, gnInRadius}));
 
     const rScale = () => 1;
     // const rScale = () => gNorm; // <- TODO: examine scaling alternatives
@@ -211,6 +212,10 @@ export function* _dogleg(
 }
 
 
+export const odr_dogleg_gen    =   (x,y, fgg, p0,dx0,  opt) =>
+  _dogleg( new TrustRegionSolverODR(x,y, fgg, p0,dx0), opt );
+
+
 export function* fit_dogleg_gen(
   x, //: float[nSamples,nDim]
   y, //: float[nSamples]
@@ -220,7 +225,7 @@ export function* fit_dogleg_gen(
 )
 {
   if( ! (fg instanceof Function) )
-    throw new Error('fit_lm_gen(x,y, fg, p0): fg must be a function.');
+    throw new Error('fit_dogleg_gen(x,y, fg, p0): fg must be a function.');
 
   x = array(           x ); // <- TODO allow non-ndarray x ?
   y = array('float64', y );
@@ -228,16 +233,16 @@ export function* fit_dogleg_gen(
 
   const FloatArray = Float64Array;
 
-  if(x .ndim !== 2 ) throw new Error('fit_lm_gen(x,y, fg, p0): x.ndim must be 2.');
-  if(y .ndim !== 1 ) throw new Error('fit_lm_gen(x,y, fg, p0): y.ndim must be 1.');
-  if(p0.ndim !== 1 ) throw new Error('fit_lm_gen(x,y, fg, p0): p0.ndim must be 1.');
+  if(x .ndim !== 2 ) throw new Error('fit_dogleg_gen(x,y, fg, p0): x.ndim must be 2.');
+  if(y .ndim !== 1 ) throw new Error('fit_dogleg_gen(x,y, fg, p0): y.ndim must be 1.');
+  if(p0.ndim !== 1 ) throw new Error('fit_dogleg_gen(x,y, fg, p0): p0.ndim must be 1.');
 
   const [P] = p0.shape,
       [M,N] =  x.shape,
     x_shape = Int32Array.of(N);
 
   if( M != y.shape[0] )
-    throw new Error('fit_lm_gen(x,y, fg, p0): x.shape[0] must be equal to y.shape[0].');
+    throw new Error('fit_dogleg_gen(x,y, fg, p0): x.shape[0] must be equal to y.shape[0].');
 
   x = x.data.slice(); // <- TODO: TypedArray.subarray could be used here
   y = y.data;
@@ -270,15 +275,15 @@ export function* fit_dogleg_gen(
       f = asarray(f);
       g = asarray(g);
 
-      if( f.ndim     !== 0 ) throw new Error('fit_lm_gen(x,y, fg, p0): fg must have signature float[nParams] => float[nDim] => [float, float[nParams]].');
-      if( g.ndim     !== 1 ) throw new Error('fit_lm_gen(x,y, fg, p0): fg must have signature float[nParams] => float[nDim] => [float, float[nParams]].');
-      if( g.shape[0] !== P ) throw new Error('fit_lm_gen(x,y, fg, p0): fg must have signature float[nParams] => float[nDim] => [float, float[nParams]].');
+      if( f.ndim     !== 0 ) throw new Error('fit_dogleg_gen(x,y, fg, p0): fg must have signature float[nParams] => float[nDim] => [float, float[nParams]].');
+      if( g.ndim     !== 1 ) throw new Error('fit_dogleg_gen(x,y, fg, p0): fg must have signature float[nParams] => float[nDim] => [float, float[nParams]].');
+      if( g.shape[0] !== P ) throw new Error('fit_dogleg_gen(x,y, fg, p0): fg must have signature float[nParams] => float[nDim] => [float, float[nParams]].');
 
       f = f.data[0];
       g = g.data;
 
-      if(       isNaN(f)) throw new Error('fit_lm_gen(x,y, fg, p0): NaN encountered.');
-      if(g.some(isNaN)  ) throw new Error('fit_lm_gen(x,y, fg, p0): NaN encountered.');
+      if(       isNaN(f)) throw new Error('fit_dogleg_gen(x,y, fg, p0): NaN encountered.');
+      if(g.some(isNaN)  ) throw new Error('fit_dogleg_gen(x,y, fg, p0): NaN encountered.');
 
       R[i] = f - y[i];
 

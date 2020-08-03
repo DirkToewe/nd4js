@@ -23,8 +23,3 @@ export class OptimizationError extends Error
 export class OptimizationNoProgressError extends OptimizationError
 {
 }
-
-export class OptimizationTooManyIterationsError extends OptimizationError
-{
-  
-}
