@@ -20,38 +20,111 @@ import {array, NDArray} from '../nd_array'
 import {ARRAY_TYPES, eps} from '../dt'
 
 
+// https://en.wikipedia.org/wiki/Finite_difference#Forward,_backward,_and_central_differences
+// https://www.geometrictools.com/Documentation/FiniteDifferences.pdf
+const NUM_GRAD_D = Float64Array.of(+2,+1,-1,-2),
+      NUM_GRAD_W = Float64Array.of(-1, 8,-8,+1),
+      NUM_GRAD_S = 12;
+
+
 export const num_grad = ( f, {h_rel=undefined, h_abs=undefined}={} ) => x => {
-  x = array(x);
+  x = array('float', x);
 
   const dtype = x.dtype==='float32' ? 'float32' : 'float64',
         DTypeArray = ARRAY_TYPES[dtype],
-        shape = x.shape;
+        x_shape = x.shape;
 
   x = x.data;
 
-  const  g = new DTypeArray(x.length),
+  let g = null,
+      g_shape = null;
+
+  const 
     epsRel = null != h_rel ? h_rel : eps(dtype)**(1/3),
     epsAbs = null != h_abs ? h_abs : eps(dtype)**(1/3);
 
-  // https://en.wikipedia.org/wiki/Finite_difference#Forward,_backward,_and_central_differences
-  // https://www.geometrictools.com/Documentation/FiniteDifferences.pdf
-  for( let i=x.length; i-- > 0; )
-  {
-    const h = Math.max(Math.abs(x[i])*epsRel, epsAbs); // TODO maybe a check for h===0 might be sensible
+  let h = Math.max(Math.abs(x[0])*epsRel, epsAbs);
 
-    for( const [d,w] of [[+2*h,-1],
-                         [+1*h,+8],
-                         [-1*h,-8],
-                         [-2*h,+1]] )
+  // first function evaluation to determine output shape
+  let        y = function() {
+    const    X = new NDArray( x_shape, DTypeArray.from(x) );
+             X.data[0] += h * NUM_GRAD_D[0];
+    return f(X);
+  }();
+
+  if( 'number' === typeof y )
+  { // SCALAR OUTPUT
+    // -------------
+    g_shape = x_shape;
+    g = new Float64Array(x.length);
+    g[0] = y * NUM_GRAD_W[0];
+
+    outer_loop:for( let i=0,
+                        j=1;; j=0 )
     {
-      const     X = new NDArray( shape, DTypeArray.from(x) );
-                X.data[i] += d;
-      g[i] += f(X) * w;
+      for( ; j < NUM_GRAD_D.length; j++ )
+      {
+        const X = new NDArray( x_shape, DTypeArray.from(x) );
+              X.data[i] += h * NUM_GRAD_D[j];
+        y = f(X);
+        g[i] += y * NUM_GRAD_W[j];
+      }
+      g[i] /= h * NUM_GRAD_S;
+
+      if( ! (++i < x.length) )
+        break outer_loop;
+
+      h = Math.max(Math.abs(x[i])*epsRel, epsAbs);
     }
-    g[i] /= 12*h;
+  }
+  else
+  { // ND-ARRAY OUTPUT
+    // ---------------
+    y = array('float', y);
+
+    const     y_shape = y.shape;
+          y = y.data;
+    const M = y.length,
+          N = x.length;
+
+    g_shape = Int32Array.of(...y_shape, ...x_shape);
+    g = new Float64Array(y.length * x.length);
+
+    for( let k=0; k < M; k++ )
+      g[N*k] = y[k] * NUM_GRAD_W[0];
+
+    outer_loop:for( let i=0,
+                        j=1;; j=0 )
+    {
+      for( ; j < NUM_GRAD_D.length; j++ )
+      {
+        const X = new NDArray( x_shape, DTypeArray.from(x) );
+              X.data[i] += h * NUM_GRAD_D[j];
+        y = array('float', f(X));
+
+        if( y.ndim !== y_shape.length )
+          throw new Error('num_grad(f)(x): return shape of f must be consistent.');
+        for( let i=y_shape.length; i-- > 0; )
+          if( y.shape[i] !== y_shape[i] )
+            throw new Error('num_grad(f)(x): return shape of f must be consistent.');
+
+        y = y.data;
+
+        for( let k=0; k < M; k++ )
+          g[N*k+i] += y[k] * NUM_GRAD_W[j];
+      }
+
+      for( let k=0; k < M; k++ )
+        g[N*k+i] /= h * NUM_GRAD_S;
+
+      if( ! (++i < N) )
+        break outer_loop;
+
+      h = Math.max(Math.abs(x[i])*epsRel, epsAbs);
+    }
   }
 
-  return new NDArray(shape, g)
+  return new NDArray(g_shape, g)
 }
 
 

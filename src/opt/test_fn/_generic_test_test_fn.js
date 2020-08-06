@@ -51,15 +51,7 @@ export function generic_test_test_fn( test_fn, x_range )
 
 
     const test_fn_num_grad = num_grad(test_fn),
-          test_fn_num_hess = x => {
-            x = asarray(x);
-
-            const N = x.shape[x.ndim-1];
-
-            return stack(-1, Array.from({length: N}, (_,i) =>
-              num_grad( x => test_fn.grad(x)(i) )(x)
-            ));
-          };
+          test_fn_num_hess = num_grad( x => test_fn.grad(x) );
 
 
     for( const x of test_fn.roots )

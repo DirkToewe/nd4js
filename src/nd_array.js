@@ -28,8 +28,20 @@ export function array(dtype, content)
      'function' == typeof content) && 'shape' in content && 'data' in content )
   {
     let data = content.data
-    if( null != dtype && ! (data instanceof ARRAY_TYPES[dtype]) )
-      data = ARRAY_TYPES[dtype].from(data)
+
+    if( dtype == null )
+      dtype = content.dtype;
+    else if( dtype === 'float' )
+    {
+      if( content.dtype.startsWith('float') && ARRAY_TYPES.hasOwnProperty(dtype) )
+        dtype = content.dtype;
+      else
+        dtype = 'float64'
+    }
+    _check_dtype(dtype);
+
+    if( ! (data instanceof ARRAY_TYPES[dtype]) )
+      data = ARRAY_TYPES[dtype].from(data);
     else
       data = data.slice();
     return new NDArray(content.shape, data);
@@ -64,6 +76,8 @@ export function array(dtype, content)
         return dt;
       }
     }(0,content)
+  else  if( 'float' === dtype)
+    dtype = 'float64';
 
   _check_dtype(dtype)
   const data = new ARRAY_TYPES[dtype]( shape.reduce((a,b) => a*b, 1) )
