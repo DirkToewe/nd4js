@@ -68,7 +68,7 @@ export class TrustRegionSolverODR
 
     if(samples_x.ndim !== 1 &&
        samples_x.ndim !== 2      ) throw new Error('Assertion failed.');
-    if(samples_y.ndim !== 1      ) throw new Error('Assertion failed.');
+    if(samples_y.ndim !== 1      ) throw new Error('Assertion failed.'); // <- TODO: support 2-dimensional samples_y
     if(samples_x.ndim !==dx0.ndim) throw new Error('Assertion failed.');
     if(             1 !== p0.ndim) throw new Error('Assertion failed.');
     
@@ -161,9 +161,8 @@ export class TrustRegionSolverODR
     });
     Object.seal(this);
 
-           p0 =        p0.data;
-          dx0 =       dx0.data;
-    samples_x = samples_x.data;
+     p0 =  p0.data;
+    dx0 = dx0.data;
 
     for( let i=NP; i-- > 0; )
       newton_dX[MX*NX + i] = p0[i];
@@ -201,11 +200,11 @@ export class TrustRegionSolverODR
           report_dy       = new Float64Array(MX),
           report_dloss_dp = new Float64Array(NP),
           report_dloss_ddx= new Float64Array(MX*NX);
-     this.report_p        = new NDArray( p_shape, report_p );
-     this.report_dx       = new NDArray( x_shape, report_dx);
-     this.report_dy       = new NDArray( y_shape, report_dy);
-     this.report_dloss_dp = new NDArray( p_shape, report_dloss_dp );
-     this.report_dloss_ddx= new NDArray( x_shape, report_dloss_ddx);
+     this.report_p        = new NDArray(p_shape, report_p        );
+     this.report_dx       = new NDArray(x_shape, report_dx       );
+     this.report_dy       = new NDArray(y_shape, report_dy       );
+     this.report_dloss_dp = new NDArray(p_shape, report_dloss_dp );
+     this.report_dloss_ddx= new NDArray(x_shape, report_dloss_ddx);
 
     for( let i=NP; i-- > 0; ) {
       const                    I = MX*NX + i;
@@ -529,7 +528,7 @@ export class TrustRegionSolverODR
     {
       if( i === j ) return R11[i];
 
-      const s = R21[NX*(i%MX) + (i/MX|0)];
+      const s = R21[i];
 
       if( j < MX*NX )
       {
@@ -573,19 +572,18 @@ export class TrustRegionSolverODR
     for( let i=0; i < MX; i++ ) // <- for each diagonal entry in block
     {
       // COMPUTE GIVENS ROTATION
-      const  i1 = MX*I+i,
-             i2 = NX*i+I,
-             r1 = R11[i1],
-             r2 = R21[i2] * X[i],
+      const  Ii = MX*I+i,
+             r1 = R11[Ii],
+             r2 = R21[Ii] * X[i],
        [c,s,nrm]=_giv_rot_qr(r1,r2);
 
-      R21[i2] = s * X[i];
+      R21[Ii] = s * X[i];
                     X[i] *= c; if( s === 0 ) continue;
-      R11[i1] = nrm;
+      R11[Ii] = nrm;
 
       // ROTATE QF
-      _giv_rot_rows(QF,1, MX*I +i,
-                          MX*NX+i, c,s);
+      _giv_rot_rows(QF,1,     Ii,
+                         MX*NX+i, c,s);
     }
 
     //
@@ -691,7 +689,7 @@ export class TrustRegionSolverODR
         xj += J22[NP*i+j] * X[MX*NX + j];
 
       for( let j=0; j < NX; j++ )
-      { const        s = R21[NX*i+j];
+      { const        s = R21[MX*j+i];
         X[MX*j+i] -= s*xj;
       }
     }
@@ -704,11 +702,11 @@ export class TrustRegionSolverODR
     tmp.fill(0.0, 0,MX);  // <- accumulates values to be move to the right side
     for( let I=NX; I-- > 0; ) // <- for each block bottom to top
     for( let i=MX; i-- > 0; ) // <- for each diagonal entry in block bottom to top
-    { const Ii =     MX*I+i,
-             s = R21[NX*i+I];
-      X[Ii] -= tmp[i] * s;
+    { const        Ii = MX*I+i,
+           s = R21[Ii];
+      X[Ii] -= tmp[ i] * s;
       X[Ii] /= R11[Ii];
-      tmp[i] += X[Ii] * J21[Ii];
+      tmp[i]+= J21[Ii] * X[Ii];
     }
   }
 
@@ -725,8 +723,8 @@ export class TrustRegionSolverODR
     if(     P.length !== NP           ) throw new Error('Assertion failed.');
     if(   R11.length !== MX*NX        ) throw new Error('Assertion failed.');
     if(   R21.length !== MX*NX        ) throw new Error('Assertion failed.');
-    if( !(R22.length  >= MX*NP      ) ) throw new Error('Assertion failed.');
-    if( !(  X.length  >= MX*NX+NP   ) ) throw new Error('Assertion failed.');
+    if( !(R22.length >=  MX*NP      ) ) throw new Error('Assertion failed.');
+    if( !(  X.length >=  MX*NX+NP   ) ) throw new Error('Assertion failed.');
 
     if(  0 !== rnk%1) throw new Error('Assertion failed.');
     if(!(0  <= rnk) ) throw new Error('Assertion failed.');
@@ -740,11 +738,11 @@ export class TrustRegionSolverODR
     tmp.fill(0.0, 0,MX);  // <- accumulates values to be move to the right side
     for( let I=0; I < NX; I++ ) // <- for each block top to bottom
     for( let i=0; i < MX; i++ ) // <- for each diagonal entry in block top to bottom
-    { const        Ii = MX*I+i;
-      X[Ii] -= J21[Ii] * tmp[i];
-      X[Ii] /= R11[Ii];
-      const    s = R21[NX*i+I];
-      tmp[i]+= s*X[Ii];
+    { const         Ii = MX*I+i;
+      X[Ii]  -= J21[Ii] * tmp[i];
+      X[Ii]  /= R11[Ii];
+      const s = R21[Ii];
+      tmp[i] += s*X[Ii];
     }
 
     // MOVE SPARSE PART TO RIGHT SIDE
@@ -755,7 +753,7 @@ export class TrustRegionSolverODR
       let sum = 0.0;
 
       for( let I=NX; I-- > 0; )
-        sum += X[MX*I+i] * R21[NX*i+I];
+        sum += X[MX*I+i] * R21[MX*I+i];
 
       for( let j=NP; j-- > 0; )
         tmp[j] += J22[NP*i + P[j]] * sum;
@@ -853,28 +851,9 @@ export class TrustRegionSolverODR
       if(0 === J11[i]) throw new Error('Assertion failed: J11 must be all non-zero.');
       R11[i] = J11[i];
     }
-
-    // J21 memory is orderd left to right, basically going down the diagonals one after another
-    // R21 on the other hand is ordered row by row top to bottom
-    //
-    // In other words: Memory order in J21 is like (example with MX=3,NX=4):
-    //   0     3     6     9
-    //     1     4     7    10
-    //       2     5     8    11
-    //
-    // And memory order in R21 is like:
-    //   0     1     2     3
-    //     4     5     6     7    
-    //       8     9    10    11
-    for( let i=MX; i-- > 0; )
-    for( let j=NX; j-- > 0; )
-      R21[NX*i+j] = J21[MX*j+i];
-
-    for( let i=MX*NP; i-- > 0; )
-      R22[i] = J22[i];
-
-    for( let i=M; i-- > 0; )
-      QF[i] = F0[i];
+    for( let i=MX*NX; i-- > 0; ) R21[i] = J21[i];
+    for( let i=MX*NP; i-- > 0; ) R22[i] = J22[i];
+    for( let i=M    ; i-- > 0; )  QF[i] =  F0[i];
 
     const       rnk = this._qr_decomp(R11,R21,R22, P, QF, X);
     this.rank = rnk + MX*NX;
@@ -1017,28 +996,9 @@ export class TrustRegionSolverODR
       if(0 === J11[i]) throw new Error('Assertion failed: J11 must be all non-zero.');
       R11[i] = J11[i];
     }
-
-    // J21 memory is orderd left to right, basically going down the diagonals one after another
-    // R21 on the other hand is ordered row by row top to bottom
-    //
-    // In other words: Memory order in J21 is like (example with MX=3,NX=4):
-    //   0     3     6     9
-    //     1     4     7    10
-    //       2     5     8    11
-    //
-    // And memory order in R21 is like:
-    //   0     1     2     3
-    //     4     5     6     7    
-    //       8     9    10    11
-    for( let i=MX; i-- > 0; )
-    for( let j=NX; j-- > 0; )
-      R21[NX*i+j] = J21[MX*j+i];
-
-    for( let i=MX*NP; i-- > 0; )
-      R22[i] = J22[i];
-
-    for( let i=M; i-- > 0; )
-      QF[i] = F0[i];
+    for( let i=MX*NX; i-- > 0; ) R21[i] = J21[i];
+    for( let i=MX*NP; i-- > 0; ) R22[i] = J22[i];
+    for( let i=M    ; i-- > 0; )  QF[i] =  F0[i];
 
     const λSqrt = Math.sqrt(λ);
 

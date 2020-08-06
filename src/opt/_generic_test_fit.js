@@ -36,7 +36,7 @@ export function generic_test_fit_gen( fit_gen )
   
     forEachItemIn(
       function*(){
-        for( let run=32; run-- > 0; ) {
+        for( let run=24; run-- > 0; ) {
           const                            N      =  Math.random()*4 + 1 | 0,
                         coeffs = tabulate([N], () => Math.random()*4 - 2);
           Object.freeze(coeffs)
@@ -138,7 +138,7 @@ export function generic_test_fit_gen( fit_gen )
   
     forEachItemIn(
       function*(){
-        for( let run=32; run-- > 0; )
+        for( let run=24; run-- > 0; )
         { const                            N      =  Math.random()*4 + 1 | 0,
                         coeffs = tabulate([N], () => Math.random()*4 - 2);
           Object.freeze(coeffs)
@@ -246,7 +246,7 @@ export function generic_test_fit_gen( fit_gen )
   
     forEachItemIn(
       function*(){
-        for( let run=32; run-- > 0; )
+        for( let run=16; run-- > 0; )
         {
           const         coeffs = tabulate([2], () => Math.random()*4 - 2);
           Object.freeze(coeffs);
