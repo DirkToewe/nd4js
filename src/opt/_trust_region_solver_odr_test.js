@@ -228,19 +228,16 @@ for( const [name,{NP,NX,NDIM,f,fgg}] of Object.entries(funcs) )
     ).it(`initial X0,F0,G0,D,J is correct given random examples`, ([x, y, p0, dx0]) => {
       const solver = new TrustRegionSolverODR(x,y, fgg, p0,dx0);
 
-      const                            X0 = concat([dx0.T.reshape(-1), p0]);
+      const                            X0 = concat([dx0.reshape(-1), p0]);
       expect(solver.X0).toBeAllCloseTo(X0);
 
       const F = X => {
-        const         p = array('float64', X.data.slice(-NP));
+        const p = array('float64', X.data.slice(-NP)),
+             dx = new NDArray(x.shape, X.data.slice(0,-NP)),
+            xdx = zip_elems([x,dx], 'float64', (x,dx) => x+dx),
+             dy = tabulate(y.shape, 'float64', i => f(p)(xdx.sliceElems(i)) - y(i));
 
-        let          dx = new NDArray(x.shape.slice().reverse(), X.data.slice(0,-NP));
-        if(1 < NDIM) dx = dx.T;
-
-        const xdx = zip_elems([x,dx], 'float64', (x,dx) => x+dx),
-              dy = tabulate(y.shape, 'float64', i => f(p)(xdx.sliceElems(i)) - y(i));
-
-        return concat([dx.T.reshape(-1), dy]);
+        return concat([dx.reshape(-1), dy]);
       };
 
       const                            F0 = F(X0);
@@ -287,19 +284,16 @@ for( const [name,{NP,NX,NDIM,f,fgg}] of Object.entries(funcs) )
     ).it(`considerMove(dX) returns correct loss and loss prediction`, ([x, y, p0, dx0, seq]) => {
       const solver = new TrustRegionSolverODR(x,y, fgg, p0,dx0);
 
-      const                            X0 = concat([dx0.T.reshape(-1), p0]);
+      const                            X0 = concat([dx0.reshape(-1), p0]);
       expect(solver.X0).toBeAllCloseTo(X0);
 
       const F = X => {
-        const         p = array('float64', X.data.slice(-NP));
+        const p = array('float64', X.data.slice(-NP)),
+             dx = new NDArray(x.shape, X.data.slice(0,-NP)),
+            xdx = zip_elems([x,dx], 'float64', (x,dx) => x+dx),
+             dy = tabulate(y.shape, 'float64', i => f(p)(xdx.sliceElems(i)) - y(i));
 
-        let          dx = new NDArray(x.shape.slice().reverse(), X.data.slice(0,-NP));
-        if(1 < NDIM) dx = dx.T;
-
-        const xdx = zip_elems([x,dx], 'float64', (x,dx) => x+dx),
-               dy = tabulate(y.shape, 'float64', i => f(p)(xdx.sliceElems(i)) - y(i));
-
-        return concat([dx.T.reshape(-1), dy]);
+        return concat([dx.reshape(-1), dy]);
       };
 
       const                            F0 = F(X0);

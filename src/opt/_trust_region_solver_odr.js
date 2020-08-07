@@ -98,8 +98,7 @@ export class TrustRegionSolverODR
       F0 = new Float64Array(M),
       G0 = new Float64Array(N),
 
-      tmp  = new Float64Array(N),
-      tmp2 = new Float64Array( Math.max(MX,2*NP) ),
+      tmp = new Float64Array(N),
 
       newton_R11 = new Float64Array( MX * NX ), // <- after computeNewton(), contains diagonal of R11
       newton_R21 = new Float64Array( MX * NX ), // <- after computeNewton(), contains sines of givens rotations used to compute off diagonal entries of R11 and R12
@@ -115,7 +114,7 @@ export class TrustRegionSolverODR
       regularized_QF  = new Float64Array( Math.max(M,N+1) ),
       regularized_dX  = new Float64Array(N),
 
-      norm = tmp2.subarray(0, 2*NP);
+      norm = new Float64Array(2*NP);
 
     Object.assign(this, {
       MX,NX, NP, M,N,
@@ -137,7 +136,6 @@ export class TrustRegionSolverODR
       J11,
       J21,J22,
       tmp,
-      tmp2,
 
       newton_R11,
       newton_R21,
@@ -167,9 +165,8 @@ export class TrustRegionSolverODR
     for( let i=NP; i-- > 0; )
       newton_dX[MX*NX + i] = p0[i];
 
-    for( let j=NX; j-- > 0; )
-    for( let i=MX; i-- > 0; )
-      newton_dX[MX*j+i] = dx0[NX*i+j];
+    for( let i=MX*NX; i-- > 0; )
+      newton_dX[i] = dx0[i];
 
     this._considerMove(newton_dX);
                        newton_dX.fill(0.0);
@@ -185,9 +182,9 @@ export class TrustRegionSolverODR
       x_shape, samples_x,
       y_shape, samples_y,
       p_shape,
-      _consider_J11,
-      _consider_J21,
-      _consider_J22,
+      _consider_J11: J11,
+      _consider_J21: J21,
+      _consider_J22: J22,
       X0
     } = this;
 
@@ -211,11 +208,8 @@ export class TrustRegionSolverODR
       report_p[i] = X0[I] + dX[I];
     }
 
-    for( let i=MX; i-- > 0; )
-    for( let j=NX; j-- > 0; ) {
-      const                           ji = MX*j+i;
-      report_dx[NX*i+j] = X0[ji] + dX[ji];
-    }
+    for( let i=MX*NX; i-- > 0; )
+      report_dx[i] = X0[i] + dX[i];
 
     const fgg_p = fgg(
       new NDArray(p_shape, report_p.slice())
@@ -253,23 +247,23 @@ export class TrustRegionSolverODR
       gp = gp.data;
       gx = gx.data;
 
-      for( let j=NP; j-- > 0; ) _consider_J22[NP*i+j] = gp[j];
-      for( let j=NX; j-- > 0; ) _consider_J21[MX*j+i] = gx[j]; // <- TODO: consider "transpose" memory organization of J21, so that it's same memory organization as R21 in `computeNewton`
+      for( let j=NP; j-- > 0; ) J22[NP*i+j] = gp[j];
+      for( let j=NX; j-- > 0; ) J21[NX*i+j] = gx[j]; // <- TODO: consider "transpose" memory organization of J21, so that it's same memory organization as R21 in `computeNewton`
     }
 
-    _consider_J11.fill(1.0); // <- TODO: use weights instead;
+    J11.fill(1.0); // <- TODO: use weights instead;
 
     // COMPUTE LOSS GRADIENT w.r.t. P
     for( let i=MX; i-- > 0; )
     for( let j=NP; j-- > 0; )
-      report_dloss_dp[j] += _consider_J22[NP*i+j] * report_dy[i] / M * 2;
+      report_dloss_dp[j] += J22[NP*i+j] * report_dy[i] / M * 2;
 
     // COMPUTE LOSS GRADIENT w.r.t. ΔX
     for( let i=MX; i-- > 0; )
     for( let j=NX; j-- > 0; )
       report_dloss_ddx[NX*i+j] = (
-        _consider_J11[MX*j+i] * report_dx[NX*i+j] +
-        _consider_J21[MX*j+i] * report_dy[   i  ]
+        J11[NX*i+j] * report_dx[NX*i+j] +
+        J21[NX*i+j] * report_dy[   i  ]
       ) / M * 2;
 
 
@@ -307,20 +301,17 @@ export class TrustRegionSolverODR
           report_dx = this.report_dx.data;
 
     let predict_loss = 0.0;
-    for( let i=MX; i-- > 0; )
-    for( let j=NX; j-- > 0; ) {
-      const ji = MX*j+i,
-            ij = NX*i+j,
-                      f = F0[ji] + J11[ji] * (report_dx[ij] - X0[ji]);
-      predict_loss += f*f/M;
+    for( let i=MX*NX; i-- > 0; ) {
+      const           f = F0[i] + J11[i] * (report_dx[i] - X0[i]);
+      predict_loss += f*f / M;
     }
 
     for( let i=MX; i-- > 0; )
     {
       let f = F0[MX*NX + i];
-      for( let j=NX; j-- > 0; ) f += J21[MX*j+i] * (report_dx[NX*i+j] - X0[MX*j+i]);
+      for( let j=NX; j-- > 0; ) f += J21[NX*i+j] * (report_dx[NX*i+j] - X0[NX*i+j]);
       for( let j=NP; j-- > 0; ) f += J22[NP*i+j] * (report_p[j]       - X0[MX*NX + j]);
-      predict_loss += f*f/M;
+      predict_loss += f*f / M;
     }
 
     return [ predict_loss,
@@ -356,9 +347,8 @@ export class TrustRegionSolverODR
            dx = this.report_dx.data,
            dy = this.report_dy.data;
 
-      for( let i=NP   ; i-- > 0; ) X0[MX*NX + i] = p[i];
-      for( let i=MX   ; i-- > 0; )
-      for( let j=NX   ; j-- > 0; ) X0[MX*j+i] = dx[NX*i+j];
+      for( let i=NP   ; i-- > 0; ) X0[MX*NX + i] =  p[i];
+      for( let i=MX*NX; i-- > 0; ) X0[        i] = dx[i];
 
       for( let i=MX   ; i-- > 0; ) F0[MX*NX + i] = dy[i];
       for( let i=MX*NX; i-- > 0; ) F0[        i] = X0[i];
@@ -369,7 +359,7 @@ export class TrustRegionSolverODR
 
     for( let j=NX; j-- > 0; )
     for( let i=MX; i-- > 0; )
-      G0[MX*j+i] += J21[MX*j+i] * F0[MX*NX + i];
+      G0[NX*i+j] += J21[NX*i+j] * F0[MX*NX + i];
 
     G0.fill(0.0, MX*NX, MX*NX+NP);
     for( let i=MX; i-- > 0; )
@@ -411,8 +401,8 @@ export class TrustRegionSolverODR
         Jg += J22[NP*i+j] * G[MX*NX + j];
 
       for( let j=NX; j-- > 0; ) {
-        const     ji = MX*j+i;
-        Jg += J21[ji] * G[ji];
+        const     ij = NX*i+j;
+        Jg += J21[ij] * G[ij];
       }
 
       b += Jg * Jg;
@@ -480,9 +470,9 @@ export class TrustRegionSolverODR
     if( !( i < M ) ) throw new Error('Assertion failed.');
     if( !( j < N ) ) throw new Error('Assertion failed.');
 
-    if( i < MX*NX ) return i===j    ? J11[i] : 0;
+    if( i < MX*NX ) return i === j       ? J11[i] : 0;
         i-= MX*NX;
-    if( j < MX*NX ) return i===j%MX ? J21[j] : 0;
+    if( j < MX*NX ) return i ===(j/NX|0) ? J21[j] : 0;
         j-= MX*NX;
 
     return J22[NP*i+j];
@@ -532,7 +522,7 @@ export class TrustRegionSolverODR
 
       if( j < MX*NX )
       {
-        const  J_ij = this.__DEBUG_J(MX*NX + i%MX, j);
+        const  J_ij = this.__DEBUG_J(MX*NX + (i/NX|0), j);
         return J_ij * s;
       }
 
@@ -564,35 +554,30 @@ export class TrustRegionSolverODR
 
     //
     // STEP 2.1: ELIMINATE R21 USING GIVENS ROTATIONS
-    //           O( MX*NX ) operations
+    //           O( MX*(NX+NP) ) operations
     //
-    X.fill(1.0, 0,MX); // <- temp. stores the (accumulated) cosines of the givens rotations
-
-    for( let I=0; I < NX; I++ ) // <- for each block top to bottom
-    for( let i=0; i < MX; i++ ) // <- for each diagonal entry in block
+    for( let i=0; i < MX; i++ )
     {
-      // COMPUTE GIVENS ROTATION
-      const  Ii = MX*I+i,
-             r1 = R11[Ii],
-             r2 = R21[Ii] * X[i],
-       [c,s,nrm]=_giv_rot_qr(r1,r2);
+      let cc = 1;
 
-      R21[Ii] = s * X[i];
-                    X[i] *= c; if( s === 0 ) continue;
-      R11[Ii] = nrm;
+      for( let j=0; j < NX; j++ )
+      { const            ij = NX*i+j,
+              r1   = R11[ij],
+              r2   = R21[ij] * cc,
+          [c,s,nrm]=_giv_rot_qr(r1,r2);
+        if(0===nrm)
+           throw new Error('Assertion failed: Sparse part of J must not be singular.');
 
-      // ROTATE QF
-      _giv_rot_rows(QF,1,     Ii,
-                         MX*NX+i, c,s);
+        R21[ij] = cc * s; if( s === 0 ) continue;
+                  cc *=c;
+        R11[ij] = nrm;
+
+        _giv_rot_rows(QF,1, ij,MX*NX+i, c,s);
+      }
+
+      for( let j=0; j < NP; j++ )
+        R22[NP*i+j] *= cc;
     }
-
-    //
-    // STEP 2.2: APPLY TO R22 THE SCALE WHICH RESULTS FROM THE GIVENS ROTATIONS IN STEP 2.1
-    //           O( MX*NP ) operations
-    //
-    for( let i=MX; i-- > 0; )
-    for( let j=NP; j-- > 0; )
-      R22[NP*i+j] *= X[i];
 
     //
     // STEP 2.3: RRQR-DECOMPOSE R22
@@ -669,7 +654,7 @@ export class TrustRegionSolverODR
 
     //
     // STEP 3.4: MOVE SOLVED R22-PART TO THE RIGHT
-    //           O( max(NP,NX)*MX ) operations
+    //           O( MX*(NX+NP) ) operations
     // -------------------------------------------
     // As a result of steps 2.1 and 2.2, each row in R12 can be described as
     // a scaled row of J22, i.e.:
@@ -688,10 +673,8 @@ export class TrustRegionSolverODR
       for( let j=NP; j-- > 0; )
         xj += J22[NP*i+j] * X[MX*NX + j];
 
-      for( let j=0; j < NX; j++ )
-      { const        s = R21[MX*j+i];
-        X[MX*j+i] -= s*xj;
-      }
+      for( let j=NX; j-- > 0; )
+        X[NX*i+j] -= xj * R21[NX*i+j];
     }
 
 
@@ -699,14 +682,11 @@ export class TrustRegionSolverODR
     //
     // STEP 3.5: BACKWARD SUBSTITUTION OF R11
     //           O( MX*NX ) operations
-    tmp.fill(0.0, 0,MX);  // <- accumulates values to be move to the right side
-    for( let I=NX; I-- > 0; ) // <- for each block bottom to top
-    for( let i=MX; i-- > 0; ) // <- for each diagonal entry in block bottom to top
-    { const        Ii = MX*I+i,
-           s = R21[Ii];
-      X[Ii] -= tmp[ i] * s;
-      X[Ii] /= R11[Ii];
-      tmp[i]+= J21[Ii] * X[Ii];
+    for( let i=MX      ; i-- > 0; ) // <- for each block bottom to top
+    for( let j=NX, Jx=0; j-- > 0; ) // <- for each diagonal entry in block bottom to top
+    { const        ij = NX*i+j;
+      X[ij] -= R21[ij] * Jx; // <- move partial solution to the right side
+      X[ij] /= R11[ij];  Jx += J21[ij] * X[ij]; // <- Jx accumulates the part to be moved to the right side
     }
   }
 
@@ -716,7 +696,7 @@ export class TrustRegionSolverODR
     const {
       MX,NX,NP,
       J21,J22,
-      D, tmp2: tmp
+      D, norm: tmp
     } = this;
 
     if( ! ( P instanceof Int32Array ) ) throw new Error('Assertion failed.');
@@ -733,30 +713,23 @@ export class TrustRegionSolverODR
 
     //
     // STEP 4.1: SOLVE SPARSE PART
-    //           O( MX*NX ) operations
+    //           O( MX*(NX+NP) ) operations
     //
-    tmp.fill(0.0, 0,MX);  // <- accumulates values to be move to the right side
-    for( let I=0; I < NX; I++ ) // <- for each block top to bottom
-    for( let i=0; i < MX; i++ ) // <- for each diagonal entry in block top to bottom
-    { const         Ii = MX*I+i;
-      X[Ii]  -= J21[Ii] * tmp[i];
-      X[Ii]  /= R11[Ii];
-      const s = R21[Ii];
-      tmp[i] += s*X[Ii];
-    }
-
-    // MOVE SPARSE PART TO RIGHT SIDE
-    // As explained in STEP 3.5, each row of R21 is a scaled row of J22, which allows us to do the weird but efficient math below.
-    tmp.fill(0.0, 0,NP);
-    for( let i=MX; i-- > 0; )
+    tmp.fill(0.0, 0,NP); // <- accumulates sparse part of solution to be moved to right side (because we have to apply givens rotations to it before moving it to the right side)
+    for( let i=0; i < MX; i++ )
     {
-      let sum = 0.0;
+      let sx = 0.0;
 
-      for( let I=NX; I-- > 0; )
-        sum += X[MX*I+i] * R21[MX*I+i];
+      // forward substitute block
+      for( let j=0; j < NX; j++ )
+      { const        ij = NX*i+j;
+        X[ij] -= J21[ij] * sx;
+        X[ij] /= R11[ij];  sx += R21[ij] * X[ij];
+      }
 
-      for( let j=NP; j-- > 0; )
-        tmp[j] += J22[NP*i + P[j]] * sum;
+      // move solved block to right hand side
+      for( let j=0; j < NP; j++ )
+        tmp[j] += sx * J22[NP*i + P[j]];
     }
 
     if( rnk < NP )
@@ -847,10 +820,7 @@ export class TrustRegionSolverODR
     //
 
     // for R11, only the diagonal is stored in memory explicitly. Off-diagonal entries are computed "on-demand"
-    for( let i=MX*NX; i-- > 0; ) {
-      if(0 === J11[i]) throw new Error('Assertion failed: J11 must be all non-zero.');
-      R11[i] = J11[i];
-    }
+    for( let i=MX*NX; i-- > 0; ) R11[i] = J11[i];
     for( let i=MX*NX; i-- > 0; ) R21[i] = J21[i];
     for( let i=MX*NP; i-- > 0; ) R22[i] = J22[i];
     for( let i=M    ; i-- > 0; )  QF[i] =  F0[i];
