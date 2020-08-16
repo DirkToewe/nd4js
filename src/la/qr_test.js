@@ -19,13 +19,17 @@
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import math from '../math'
 import {tabulate} from '../tabulate'
-import {_rand_rows0,
+import {_rand_rankdef,
+        _rand_rows0,
         _rand_cols0} from '../_test_data_generators'
 import {zip_elems} from '../zip_elems'
 
 import {eye} from './eye'
 import {matmul2} from './matmul'
-import {qr_decomp, qr_decomp_full, qr_lstsq} from './qr'
+import {qr_decomp,
+        qr_decomp_full,
+       _qr_decomp_inplace,
+        qr_lstsq} from './qr'
 
 
 describe('qr', () => {
@@ -307,5 +311,36 @@ describe('qr', () => {
 
     // every least square solution satisfies the normal equaltion Aᵀ(Ax - y) = 0
     expect( matmul2(A.T, zip_elems([Ax,y], math.sub) ) ).toBeAllCloseTo(0)
+  })
+
+
+  forEachItemIn(
+    function*(){
+      for( let run=4096; run-- > 0; )
+      {
+        const M = randInt(1,64),
+              N = randInt(1,64),
+              L = randInt(1,64),
+             [A]= _rand_rankdef(M,N),
+              Y = tabulate([M,L], 'float64', () => (Math.random() < 0.01)*(Math.random()*8-4) );
+        Object.freeze(Y.data.buffer);
+        Object.freeze(Y);
+        yield [A,Y];
+      }
+    }()
+  ).it(`_qr_decomp_inplace works on random rank-deficient examples`, ([A,Y]) => {
+    const [M,N] = A.shape,
+             L  = Y.shape[1];
+
+    const [Q,R] = qr_decomp_full(A);
+
+    const a = A.mapElems(),
+          y = Y.mapElems();
+
+    _qr_decomp_inplace(M,N,L, a.data,0, y.data,0); // <- TODO test with offset
+
+    expect(a).toBeUpperTriangular();
+    expect(a).toBeAllCloseTo(R);
+    expect(y).toBeAllCloseTo( matmul2(Q.T,Y) );
   })
 })

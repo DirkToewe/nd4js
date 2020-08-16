@@ -463,51 +463,121 @@ export class TrustRegionSolverODR
   }
 
 
-  __DEBUG_R( i, j ) // <- meant for debugging only!
+  // The (ODR) trust-region solver decomposes J into:
+  //
+  // J = Q·R·V·D
+  //
+  // Q: float[M,M], orthogonal
+  // R: float[M,N], upper triangular
+  // V: float[N,N], orthogonal
+  // D: float[N,N], diagonal scaling matrix
+  //
+  // Where Q is only available implicitly via QF which is the product (Q·F).
+  // This method returns [R,V,D] for debugging purposes, where D is returned
+  // as row vector.
+  get __DEBUG_RVD()
   {
-    if( i%1 !== 0 ) throw new Error('Assertion failed.');
-    if( j%1 !== 0 ) throw new Error('Assertion failed.');
-
-    i |= 0;
-    j |= 0;
-
-    if( !( 0 <= i ) ) throw new Error('Assertion failed.');
-    if( !( 0 <= j ) ) throw new Error('Assertion failed.');
-
     const {
       M,N, MX,NX,NP,
+      newton_P  : P,
       newton_R11: R11,
-      newton_R21: R21,
-      newton_R22: R22
+      newton_R21: R21, J21,
+      newton_R22: R22, J22
     } = this;
 
-    if( !( i < M ) ) throw new Error('Assertion failed.');
-    if( !( j < N ) ) throw new Error('Assertion failed.');
-
-    if( i > j ) return 0;
-
-    if( i < MX*NX )
-    {
-      if( i === j ) return R11[i];
-
-      const s = R21[i];
-
-      if( j < MX*NX )
-      {
-        const  J_ij = this.__DEBUG_J(MX*NX + (i/NX|0), j);
-        return J_ij * s;
-      }
-
+    if( ! (0 <= this.rank) )
       throw new Error('Assertion failed.');
+
+    const rnk = this.rank - MX*NX,
+            R = new Float64Array(M*N),
+            V = new Float64Array(N*N),
+            D = new Float64Array(1*N);
+
+    // V11
+    for( let i=0; i < MX*NX; i++ )
+      V[N*i+i] = 1;
+
+    // V22
+    for( let i=0; i < NP; i++ )
+      V[N*(MX*NX +   i ) +
+          (MX*NX + P[i])] = 1;
+
+    // diag(R11)
+    for( let i=0; i < MX*NX; i++ )
+      R[N*i+i] = R11[i];
+
+    // triu(R11,+1)
+    for( let i=0  ; i < MX; i++ )
+    for( let j=0  ; j < NX; j++ )
+    for( let k=1+j; k < NX; k++ )
+    {
+      R[N*(NX*i + j) +
+          (NX*i + k) ] += R21[NX*i+j] * J21[NX*i+k];
     }
 
-    if( j < MX*NX )
-      return 0;
+    // R12
+    for( let i=0; i < MX; i++ )
+    for( let j=0; j < NX; j++ )
+    for( let k=0; k < NP; k++ )
+    {
+      R[N*(NX*i  + j) +
+          (NX*MX + k) ] += R21[NX*i+j] * J22[NP*i + P[k]];
+    }
 
-    i -= MX*NX;
-    j -= MX*NX;
+    // R22
+    for( let i=0; i < rnk; i++ )
+    for( let j=0; j < rnk; j++ )
+      R[N*(MX*NX + i) +
+          (MX*NX + j)] = R22[NP*i+j];
 
-    return R22[NP*i+j];
+    D.fill(1.0);
+    if( rnk !== NP )
+    {
+      for( let i=MX*NX + NP; i-- > MX*NX; )
+        D[i] = this.D[i] || 1;
+
+      // APPLY SCALING TO R12 
+      for( let j=NP; j-- > 0; )
+      { const      D_j = this.D[MX*NX + P[j]];
+         if( 0 !== D_j )
+           for( let i=MX*NX; i-- > 0; ) R[N*i + (MX*NX + j)] /= D_j;
+      }
+
+      // APPLY GIVENS ROTATIONS TO R12
+      for( let i=rnk; i-- >  0 ; )
+      for( let j= NP; j-- > rnk; )
+      {
+        const s = R22[NP*i+j]; if(s===0) continue;
+        const c = Math.sqrt(1 - s*s);
+        for( let k=MX*NX; k-- > 0; ) {
+          const     ki = N*k + (MX*NX + i),
+                    kj = N*k + (MX*NX + j),
+          R_ki  = R[ki],
+          R_kj  = R[kj];
+          R[ki] = R_kj*s + c*R_ki;
+          R[kj] = R_kj*c - s*R_ki;
+        }
+      }
+      for( let i=MX*NX     ; i-- >  0 ; )
+      for( let j=MX*NX + NP; j-- > MX*NX + rnk; )
+        R[N*i+j] = 0;
+
+      // APPLY GIVENS ROTATIONS TO V
+      for( let i=rnk; i-- >  0 ; )
+      for( let j= NP; j-- > rnk; )
+      {
+        const s = R22[NP*i+j]; if(0===s) continue;
+        const c = Math.sqrt(1 - s*s);
+        _giv_rot_rows(V,N, N*(MX*NX+i),
+                           N*(MX*NX+j), c,s);
+      }
+    }
+
+    return [
+      new NDArray( Int32Array.of(M,N), R ),
+      new NDArray( Int32Array.of(N,N), V ),
+      new NDArray( Int32Array.of(1,N), D )
+    ];
   }
 
 

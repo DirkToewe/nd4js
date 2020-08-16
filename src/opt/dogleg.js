@@ -212,8 +212,15 @@ export function* _dogleg(
 }
 
 
-export const odr_dogleg_gen    =   (x,y, fgg, p0,dx0,  opt) =>
-  _dogleg( new TrustRegionSolverODR(x,y, fgg, p0,dx0), opt );
+// export const odr_dogleg_gen = (fgg, p0, dx0, opt) => 
+//   ???
+
+
+export const fit_odr_dogleg_gen = (x,y, fgg,p0, opt) => {
+  x = asarray('float64', x);
+  const { dx0 = x.mapElems('float64', () => 0) } = opt;
+  return _dogleg( new TrustRegionSolverODR(x,y, fgg, p0,dx0), opt );
+}
 
 
 export function* fit_dogleg_gen(

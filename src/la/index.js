@@ -36,7 +36,9 @@ export {pldlp_decomp,
         pldlp_l,
         pldlp_d,
         pldlp_p} from './pldlp'
-export * from './qr'
+export {qr_decomp,
+        qr_decomp_full,
+        qr_lstsq} from './qr'
 export * from './rand_ortho'
 export * from './rank'
 export { rrqr_decomp,

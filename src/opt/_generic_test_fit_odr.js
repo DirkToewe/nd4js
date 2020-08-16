@@ -18,7 +18,6 @@
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils';
 import {array, NDArray} from '../nd_array';
-import {stack} from "../stack";
 import {tabulate} from "../tabulate";
 import {_rand_int} from "../_test_data_generators";
 
@@ -26,8 +25,8 @@ import {norm} from "../la/norm";
 
 
 import {num_grad} from "./num_grad";
-import { OptimizationNoProgressError } from './optimization_error';
-import { rand_normal } from '../rand_normal';
+import {OptimizationNoProgressError} from './optimization_error';
+import {rand_normal} from '../rand_normal';
 
 
 /* Creates a quadratic polynomial with NX-dimensional input `x`.
@@ -104,9 +103,9 @@ function rand_quadratic_poly( NX )
 }
 
 
-export function generic_test_odr_gen( odr_gen )
+export function generic_test_fit_odr_gen( fit_odr_gen )
 {
-  describe(`${odr_gen.name} [generic tests]`, () => {
+  describe(`${fit_odr_gen.name} [generic tests]`, () => {
     beforeEach( () => {
       jasmine.addMatchers(CUSTOM_MATCHERS)
     })
@@ -164,7 +163,7 @@ export function generic_test_odr_gen( odr_gen )
       ).it(`fits random quadratic_poly(${NX}) correctly`, ([samples_x, samples_y, fgh, P, P0, dx0]) => {
         let     p,dx, mse,dmse_dp,dmse_dx, dy;
         try {
-          for( [p,dx, mse,dmse_dp,dmse_dx, dy] of odr_gen(samples_x, samples_y, fgh, P0, dx0) )
+          for( [p,dx, mse,dmse_dp,dmse_dx, dy] of fit_odr_gen(samples_x, samples_y, fgh, P0, {dx0}) )
           {
             if(   norm(dmse_dp) < 1e-8
                && norm(dmse_dx) < 1e-8 )

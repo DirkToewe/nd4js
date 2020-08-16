@@ -145,6 +145,44 @@ export function qr_decomp(A)
 }
 
 
+export function _qr_decomp_inplace(M,N,L, A,A_off, Y,Y_off)
+{
+  if( M%1 !== 0 ) throw new Error('Assertion failed.');
+  if( N%1 !== 0 ) throw new Error('Assertion failed.');
+  if( L%1 !== 0 ) throw new Error('Assertion failed.');
+  if( A_off%1 !== 0 ) throw new Error('Assertion failed.');
+  if( Y_off%1 !== 0 ) throw new Error('Assertion failed.');
+  if( A.length%1 !== 0 ) throw new Error('Assertion failed.');
+  if( Y.length%1 !== 0 ) throw new Error('Assertion failed.');
+
+  if( !(0 <= M) ) throw new Error('Assertion failed.');
+  if( !(0 <= N) ) throw new Error('Assertion failed.');
+  if( !(0 <= L) ) throw new Error('Assertion failed.');
+  if( !(0 <= A_off) ) throw new Error('Assertion failed.');
+  if( !(0 <= Y_off) ) throw new Error('Assertion failed.');
+  if( !(0 <= A.length) ) throw new Error('Assertion failed.');
+  if( !(0 <= Y.length) ) throw new Error('Assertion failed.');
+
+  if( !(M*N <= A.length - A_off) ) throw new Error('Assertion failed.');
+  if( !(M*L <= Y.length - Y_off) ) throw new Error('Assertion failed.');
+
+  for( let i=1; i < M         ; i++ )
+  for( let j=0; j < N && j < i; j++ )
+  {
+    // USE GIVENS ROTATION TO ELIMINATE ELEMENT R_ji
+    const ij = A_off+N*i+j, A_ij = A[ij]; if(0 === A_ij) continue;
+    const jj = A_off+N*j+j, A_jj = A[jj],
+      [c,s,norm] =_giv_rot_qr(A_jj,A_ij);
+        A[ij]= 0; if(0 === s) continue;
+        A[jj]= norm;
+    _giv_rot_rows(A,N-1-j,  jj+1,
+                            ij+1, c,s);
+    _giv_rot_rows(Y,L, Y_off+L*j,
+                       Y_off+L*i, c,s);
+  }
+}
+
+
 export function qr_lstsq(Q,R, y)
 {
   if( undefined == y ) { y=R; [Q,R] = Q; }

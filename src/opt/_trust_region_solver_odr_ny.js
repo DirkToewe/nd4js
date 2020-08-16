@@ -22,6 +22,7 @@ import {array, asarray, NDArray} from '../nd_array'
 import {_giv_rot_qr,
         _giv_rot_rows} from "../la/_giv_rot";
 import {FrobeniusNorm} from "../la/norm";
+import {  _qr_decomp_inplace} from '../la/qr'
 import {_rrqr_decomp_inplace,
         _rrqr_rank} from "../la/rrqr";
 import {_triu_solve,
@@ -55,22 +56,19 @@ export class TrustRegionSolverODR_NY
     if(samples_x.ndim !==dx0.ndim) throw new Error('Assertion failed.');
     if(             1 !== p0.ndim) throw new Error('Assertion failed.');
 
-    const [MX,NX=1] =       dx0.shape,
-             [NP  ] =        p0.shape,
-          [MY,NY=1] = samples_y.shape;
+    const [MX,NX=1] = samples_x.shape,
+          [MY,NY=1] = samples_y.shape,
+             [NP  ] =        p0.shape;
 
     if(   1 !== dx0.ndim
       && NX !== dx0.shape[1] ) throw new Error('Assertion failed.');
     if(  MX !== dx0.shape[0] ) throw new Error('Assertion failed.');
     if(  MX !== MY           ) throw new Error('Assertion failed.');
 
-    // TODO: we could probably do with less memory:
-    //   * QF is not really reused, is it?
-    //   * there might be overlap in tmp usage
     const M = MX*NX + MX*NY,
           N = MX*NX + NP,
           L = Math.min(NX,NY),
-          // K = Math.min(),
+          K = Math.min(MX*NX + NP+1, MX*NY), // <- +1 as temp. memory for QR-decomp.
         J11 = new Float64Array(MX*NX),
         J21 = new Float64Array(MX*NY*NX),
         J22 = new Float64Array(MX*NY*NP),
@@ -85,24 +83,26 @@ export class TrustRegionSolverODR_NY
 
       tmp = new Float64Array( L*(L+3) >>> 1 ),
 
-      // TODO: preparation only necessary if NY > NX
-      prepared_J21 = NY < NX ? J21                : new Float64Array(MX*NX*NX + NX),
-      prepared_J22 = NY < NX ? J22                : new Float64Array(MX*NY*NP     ),
-      prepared_QF  = NY < NX ? F0.subarray(MX*NX) : new Float64Array(MX*NY        ),
+      // If NX < NY, we can use the prepare() step to reduce the work computeNewtonRegularized(λ) which should speed up Levenberg-Marquardt
+      prepared_J21 = NY < NX ? J21                : new Float64Array(MX*NX*NX + NX), // <- +NX as temp. memory for QR decomp.
+      prepared_J22 = NY < NX ? J22                : new Float64Array(K*NP),
+      prepared_QF  = NY < NX ? F0.subarray(MX*NX) : new Float64Array(K   ),
 
+      // Working memory and result of computeNewton()
       newton_R11 = new Float64Array(MX * NX), // <- after computeNewton(), contains diagonal of R11
       newton_R21 = new Float64Array(MX*L*NX), // <- after computeNewton(), contains sines of givens rotations used to compute off diagonal entries of R11 and R12
-      newton_R22 = new Float64Array(MX*NY*NP), // <- after computeNewton(), contains R22 which is dense
+      newton_R22 = new Float64Array(K*NP),    // <- after computeNewton(), contains R22 which is dense
       newton_P   = new   Int32Array(NP),
       newton_dX  = new Float64Array(N),
 
+      // Working memory and result of computeNewtonRegularized(λ)
       regularized_R11 = new Float64Array(MX * NX),
       regularized_R21 = new Float64Array(MX*L*NX),
-      regularized_R22 = new Float64Array( Math.max(MX*NY,NP+1) * NP ),
+      regularized_R22 = new Float64Array( Math.max(K,NP+1) * NP ),
       regularized_P   = new   Int32Array(NP),
       regularized_dX  = new Float64Array(N),
 
-        QF = new Float64Array( Math.max(MX*NX + MX*NY, N+1) ),
+        QF = new Float64Array( Math.max(MX*NX + K, N+1) ),
       norm = new Float64Array(2*NP);
 
     Object.assign(this, {
@@ -517,7 +517,19 @@ export class TrustRegionSolverODR_NY
   }
 
 
-  get __DEBUG_RV() // <- meant for debugging only!
+  // The (ODR) trust-region solver decomposes J into:
+  //
+  // J = Q·R·V·D
+  //
+  // Q: float[M,M], orthogonal
+  // R: float[M,N], upper triangular
+  // V: float[N,N], orthogonal
+  // D: float[N,N], diagonal scaling matrix
+  //
+  // Where Q is only available implicitly via QF which is the product (Q·F).
+  // This method returns [R,V,D] for debugging purposes, where D is returned
+  // as row vector.
+  get __DEBUG_RVD() // <- meant for debugging only!
   {
     const {
       M,N, MX,NX,NY,NP,
@@ -535,10 +547,9 @@ export class TrustRegionSolverODR_NY
     const L = Math.min(NX,NY),
         rnk = this.rank - MX*NX,
           R = new Float64Array(M*N),
-          V = new Float64Array(N*N);
-
-    if( rnk !== NP )
-      throw new Error('Not yet implemented.');
+          V = new Float64Array(N*N),
+          D = new Float64Array(1*N);
+    D.fill(1.0);
 
     for( let i=0; i < MX*NX; i++ )
       V[N*i+i] = 1;
@@ -556,22 +567,18 @@ export class TrustRegionSolverODR_NY
     for( let j=0  ; j < NX; j++ )
     for( let k=1+j; k < NX; k++ )
     for( let l=0  ; l <  L; l++ )
-    {
       R[N*(NX*i + j) +
           (NX*i + k) ] += R21[NX*(L*i+l) + j] *
                           J21[NX*(L*i+l) + k];
-    }
 
     // R12
     for( let i=0; i < MX; i++ )
     for( let j=0; j < NX; j++ )
     for( let k=0; k < NP; k++ )
     for( let l=0; l <  L; l++ )
-    {
       R[N*(NX*i  + j) +
           (NX*MX + k) ] += R21[NX*(L*i+l) +   j ] *
                            J22[NP*(L*i+l) + P[k]];
-    }
 
     // R22
     for( let i=0; i < rnk; i++ )
@@ -579,69 +586,53 @@ export class TrustRegionSolverODR_NY
       R[N*(MX*NX + i) +
           (MX*NX + j)] = R22[NP*i+j];
 
-    return [
-      new NDArray( Int32Array.of(M,N), R ),
-      new NDArray( Int32Array.of(N,N), V )
-    ];
-  }
-
-
-  __DEBUG_R( i, j ) // <- meant for debugging only!
-  {
-    if( i%1 !== 0 ) throw new Error('Assertion failed.');
-    if( j%1 !== 0 ) throw new Error('Assertion failed.');
-
-    i |= 0;
-    j |= 0;
-
-    if( !( 0 <= i ) ) throw new Error('Assertion failed.');
-    if( !( 0 <= j ) ) throw new Error('Assertion failed.');
-
-    const {
-      M,N, MX,NX,NY,NP,
-      newton_R11: R11,
-      newton_R21: R21,
-      newton_R22: R22,
-      prepared_J21: J21
-    } = this;
-
-    const L = Math.min(NX,NY);
-
-    if( !( i < M ) ) throw new Error('Assertion failed.');
-    if( !( j < N ) ) throw new Error('Assertion failed.');
-
-    if( i > j ) return 0;
-
-    if( i < MX*NX )
+    if( rnk !== NP )
     {
-      if( i === j ) return R11[i];
+      for( let i=MX*NX + NP; i-- > MX*NX; )
+        D[i] = this.D[i] || 1;
 
-      if( ! (j < MX*NX) )
-        throw new Error('Assertion failed.');
-
-      const k =  i/NX|0;
-        if( k!==(j/NX|0) ) return 0;
-
-      let R_ij = 0;
-
-      for( let l=L; l-- > 0; )
-      {
-        const s = R21[NX*(L*k+l) + i%NX],
-           J_ij = J21[NX*(L*k+l) + j%NX];
-
-        R_ij += J_ij * s;
+      // APPLY SCALING TO R12 
+      for( let j=NP; j-- > 0; )
+      { const      D_j = this.D[MX*NX + P[j]];
+         if( 0 !== D_j )
+           for( let i=MX*NX; i-- > 0; ) R[N*i + (MX*NX + j)] /= D_j;
       }
 
-      return R_ij;
+      // APPLY GIVENS ROTATIONS TO R12
+      for( let i=rnk; i-- >  0 ; )
+      for( let j= NP; j-- > rnk; )
+      {
+        const s = R22[NP*i+j]; if(s===0) continue;
+        const c = Math.sqrt(1 - s*s);
+        for( let k=MX*NX; k-- > 0; ) {
+          const     ki = N*k + (MX*NX + i),
+                    kj = N*k + (MX*NX + j),
+          R_ki  = R[ki],
+          R_kj  = R[kj];
+          R[ki] = R_kj*s + c*R_ki;
+          R[kj] = R_kj*c - s*R_ki;
+        }
+      }
+      for( let i=MX*NX     ; i-- >  0 ; )
+      for( let j=MX*NX + NP; j-- > MX*NX + rnk; )
+        R[N*i+j] = 0;
+
+      // APPLY GIVENS ROTATIONS TO V
+      for( let i=rnk; i-- >  0 ; )
+      for( let j= NP; j-- > rnk; )
+      {
+        const s = R22[NP*i+j]; if(0===s) continue;
+        const c = Math.sqrt(1 - s*s);
+        _giv_rot_rows(V,N, N*(MX*NX+i),
+                           N*(MX*NX+j), c,s);
+      }
     }
 
-    if( j < MX*NX )
-      return 0;
-
-    i -= MX*NX;
-    j -= MX*NX;
-
-    return R22[NP*i+j];
+    return [
+      new NDArray( Int32Array.of(M,N), R ),
+      new NDArray( Int32Array.of(N,N), V ),
+      new NDArray( Int32Array.of(1,N), D )
+    ];
   }
 
 
@@ -655,15 +646,16 @@ export class TrustRegionSolverODR_NY
       prepared_J22: J22
     } = this;
 
-    const L = Math.min(NX,NY);
+    const L = Math.min(NX,NY),
+          K = Math.min(MX*NY, MX*NX + NP);
 
     if( ! ( P instanceof Int32Array) ) throw new Error('Assertion failed.');
     if(     P.length !== NP          ) throw new Error('Assertion failed.');
     if(   R11.length !== MX*NX       ) throw new Error('Assertion failed.');
     if(   R21.length !== MX*L*NX     ) throw new Error('Assertion failed.');
     if(   R22.length !==(NP+1)*NP
-       && R22.length !== MX*NY*NP    ) throw new Error('Assertion failed: ' + JSON.stringify({len: R22.length, MX,NX,NP}) );
-
+       && R22.length !== Math.min(MX*NY,
+                                  MX*NX + NP+1)*NP ) throw new Error('Assertion failed: ' + JSON.stringify({len: R22.length, MX,NX,NP}) );
     //
     // STEP 2.1: ELIMINATE R21 USING GIVENS ROTATIONS
     //           O( MX*(NX+NP) ) operations
@@ -726,7 +718,7 @@ export class TrustRegionSolverODR_NY
     }
 
     // copy remaining rows of R22
-    for( let i=MX*NX*NP; i < MX*NY*NP; i++ )
+    for( let i=MX*L*NP; i < K*NP; i++ )
        R22[i] = J22[i];
 
     //
@@ -735,11 +727,11 @@ export class TrustRegionSolverODR_NY
     //
     for( let i=NP; i-- > 0; ) P[i] = i;
 
-     _rrqr_decomp_inplace(MX*NY,NP,1, R22,0, QF,MX*NX, P,0, norm);
-    const rnk =_rrqr_rank(MX*NY,NP,   R22,0, norm);
+     _rrqr_decomp_inplace(K,NP,1, R22,0, QF,MX*NX, P,0, norm);
+    const rnk =_rrqr_rank(K,NP,   R22,0, norm);
 
     R22.fill(0.0, NP * rnk,
-                  NP * Math.min(MX*NY,NP));
+                  NP * Math.min(K,NP)); // <- zero out the rank-deficient rows after RRQR
 
     return rnk;
   }
@@ -959,11 +951,12 @@ export class TrustRegionSolverODR_NY
     // ┃         ██┊██ ┃      ┃           ┊   ┃
     // ┗           ╵   ┛      ┗           ╵   ┛
 
-    if( J21.length !== MX*NX*NX + NX ) throw new Error('Assertion failed.');
-    if( J22.length !== MX*NY*NP      ) throw new Error('Assertion failed.');
-    if(  QF.length !== MX*NY         ) throw new Error('Assertion failed.');
+    if( J21.length !== MX*NX*NX + NX                   ) throw new Error('Assertion failed.');
+    if( J22.length !== Math.min(MX*NY, MX*NX + NP+1)*NP) throw new Error('Assertion failed.');
+    if(  QF.length !== Math.min(MX*NY, MX*NX + NP+1)   ) throw new Error('Assertion failed.');
 
-    for( let i=0; i < MX; i++ )
+    for( let l=-1,
+             i= 0; i < MX; i++ )
     {
       const J21_off = NX*NX*i,
             J22_off = NP*NX*i,
@@ -991,12 +984,16 @@ export class TrustRegionSolverODR_NY
       // QR decomp. remaining rows
       for( let j=NX; j < NY; j++ )
       {
-        const QF_end = MX*NX + i*(NY-NX) + (j-NX),
-             J22_end = QF_end*NP;
+        if( ++l===NP ) // <- more than NP rows at bottom of J22 -> start QR decomp.
+          _qr_decomp_inplace(NP,NP,1, J22,MX*NX*NP,
+                                       QF,MX*NX);
+        l = Math.min(l,NP);
         // copy row
         for( let k=0; k < NX; k++ ) J21[J21_off + NX*NX + k] = raw_J21[     NX*NY*i + NX*j + k];
-        for( let k=0; k < NP; k++ ) J22[J22_end         + k] = raw_J22[     NP*NY*i + NP*j + k];
-                                     QF[ QF_end            ] = raw_F  [MX*NX + NY*i +    j    ];
+        for( let k=0; k < NP; k++ ) J22[(MX*NX + l)*NP  + k] = raw_J22[     NP*NY*i + NP*j + k];
+                                     QF[(MX*NX + l)        ] = raw_F  [MX*NX + NY*i +    j    ];
+
+        // eliminate entries in J21
         for( let k=0; k < NX; k++ )
         {
           const jk = J21_off + NX*NX + k, R_jk = J21[jk]; if(R_jk===0) continue;
@@ -1006,10 +1003,26 @@ export class TrustRegionSolverODR_NY
           _giv_rot_rows(J21,NX-1-k,   kk+1,
                                       jk+1,      c,s);
           _giv_rot_rows(J22,NP, J22_off + NP*k,
-                                J22_end,         c,s);
-          _giv_rot_rows( QF,1,   QF_off + k,
-                                 QF_end,         c,s);
+                                 (MX*NX + l)*NP, c,s);
+          _giv_rot_rows(QF,1,    QF_off + k,
+                                 (MX*NX + l),    c,s);
         }
+
+        if( !(l <= NP) ) throw new Error('Assertion failed.');
+
+        // more than NP trailing rows in J22 -> eliminate further rows using QR decomp.
+        if( l===NP )
+          for( let k=0; k < NP; k++ )
+          {
+            const lk = MX*NX*NP + NP*l+k, R_lk = J22[lk]; if(R_lk===0) continue;
+            const kk = MX*NX*NP + NP*k+k, R_kk = J22[kk], [c,s,nrm] = _giv_rot_qr(R_kk,R_lk);
+              J22[lk]= 0; if(0===s) continue;
+              J22[kk]= nrm;
+            _giv_rot_rows(J22,NP-1-k, kk+1,
+                                      lk+1, c,s);
+            _giv_rot_rows(QF,1,    MX*NX+k,
+                                   MX*NX+l, c,s);
+          }
       }
     }
   }
@@ -1029,15 +1042,15 @@ export class TrustRegionSolverODR_NY
   //     ┃                ╲  ┊    ┃   ┃                 ┊     ┃
   //     ┃┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┃   ┃┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┼┄┄┄┄┄┃
   //     ┃ ████              ┊ ██ ┃   ┃                 ┊     ┃
-  //     ┃     ████          ┊ ██ ┃   ┃                 ┊     ┃
+  //     ┃     ████          ┊ ██ ┃   ┃       J21       ┊ J22 ┃
   //     ┃          ...      ┊ ██ ┃   ┃                 ┊     ┃
   //     ┃              ████ ┊ ██ ┃   ┃                 ┊     ┃
   //     ┗                   ╵    ┛   ┗                 ╵     ┛
   //
-  //  J  : float[MX*(NX+1),MX*NX+NP];
-  //  J11: float[MX*NX    ,MX*NX   ]; J11 is a Diagonal Matrix; Diag. represent the weights on Δ; Assumed to NOT be rank-deficient;
-  //  J21: float[MX       ,MX*NX   ]; J21 is a row of diagonal matrix blocks
-  //  J22: float[MX       ,        ]; J22 is a dense matrix
+  //  J  : float[MX*(NX+NY),MX*NX+NP];
+  //  J11: float[MX*NX    ,MX*NX]; J11 is a Diagonal Matrix; Diag. represent the weights on Δ; Assumed to NOT be rank-deficient;
+  //  J21: float[MX*NX    ,   NP]; J21 is a diagonal block matrix (possibly non-square).
+  //  J22: float[MX*NY    ,   NP]; J22 is a dense matrix
   //
   // If there are no rank deficiencies in the upper left MX*NX columns, J can be sparsely QR decomposed as follows to solve ODR problem:
   // 
@@ -1060,9 +1073,9 @@ export class TrustRegionSolverODR_NY
   //       ┃              ┊   ▜ ┃     ┃        0        ┊ R22 ┃
   //       ┗              ╵     ┛     ┗                 ╵     ┛
   //
-  // R11: float[MX*NX,MX*NX]; Block diagonal matrix where each block is of size [NX,NX] and upper-triangular. Off-diagonal entries can be computed "on-demand".
-  // R21: float[MX*NX,   NP]; Dense matrix. Entries can be computed implicitly.
-  // R22: float[MX   ,   NP]; Dense upper triangular matrix.
+  // R11: float[MX*NX               , MX*NX]; Block diagonal matrix where each block is of size [NX,NX] and upper-triangular. Off-diagonal entries can be computed "on-demand".
+  // R21: float[MX*NX               ,    NP]; Dense matrix. Entries can be computed implicitly.
+  // R22: float[min(MX*NY, MX*NX+NP),    NP]; Dense upper triangular matrix.
   //
   computeNewton()
   {
@@ -1079,12 +1092,12 @@ export class TrustRegionSolverODR_NY
       F0, D
     } = this;
 
-    const L = Math.min(NX,NY);
-
     if( this.rank  >=  0 ) return;
     if( this.rank !== -1 ) throw new Error('Assertion failed.');
 
     this.prepare();
+
+    const K = Math.min(MX*NY, MX*NX + NP);
 
     //
     // STEP 1: MEMORY INITIALIZATION
@@ -1092,11 +1105,8 @@ export class TrustRegionSolverODR_NY
 
     // for R11, only the diagonal is stored in memory explicitly. Off-diagonal entries are computed "on-demand"
     for( let i=MX*NX; i-- > 0; ) R11[i] = J11[i];
-    // lower rows of R need no initialization as _qr_decomp builds them up
-    // for( let i=MX*NX; i-- > 0; ) R21[i] = J21[i];
-    // for( let i=MX*NP; i-- > 0; ) R22[i] = J22[i];
 
-    for( let i=MX*NY; i-- > 0; ) QF[MX*NX+i] =  F1[i];
+    for( let i=K    ; i-- > 0; ) QF[MX*NX+i] =  F1[i];
     for( let i=MX*NX; i-- > 0; ) QF[      i] =  F0[i];
 
     const       rnk = this._qr_decomp(R11,R21,R22, P, QF);
@@ -1156,7 +1166,7 @@ export class TrustRegionSolverODR_NY
     if( !(λ >= 0) ) throw new Error('Assertion failed.');
 
     const {
-      M,N,MX,NX,NY,NP,
+      N,MX,NX,NY,NP,
       regularized_R11: R11, J11,
       regularized_R21: R21,
       regularized_R22: R22,
@@ -1168,8 +1178,10 @@ export class TrustRegionSolverODR_NY
 
     const Y = QF; // <- alias to reuse memory
 
-    if( R22.length !== Math.max(MX*NY,NP+1)*NP ) throw new Error('Assertion failed.');
-    if(  QF.length !== Math.max(M    ,N +1)    ) throw new Error('Assertion failed.');
+    const K = Math.min(MX*NY, MX*NX + NP);
+
+    if( R22.length !== Math.max(Math.min(MX*NY, MX*NX + NP+1), NP+1) * NP    ) throw new Error('Assertion failed.');
+    if(  QF.length !== Math.max(Math.min(MX*NY, MX*NX + NP+1), NP+1) + MX*NX ) throw new Error('Assertion failed.');
 
     if( 0 === λ )
     {
@@ -1238,10 +1250,8 @@ export class TrustRegionSolverODR_NY
 
     // for R11, only the diagonal is stored in memory explicitly. Off-diagonal entries are computed "on-demand"
     for( let i=MX*NX; i-- > 0; ) R11[i] = J11[i];
-    // lower rows of R need no initialization as _qr_decomp builds them up
-    // for( let i=MX*NX; i-- > 0; ) R21[i] = J21[i];
-    // for( let i=MX*NP; i-- > 0; ) R22[i] = J22[i];
-    for( let i=MX*NY; i-- > 0; ) QF[MX*NX+i] =  F1[i];
+
+    for( let i=K    ; i-- > 0; ) QF[MX*NX+i] =  F1[i];
     for( let i=MX*NX; i-- > 0; ) QF[      i] =  F0[i];
 
     const λSqrt = Math.sqrt(λ);
@@ -1260,8 +1270,8 @@ export class TrustRegionSolverODR_NY
 
     const rnk = this._qr_decomp(R11,R21,R22, P, QF),
       R22_end = NP*NP;
-    
-    R22.fill(0.0, MX*NY*NP, (NP+1)*NP);
+
+    R22.fill(0.0, K*NP, (NP+1)*NP); // <- zero out entries from previous calls to computeNewtonRegularized()
 
     for( let i=NP; i-- > 0; )
     { let    Dλ = D[MX*NX + P[i]];
