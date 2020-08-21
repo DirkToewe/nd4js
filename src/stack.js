@@ -17,6 +17,7 @@
  */
 
 import {concat} from './concat'
+import {asarray} from "./nd_array";
 
 
 export function stack(axis, dtype, ndarrays)
@@ -29,8 +30,10 @@ export function stack(axis, dtype, ndarrays)
       if( 'string' === typeof axis ) { dtype = axis; axis = undefined }
     }
   }
-  if( ! ('length' in ndarrays) ) ndarrays = [...ndarrays]
-  if( null == axis ) axis = 0
+
+  ndarrays = Array.from( ndarrays, arr => asarray(dtype,arr) );
+
+  if( null == axis ) axis = 0;
 
   if( 0 > axis )  axis += ndarrays[0].shape.length+1
   if( 0 > axis || axis >  ndarrays[0].shape.length ) throw new Error('Axis out of bounds.')

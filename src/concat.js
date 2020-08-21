@@ -16,7 +16,7 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {NDArray} from './nd_array'
+import {asarray, NDArray} from './nd_array'
 import {ARRAY_TYPES, super_dtype} from './dt'
 
 
@@ -30,9 +30,11 @@ export function concat(axis, dtype, ndarrays)
       if( 'string' === typeof axis ) { dtype = axis; axis = undefined }
     }
   }
-  if( ! ('length' in ndarrays) ) ndarrays = [...ndarrays]
+
+  ndarrays = Array.from( ndarrays, arr => asarray(dtype,arr) );
+
   if( null == axis ) axis = 0
-  if( null == dtype) dtype = super_dtype( ...ndarrays.map( a => a.dtype ) )
+  if( null == dtype) dtype = super_dtype( ...ndarrays.map( a => a.dtype ) );
 
   if( 0 > axis )  axis += ndarrays[0].shape.length
   if( 0 > axis || axis >= ndarrays[0].shape.length ) throw new Error('Axis out of bounds.')
