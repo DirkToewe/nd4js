@@ -37,29 +37,49 @@ const REPORT_STATE_READY    = 1,
 
 export class TrustRegionSolverODR
 {
-  constructor( samples_x, samples_y, fgg, p0, dx0 )
+  constructor( fgg, p0, dx0 )
   {
     if( ! (fgg instanceof Function) )
       throw new Error('Assertion failed.');
 
-    samples_x = array('float64', samples_x);
-    samples_y = array('float64', samples_y);
-           p0 = array('float64',  p0);
-          dx0 = array('float64', dx0);
+     p0 = array('float64',  p0);
+    dx0 = array('float64', dx0);
 
-    if(samples_x.ndim !== 1 &&
-       samples_x.ndim !== 2      ) throw new Error('Assertion failed.');
-    if(samples_y.ndim !== 1      ) throw new Error('Assertion failed.'); // <- TODO: support 2-dimensional samples_y
-    if(samples_x.ndim !==dx0.ndim) throw new Error('Assertion failed.');
-    if(             1 !== p0.ndim) throw new Error('Assertion failed.');
+    if( p0.ndim !== 1 ) throw new Error('Assertion failed.');
+    if(dx0.ndim !== 1 &&
+       dx0.ndim !== 2 ) throw new Error('Assertion failed.');
 
     const [MX,NX=1] = dx0.shape,
              [NP  ] =  p0.shape;
 
-    if(   1 !==       dx0.ndim
-      && NX !==       dx0.shape[1] ) throw new Error('Assertion failed.');
-    if(  MX !==       dx0.shape[0] ) throw new Error('Assertion failed.');
-    if(  MX !== samples_y.shape[0] ) throw new Error('Assertion failed.');
+    let [dy, dy_dp, dy_dx] = fgg(
+      new NDArray(  p0.shape, p0.data.slice() ),
+      new NDArray( dx0.shape,dx0.data.slice() )
+    );
+
+    dy    = array('float64', dy);
+    dy_dp = array('float64', dy_dp);
+    dy_dx = array('float64', dy_dx);
+
+    if( dy.ndim !== 1 &&
+        dy.ndim !== 2 ) throw new Error('Assertion failed.');
+    if( dy_dp.ndim !== dy.ndim+1 ) throw new Error('Assertion failed.');
+    if( dy_dx.ndim !== dy.ndim +
+                      dx0.ndim-1 ) throw new Error('Assertion failed.');
+
+    const [MY,NY=1] = dy.shape;
+
+    if( 1  !== NY ) throw new Error('Assertion failed.');
+    if( MX !== MY ) throw new Error('Assertion failed.');
+    if( dy_dp.shape[0] !== MX ) throw new Error('Assertion failed.');
+    if( dy_dx.shape[0] !== MX ) throw new Error('Assertion failed.');
+    if( dy.ndim === 2 )
+    {
+      if( dy_dp.shape[1] !== NY ) throw new Error('Assertion failed.');
+      if( dy_dx.shape[1] !== NY ) throw new Error('Assertion failed.');
+    }
+    if( dx0.ndim === 2 && dy_dx.shape[dy.ndim] !== NX ) throw new Error('Assertion failed.');
+    if(                   dy_dp.shape[dy.ndim] !== NP ) throw new Error('Assertion failed.');
 
     const M = MX*NX + MX,
           N = MX*NX + NP,
@@ -67,9 +87,6 @@ export class TrustRegionSolverODR
         J21 = new Float64Array(MX*NX),
         J22 = new Float64Array(MX*NP),
           D = new Float64Array(N),
-      _consider_J11 = J11.slice(),
-      _consider_J21 = J21.slice(),
-      _consider_J22 = J22.slice(),
 
       X0 = new Float64Array(N),
       F0 = new Float64Array(M),
@@ -88,7 +105,13 @@ export class TrustRegionSolverODR
       regularized_dX  = new Float64Array(N),
 
         QF = new Float64Array( Math.max(M,N+1) ),
-      norm = new Float64Array(2*NP);
+      norm = new Float64Array(2*NP),
+
+      _consider_J11 = J11.slice(),
+      _consider_J21 = dy_dx.data,
+      _consider_J22 = dy_dp.data;
+
+    _consider_J11.fill(1.0);
 
     Object.assign(this, {
       MX,NX, NP, M,N,
@@ -96,17 +119,17 @@ export class TrustRegionSolverODR
       rank: -1,
       _report_state: REPORT_STATE_NA,
       fgg,
-      report_p        : null,
-      report_dx       : null,
+      report_p        :  p0,
+      report_dx       : dx0,
       report_loss     : NaN,
       report_dloss_dp : null,
       report_dloss_ddx: null,
-      report_dy       : null,
-      samples_x: samples_x.data,
-      samples_y: samples_y.data,
-      x_shape: samples_x.shape,
-      y_shape: samples_y.shape,
-      p_shape:        p0.shape,
+      report_dy       : dy,
+
+      p_shape:  p0.shape,
+      x_shape: dx0.shape,
+      y_shape: dy .shape,
+
       QF,
       J11,
       J21,J22,
@@ -131,99 +154,28 @@ export class TrustRegionSolverODR
     });
     Object.seal(this);
 
-     p0 =  p0.data;
-    dx0 = dx0.data;
-
-    for( let i=NP; i-- > 0; )
-      newton_dX[MX*NX + i] = p0[i];
-
-    for( let i=MX*NX; i-- > 0; )
-      newton_dX[i] = dx0[i];
-
-    this._considerMove(newton_dX);
-                       newton_dX.fill(0.0);
+    this._considerMove_computeLoss();
     this.makeConsideredMove();
   }
 
 
-  _considerMove( dX )
+  _considerMove_computeLoss()
   {
     const {
-      M,N, MX,NX,NP,
-      fgg,
-      x_shape, samples_x,
-      y_shape, samples_y,
+      M, MX,NX,NP,
+      x_shape,
       p_shape,
       _consider_J11: J11,
       _consider_J21: J21,
-      _consider_J22: J22,
-      X0
+      _consider_J22: J22
     } = this;
-
-    if( dX.length !== N  ) throw new Error('Assertion failed.');
 
     this._report_state = REPORT_STATE_CONSIDER;
 
-    const report_p        = new Float64Array(NP),
-          report_dx       = new Float64Array(MX*NX),
-          report_dy       = new Float64Array(MX),
-          report_dloss_dp = new Float64Array(NP),
-          report_dloss_ddx= new Float64Array(MX*NX);
-     this.report_p        = new NDArray(p_shape, report_p        );
-     this.report_dx       = new NDArray(x_shape, report_dx       );
-     this.report_dy       = new NDArray(y_shape, report_dy       );
-     this.report_dloss_dp = new NDArray(p_shape, report_dloss_dp );
-     this.report_dloss_ddx= new NDArray(x_shape, report_dloss_ddx);
-
-    for( let i=NP; i-- > 0; ) {
-      const                    I = MX*NX + i;
-      report_p[i] = X0[I] + dX[I];
-    }
-
-    for( let i=MX*NX; i-- > 0; )
-      report_dx[i] = X0[i] + dX[i];
-
-    const fgg_p = fgg(
-      new NDArray(p_shape, report_p.slice())
-    );
-
-    for( let i=MX; i-- > 0; )
-    {
-      let [f,gp,gx] = function(){
-        const xi = new Float64Array(NX);
-
-        for( let j=NX; j-- > 0; ) { const   ij = NX*i+j;
-          xi[j] = samples_x[ij] + report_dx[ij];
-        }
-
-        return fgg_p(
-          new NDArray(x_shape.slice(1), xi)
-        );
-      }();
-
-      f *= 1;
-      gp = asarray('float64',gp);
-      gx = asarray('float64',gx);
-
-      if( isNaN(f) ) throw new Error('Assertion failed.');
-
-      if(gp.ndim     !== 1  ) throw new Error('Assertion failed.');
-      if(gp.shape[0] !== NP ) throw new Error('Assertion failed.');
-
-      if(  gx.ndim     !== x_shape.length-1) throw new Error('Assertion failed.');
-      if(           0  !== x_shape.length-1
-        && gx.shape[0] !== x_shape[1]      ) throw new Error('Assertion failed.');
-
-      report_dy[i] = f - samples_y[i];
-
-      gp = gp.data;
-      gx = gx.data;
-
-      for( let j=NP; j-- > 0; ) J22[NP*i+j] = gp[j];
-      for( let j=NX; j-- > 0; ) J21[NX*i+j] = gx[j];
-    }
-
-    J11.fill(1.0); // <- TODO: use weights instead;
+    const report_dloss_dp = new Float64Array(NP),
+          report_dloss_ddx= new Float64Array(MX*NX),
+          report_dx = this.report_dx.data,
+          report_dy = this.report_dy.data;
 
     // COMPUTE LOSS GRADIENT w.r.t. P
     for( let i=MX; i-- > 0; )
@@ -258,19 +210,70 @@ export class TrustRegionSolverODR
 
   considerMove( dX )
   {
-    this._considerMove(dX);
-
     const {
-      M, MX,NX,NP,
-
+      M,N, MX,NX,NP,
+      x_shape,
+      y_shape,
+      p_shape,
+      _consider_J11,
+      _consider_J21,
+      _consider_J22,
       J11,
-      J21,J22,
-
-      F0,X0
+      J21,J22, F0,X0, fgg
     } = this;
 
-    const report_p  = this.report_p .data,
-          report_dx = this.report_dx.data;
+    if( dX.length !== N  ) throw new Error('Assertion failed.');
+
+    const report_p  = new Float64Array(NP),
+          report_dx = new Float64Array(MX*NX);
+     this.report_p  = new NDArray(p_shape, report_p );
+     this.report_dx = new NDArray(x_shape, report_dx);
+
+    for( let i=NP; i-- > 0; ) {
+      const                    I = MX*NX + i;
+      report_p[i] = X0[I] + dX[I];
+    }
+
+    for( let i=MX*NX; i-- > 0; )
+      report_dx[i] = X0[i] + dX[i];
+
+    let [dy, dy_dp, dy_dx] = fgg(
+      new NDArray( p_shape, report_p .slice() ),
+      new NDArray( x_shape, report_dx.slice() )
+    );
+
+    dy    =   array('float64', dy);
+    dy_dp = asarray('float64', dy_dp);
+    dy_dx = asarray('float64', dy_dx);
+
+    if( dy   .ndim !== y_shape.length     ) throw new Error('Assertion failed.');
+    if( dy_dp.ndim !== y_shape.length + 1 ) throw new Error('Assertion failed.');
+    if( dy_dx.ndim !== y_shape.length +
+                       x_shape.length - 1 ) throw new Error('Assertion failed.');
+
+    if( dy   .shape[0] !== MX ) throw new Error('Assertion failed.');
+    if( dy_dp.shape[0] !== MX ) throw new Error('Assertion failed.');
+    if( dy_dx.shape[0] !== MX ) throw new Error('Assertion failed.');
+
+    if(                         dy_dp.shape[y_shape.length] !== NP ) throw new Error('Assertion failed.');
+    if( x_shape.length === 2 && dy_dx.shape[y_shape.length] !== NX ) throw new Error('Assertion failed.');
+
+    if( y_shape.length === 2 )
+    {
+      if( dy   .shape[1] !== 1 ) throw new Error('Assertion failed.' + [...y_shape]);
+      if( dy_dp.shape[1] !== 1 ) throw new Error('Assertion failed.');
+      if( dy_dx.shape[1] !== 1 ) throw new Error('Assertion failed.');
+    }
+
+    this.report_dy = dy;
+    dy_dx = dy_dx.data;
+    dy_dp = dy_dp.data;
+
+    for( let i=MX*NX; i-- > 0; ) _consider_J21[i] = dy_dx[i];
+    for( let i=MX*NP; i-- > 0; ) _consider_J22[i] = dy_dp[i];
+                                 _consider_J11.fill(1.0);
+
+    this._considerMove_computeLoss();
 
     let predict_loss = 0.0;
     for( let i=MX*NX; i-- > 0; ) {

@@ -18,8 +18,7 @@
 
 import {concat} from "../concat";
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
-import {array, NDArray} from "../nd_array";
-import {rand_normal} from "../rand_normal";
+import {NDArray, asarray} from "../nd_array";
 import {stack} from "../stack";
 import {tabulate} from "../tabulate";
 import {_rand_int,
@@ -31,8 +30,7 @@ import {checked_array} from "../arrays/_checked_array";
 
 import {eye} from "../la/eye";
 import {matmul2} from "../la/matmul";
-import {qr_decomp,
-        qr_decomp_full} from "../la/qr";
+import {qr_decomp_full} from "../la/qr";
 import {svd_lstsq} from "../la/svd";
 import {svd_jac_2sided} from "../la/svd_jac_2sided";
 
@@ -85,40 +83,68 @@ function rand_func( NX, NY, NP )
     composition.push([ip,ix,fp,fx]);
   }
 
-  const f = p => x => {
-    const f = new Float64Array(NY);
+  const f = (p,x) => 
+  {
+    p = asarray('float64', p);
+    if( p.ndim     !== 1  ) throw new Error('Assertion failed.');
+    if( p.shape[0] !== NP ) throw new Error('Assertion failed.');
+    p = p.data;
+
+    x = asarray('float64', x);
+    if(    2 !== x.ndim     ) throw new Error('Assertion failed.');
+    if(   NX !== x.shape[1] ) throw new Error('Assertion failed.');
+    const MX  =  x.shape[0];
+    x = x.data;
+
+    const f = new Float64Array(MX*NY);
 
     for( let i=0; i < NY; i++ )
     for( let j=0; j < NC; j++ )
     {
       const [ip,ix,fp,fx] = composition[NC*i+j];
-      f[i] += coeffs[NC*i+j] * fp( p(ip) ) * fx( x(ix) );
+      for( let k=0; k < MX; k++ )
+        f[NY*k+i] += coeffs[NC*i+j] * fp( p[ip] ) * fx( x[NX*k+ix] );
     }
 
-    return new NDArray( Int32Array.of(NY), f );
-  };
+    return new NDArray( Int32Array.of(MX,NY), f );
+  }
 
-  const fgg = p => x => {
-    const f = new Float64Array(NY),
-         gp = new Float64Array(NY*NP),
-         gx = new Float64Array(NY*NX);
+  const fgg = (p,x) =>
+  {
+    p = asarray('float64', p);
+    if( p.ndim     !== 1  ) throw new Error('Assertion failed.');
+    if( p.shape[0] !== NP ) throw new Error('Assertion failed.');
+    p = p.data;
+
+    x = asarray('float64', x);
+    if(    2 !== x.ndim     ) throw new Error('Assertion failed.');
+    if(   NX !== x.shape[1] ) throw new Error('Assertion failed.');
+    const MX  =  x.shape[0];
+    x = x.data;
+
+    const f = new Float64Array(MX*NY),
+         gp = new Float64Array(MX*NY*NP),
+         gx = new Float64Array(MX*NY*NX);
 
     for( let i=0; i < NY; i++ )
     for( let j=0; j < NC; j++ )
     {
       const [ip,ix,fp,fx] = composition[NC*i+j];
 
-      f[i]        += coeffs[NC*i+j] * fp     ( p(ip) ) * fx     ( x(ix) );
-      gp[NP*i+ip] += coeffs[NC*i+j] * fp.grad( p(ip) ) * fx     ( x(ix) );
-      gx[NX*i+ix] += coeffs[NC*i+j] * fp     ( p(ip) ) * fx.grad( x(ix) );
+      for( let k=0; k < MX; k++ )
+      {
+             f[NY*k+i]     += coeffs[NC*i+j] * fp     (p[ip]) * fx     (x[NX*k+ix]);
+        gp[NP*(NY*k+i)+ip] += coeffs[NC*i+j] * fp.grad(p[ip]) * fx     (x[NX*k+ix]);
+        gx[NX*(NY*k+i)+ix] += coeffs[NC*i+j] * fp     (p[ip]) * fx.grad(x[NX*k+ix]);
+      }
     }
 
     return [
-      new NDArray( Int32Array.of(NY),    f  ),
-      new NDArray( Int32Array.of(NY,NP), gp ),
-      new NDArray( Int32Array.of(NY,NX), gx )
+      new NDArray( Int32Array.of(MX,NY),    f  ),
+      new NDArray( Int32Array.of(MX,NY,NP), gp ),
+      new NDArray( Int32Array.of(MX,NY,NX), gx )
     ];
-  };
+  }
 
   return {
     NX, NY, NP,
@@ -139,24 +165,67 @@ funcs.poly22 = {
   NP: 4,
   NX: 2,
   NY: 2,
-  f: ([a,b,c,d]) => ([x,y]) => array('float64', [
-    a     + b*x + c*x*y + d*y,
-    a*x*y + b   + c*y   + d*x
-  ]),
-  fgg: ([a,b,c,d]) => ([x,y]) => {
-    const f = array('float64', [
-            a     + b*x + c*x*y + d*y,
-            a*x*y + b   + c*y   + d*x
-          ]),
-          gp = array('float64', [
-            [1,   x,  x*y, y],
-            [x*y, 1,  y,   x]
-          ]),
-          gx = array('float64', [
-            [b + c*y, c*x + d],
-            [d + a*y, a*x + c]
-          ]);
-    return [f,gp,gx];
+  f: ([a,b,c,d], xy) => {
+    xy = asarray('float64', xy);
+    const MX = xy.shape[0];
+    if(  2 !== xy.shape[1] ) throw new Error('Assertion failed.');
+    xy = xy.data;
+
+    const f = new Float64Array(MX*2);
+
+    for( let i=0; i < MX; i++ )
+    { const x = xy[2*i+0],
+            y = xy[2*i+1];
+      f[2*i+0] = a     + b*x + c*x*y + d*y;
+      f[2*i+1] = a*x*y + b   + c*y   + d*x;
+    }
+
+    return new NDArray(Int32Array.of(MX,2), f);
+  },
+  fgg: ([a,b,c,d], xy) => {
+    xy = asarray('float64', xy);
+    const MX = xy.shape[0];
+    if(  2 !== xy.shape[1] ) throw new Error('Assertion failed.');
+    xy = xy.data;
+
+    const f = new Float64Array(MX*2),
+         gp = new Float64Array(MX*2*4),
+         gx = new Float64Array(MX*2*2);
+
+    for( let i=0; i < MX; i++ )
+    { const x = xy[2*i+0],
+            y = xy[2*i+1];
+      f[2*i+0] = a     + b*x + c*x*y + d*y;
+      f[2*i+1] = a*x*y + b   + c*y   + d*x;
+    }
+
+    for( let i=0; i < MX; i++ )
+    { const x = xy[2*i+0],
+            y = xy[2*i+1];
+      gp[8*i+0] = 1;
+      gp[8*i+1] = x;
+      gp[8*i+2] = x*y;
+      gp[8*i+3] =   y;
+      gp[8*i+4] = x*y;
+      gp[8*i+5] = 1;
+      gp[8*i+6] =   y;
+      gp[8*i+7] = x;
+    }
+
+    for( let i=0; i < MX; i++ )
+    { const x = xy[2*i+0],
+            y = xy[2*i+1];
+      gx[4*i+0] = b + c*y;
+      gx[4*i+1] = d + c*x;
+      gx[4*i+2] = d + a*y;
+      gx[4*i+3] = c + a*x;
+    }
+
+    return [
+      new NDArray(Int32Array.of(MX,2  ),  f),
+      new NDArray(Int32Array.of(MX,2,4), gp),
+      new NDArray(Int32Array.of(MX,2,2), gx)
+    ];
   }
 };
 
@@ -170,19 +239,22 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
 
     forEachItemIn(
       function*(){
-        for( let run=0; run++ < 32*1024; )
+        for( let run=0; run++ < 4096; )
+        {
+          const MX = _rand_int(1,64);
           yield [
-            tabulate([NP], 'float64', () => Math.random()*4 - 2),
-            tabulate([NX], 'float64', () => Math.random()*4 - 2)
+            tabulate([NP],    'float64', () => Math.random()*4 - 2),
+            tabulate([MX,NX], 'float64', () => Math.random()*4 - 2)
           ];
+        }
       }()
     ).it(`test_fn derivatives are correct`, ([p, x]) => {
-      const GP = num_grad( p => f(p)(x) )(p),
-            GX = num_grad( x => f(p)(x) )(x);
+      const GP = num_grad( p => f(p,x) )(p),
+            GX = stack( [...x].map( num_grad( x => f(p,x.reshape(1,NX)).reshape(NY) ) ) );
 
-      const [F,gp,gx] = fgg(p)(x);
+      const [F,gp,gx] = fgg(p,x);
 
-      expect(F).toBeAllCloseTo( f(p)(x) );
+      expect(F).toBeAllCloseTo( f(p,x) );
       expect(gp).toBeAllCloseTo(GP);
       expect(gx).toBeAllCloseTo(GX);
     });
@@ -192,35 +264,25 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 1024; )
         {
-          const MX = _rand_int(1,16),
-            shape = [MX,NX],
-                p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-              dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape,   'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems( 'float64', x => x + rand_normal() / 8 );
-          y = y.mapElems( 'float64', y => y + rand_normal() / 8 );
-
-          yield [x,y, p0,dx0]
+          const             MX = _rand_int(1,64),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
+          yield [p0,dx0];
         }
       }()
-    ).it(`initial X0,F0,G0,D,J is correct given random examples`, ([x, y, p0, dx0]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0);
+    ).it(`initial X0,F0,J,G0,D is correct given random examples`, ([p0, dx0]) => {
+      const     solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N} = solver;
 
-      const MX = x.shape[0];
+      const MX = dx0.shape[0];
 
       const                            X0 = concat([dx0.reshape(-1), p0]);
       expect(solver.X0).toBeAllCloseTo(X0);
 
       const F = X => {
-        const p = array('float64', X.data.slice(-NP)),
-             dx = new NDArray(x.shape, X.data.slice(0,-NP)),
-            xdx = zip_elems([x,dx], 'float64', (x,dx) => x+dx), fx = stack( [...xdx].map(f(p)) ),
-             dy = zip_elems([fx,y], (fx,y) => fx-y);
-
+        const p = new NDArray( p0.shape, X.data.slice(  -NP) ),
+             dx = new NDArray(dx0.shape, X.data.slice(0,-NP) ),
+             dy = f(p,dx);
         return concat([dx.reshape(-1), dy.reshape(-1)]);
       };
 
@@ -232,8 +294,11 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
 
       expect(solver.G0).toBeAllCloseTo(num_grad(loss)(X0), {atol:1e-5});
 
-      const {M,N} = solver,                        J = tabulate([M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j)),
-                    G0 = matmul2(F0.reshape(1,-1), J);
+      const J = tabulate([M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j));
+
+      expect(J).toBeAllCloseTo( num_grad(F)(X0) );
+
+      const                            G0 = matmul2(F0.reshape(1,-1), J);
       expect(solver.G0).toBeAllCloseTo(G0);
 
       const D = J.reduceElems(0, 'float64', (x,y) => Math.hypot(x,y));
@@ -245,39 +310,29 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 512; )
         {
-          const MX = _rand_int(1,16),
-            shape = [MX,NX],
-                p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-              dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
+          const             MX = _rand_int(1,16),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
 
           function* seq() {
             for( let step=0; step++ < 8; )
               yield tabulate([MX*NX+NP,1], 'float64', () => Math.random()*4 - 2);
           }
 
-          yield [x,y, p0,dx0, seq()]
+          yield [p0,dx0, seq()]
         }
       }()
-    ).it(`considerMove(dX) returns correct loss and loss prediction`, ([x, y, p0, dx0, seq]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
+    ).it(`considerMove(dX) returns correct loss and loss prediction`, ([p0, dx0, seq]) => {
+      const     solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
         {M,N} = solver;
 
       const                            X0 = concat([dx0.reshape(-1), p0]);
       expect(solver.X0).toBeAllCloseTo(X0);
 
       const F = X => {
-        const p = array('float64', X.data.slice(-NP)),
-             dx = new NDArray(x.shape, X.data.slice(0,-NP)),
-            xdx = zip_elems([x,dx], 'float64', (x,dx) => x+dx), fx = stack( [...xdx].map(f(p)) ),
-             dy = zip_elems([fx,y], (fx,y) => fx-y);
-
+        const p = new NDArray( p0.shape, X.data.slice(  -NP) ),
+             dx = new NDArray(dx0.shape, X.data.slice(0,-NP) ),
+             dy = f(p,dx);
         return concat([dx.reshape(-1), dy.reshape(-1)]);
       };
 
@@ -313,23 +368,14 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 1024; )
         {
-          const MX = _rand_int(1,64),
-            shape = [MX,NX],
-                p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-              dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
-
-          yield [x,y, p0,dx0]
+          const             MX = _rand_int(1,64),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
+          yield [p0,dx0]
         }
       }()
-    ).it(`cauchyTravel() finds min. along gradient direction`, ([x, y, p0, dx0]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0);
+    ).it(`cauchyTravel() finds min. along gradient direction`, ([p0, dx0]) => {
+      const solver = new TrustRegionSolverODR_NY(fgg, p0,dx0);
 
       const g = num_grad( cp => {
         const                                      dx = solver.G0.map( g => g*cp ),
@@ -348,24 +394,15 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 256; )
         {
-          const MX = _rand_int(1,32),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
-
-          yield [x,y, p0,dx0]
+          const             MX = _rand_int(1,32),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
+          yield [p0,dx0]
         }
       }()
-    ).it(`initial computeNewton() produces no out-of-bounds errors given random examples`, ([x, y, p0, dx0]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
-          {M,N,MX} = solver;
+    ).it(`initial computeNewton() produces no out-of-bounds errors given random examples`, ([p0, dx0]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       for( const [k,v] of Object.entries(solver) )
         if( is_array(v) )
@@ -432,24 +469,15 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 256; )
         {
-          const MX = _rand_int(NP,32),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
-
-          yield [x,y, p0,dx0]
+          const             MX = _rand_int(NP,32),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
+          yield [p0,dx0]
         }
       }()
-    ).it(`initial computeNewton() QR decomposes J correctly given random over-determined examples`, ([x, y, p0, dx0]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
-          {M,N,MX} = solver;
+    ).it(`initial computeNewton() QR decomposes J correctly given random over-determined examples`, ([p0, dx0]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       for( let i=MX*NX   ; i-- > 0; ) solver.J11[i] = Math.random()*1.8 + 0.1;
       for( let i=MX*NY*NX; i-- > 0; ) solver.J21[i] = Math.random()*4 - 2;
@@ -467,7 +495,7 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       expect(J).toBeAllCloseTo( tabulate( [M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j) ), {rtol:0, atol:0} );
       expect(F).toBeAllCloseTo(  new NDArray( F_shape, solver.F0.slice() ) );
 
-      expect(solver.rank).toBe( Math.min(M,N) );
+      expect(solver.rank).toBe(N);
 
       if( J.data.some(isNaN) ) throw new Error('Assertion failed.');
 
@@ -511,24 +539,15 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 512; )
         {
-          const MX = _rand_int(1,32),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
-
-          yield [x,y, p0,dx0]
+          const             MX = _rand_int(1,32),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
+          yield [p0,dx0]
         }
       }()
-    ).it(`initial computeNewton() QR decomposes J correctly given random examples`, ([x, y, p0, dx0]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
-          {M,N,MX} = solver;
+    ).it(`initial computeNewton() QR decomposes J correctly given random examples`, ([p0, dx0]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       for( let i=MX*NX   ; i-- > 0; ) solver.J11[i] = Math.random()*1.8 + 0.1;
       for( let i=MX*NY*NX; i-- > 0; ) solver.J21[i] = Math.random()*4 - 2;
@@ -591,24 +610,15 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 512; )
         {
-          const MX = _rand_int(1,32),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
-
-          yield [x,y, p0,dx0]
+          const             MX = _rand_int(1,32),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
+          yield [p0,dx0]
         }
       }()
-    ).it(`initial computeNewton() QR decomposes J correctly given random rank-deficient examples`, ([x, y, p0, dx0]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
-          {M,N,MX} = solver;
+    ).it(`initial computeNewton() QR decomposes J correctly given random rank-deficient examples`, ([p0, dx0]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       const [{data: J22},rnk] = _rand_rankdef(MX*NY,NP);
       for( let i=MX*NX   ; i-- > 0; ) solver.J11[i] = Math.random()*1.8 + 0.1;
@@ -674,24 +684,15 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 512; )
         {
-          const MX = _rand_int(1,32),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
-
-          yield [x,y, p0,dx0]
+          const             MX = _rand_int(1,32),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
+          yield [p0,dx0]
         }
       }()
-    ).it(`initial computeNewton() QR decomposes J correctly given random sparse examples`, ([x, y, p0, dx0]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
-          {M,N,MX} = solver;
+    ).it(`initial computeNewton() QR decomposes J correctly given random sparse examples`, ([p0, dx0]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       for( let i=MX*NX   ; i-- > 0; ) solver.J11[i] = Math.random()*1.8 + 0.1;
       for( let i=MX*NY*NX; i-- > 0; ) solver.J21[i] =(Math.random()*4 - 2) * (Math.random() < 0.95);
@@ -752,24 +753,15 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 256; )
         {
-          const MX = _rand_int(NP,32),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
-
-          yield [x,y, p0,dx0]
+          const             MX = _rand_int(NP,32),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
+          yield [p0,dx0]
         }
       }()
-    ).it(`initial computeNewton() solves generated over-determined examples`, ([x, y, p0, dx0]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
-          {M,N,MX} = solver;
+    ).it(`initial computeNewton() solves generated over-determined examples`, ([p0, dx0]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       for( let i=MX*NX   ; i-- > 0; ) solver.J11[i] = Math.random()*1.8 + 0.1;
       for( let i=MX*NY*NX; i-- > 0; ) solver.J21[i] = Math.random()*4 - 2;
@@ -783,7 +775,7 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
 
       solver.computeNewton();
 
-      // expect(solver.rank).toBe( Math.min(M,N) );
+      expect(solver.rank).toBe(N);
 
       // check that J,F is unmodified by computeNewton
       expect(J).toBeAllCloseTo( tabulate( [M,N], 'float64', (i,j) => solver.__DEBUG_J(i,j) ), {rtol:0, atol:0} );
@@ -798,24 +790,15 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 512; )
         {
-          const MX = _rand_int(1,64),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
-
-          yield [x,y, p0,dx0]
+          const             MX = _rand_int(1,64),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
+          yield [p0,dx0]
         }
       }()
-    ).it(`initial computeNewton() solves generated random examples with J21=0`, ([x, y, p0, dx0]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
-          {M,N,MX} = solver;
+    ).it(`initial computeNewton() solves generated random examples with J21=0`, ([p0, dx0]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       for( let i=MX*NX   ; i-- > 0; ) solver.J11[i] = Math.random()*1.8 + 0.1;
       for( let i=MX*NY*NX; i-- > 0; ) solver.J21[i] = 0;
@@ -848,24 +831,15 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 512; )
         {
-          const MX = _rand_int(1,64),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
-
-          yield [x,y, p0,dx0]
+          const             MX = _rand_int(1,64),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
+          yield [p0,dx0]
         }
       }()
-    ).it(`initial computeNewton() solves generated random rank-deficient examples with J21=0`, ([x, y, p0, dx0]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
-          {M,N,MX} = solver;
+    ).it(`initial computeNewton() solves generated random rank-deficient examples with J21=0`, ([p0, dx0]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       const [{data: J22},rnk] = _rand_rankdef(MX*NY,NP);
       for( let i=MX*NX   ; i-- > 0; ) solver.J11[i] = Math.random()*1.8 + 0.1;
@@ -899,24 +873,15 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 512; )
         {
-          const MX = _rand_int(1,32),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
-
-          yield [x,y, p0,dx0]
+          const             MX = _rand_int(1,32),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
+          yield [p0,dx0]
         }
       }()
-    ).it(`initial computeNewton() solves generated random examples`, ([x, y, p0, dx0]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
-          {M,N,MX} = solver;
+    ).it(`initial computeNewton() solves generated random examples`, ([p0, dx0]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       for( let i=MX*NX   ; i-- > 0; ) solver.J11[i] = Math.random()*1.8 + 0.1;
       for( let i=MX*NY*NX; i-- > 0; ) solver.J21[i] = Math.random()*4 - 2;
@@ -949,24 +914,15 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 512; )
         {
-          const MX = _rand_int(1,32),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
-
-          yield [x,y, p0,dx0]
+          const             MX = _rand_int(1,32),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
+          yield [p0,dx0]
         }
       }()
-    ).it(`initial computeNewton() solves generated random rank-deficient examples`, ([x, y, p0, dx0]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
-          {M,N,MX} = solver;
+    ).it(`initial computeNewton() solves generated random rank-deficient examples`, ([p0, dx0]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       const [{data: A},rnk] = _rand_rankdef(MX*NY,NP);
 
@@ -1001,24 +957,15 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 512; )
         {
-          const MX = _rand_int(1,32),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
-
-          yield [x,y, p0,dx0]
+          const             MX = _rand_int(1,32),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
+          yield [p0,dx0]
         }
       }()
-    ).it(`initial computeNewton() solves generated random sparse examples`, ([x, y, p0, dx0]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
-          {M,N,MX} = solver;
+    ).it(`initial computeNewton() solves generated random sparse examples`, ([p0, dx0]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       for( let i=MX*N    ; i-- > 0; ) solver.J11[i] = Math.random()*1.8 + 0.1;
       for( let i=MX*NY*NX; i-- > 0; ) solver.J21[i] =(Math.random()*4 - 2) * (Math.random() < 0.95);
@@ -1049,29 +996,21 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 128; )
         {
-          const MX = _rand_int(1,16),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
+          const             MX = _rand_int(1,16),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
 
           const lambdas = Array.from({length: 5}, () => Math.random()*2);
           lambdas[_rand_int(0,lambdas.length)] = 0;
           lambdas[_rand_int(0,lambdas.length)] = 0;
           Object.freeze(lambdas);
 
-          yield [x,y, p0,dx0, lambdas];
+          yield [p0,dx0, lambdas];
         }
       }()
-    ).it(`computeNewtonRegularized(λ) produces no out-of-bounds errors given random examples`, ([x, y, p0, dx0, lambdas]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
-          {M,N,MX} = solver;
+    ).it(`computeNewtonRegularized(λ) produces no out-of-bounds errors given random examples`, ([p0, dx0, lambdas]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       for( const [k,v] of Object.entries(solver) )
         if( is_array(v) )
@@ -1126,29 +1065,21 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 256; )
         {
-          const MX = _rand_int(1,16),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
+          const             MX = _rand_int(1,16),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
 
           const lambdas = Array.from({length: 5}, () => Math.random()*2);
           lambdas[_rand_int(0,lambdas.length)] = 0;
           lambdas[_rand_int(0,lambdas.length)] = 0;
           Object.freeze(lambdas);
 
-          yield [x,y, p0,dx0, lambdas];
+          yield [p0,dx0, lambdas];
         }
       }()
-    ).it(`computeNewtonRegularized(λ) solves generated random examples`, ([x, y, p0, dx0, lambdas]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
-          {M,N,MX} = solver;
+    ).it(`computeNewtonRegularized(λ) solves generated random examples`, ([p0, dx0, lambdas]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       for( let i=MX*NX   ; i-- > 0; ) solver.J11[i] = Math.random()*1.8 + 0.1;
       for( let i=MX*NY*NX; i-- > 0; ) solver.J21[i] = Math.random()*4 - 2;
@@ -1199,29 +1130,21 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 256; )
         {
-          const MX = _rand_int(1,16),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
+          const             MX = _rand_int(1,16),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
 
           const lambdas = Array.from({length: 5}, () => Math.random()*2);
           lambdas[_rand_int(0,lambdas.length)] = 0;
           lambdas[_rand_int(0,lambdas.length)] = 0;
           Object.freeze(lambdas);
 
-          yield [x,y, p0,dx0, lambdas];
+          yield [p0,dx0, lambdas];
         }
       }()
-    ).it(`computeNewtonRegularized(λ) solves generated random rank-deficient examples`, ([x, y, p0, dx0, lambdas]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
-          {M,N,MX} = solver;
+    ).it(`computeNewtonRegularized(λ) solves generated random rank-deficient examples`, ([p0, dx0, lambdas]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       const [{data: J22}] = _rand_rankdef(MX*NY,NP);
       for( let i=MX*NX   ; i-- > 0; ) solver.J11[i] = Math.random()*1.8 + 0.1;
@@ -1273,24 +1196,15 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 1024; )
         {
-          const MX = _rand_int(NP,32),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
-
-          yield [x,y, p0,dx0];
+          const             MX = _rand_int(NP,32),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
+          yield [p0,dx0];
         }
       }()
-    ).it(`computeNewtonRegularized(0) returns correct [r,dr] given random over-determined examples`, ([x, y, p0, dx0]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
-          {M,N,MX} = solver;
+    ).it(`computeNewtonRegularized(0) returns correct [r,dr] given random over-determined examples`, ([p0, dx0]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       for( let i=MX*NX   ; i-- > 0; ) solver.J11[i] = Math.random()*1.8 + 0.1;
       for( let i=MX*NY*NX; i-- > 0; ) solver.J21[i] = Math.random()*4.0 - 2.0;
@@ -1320,24 +1234,15 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 4096; )
         {
-          const MX = _rand_int(1,NP),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
-
-          yield [x,y, p0,dx0];
+          const             MX = _rand_int(1,NP),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
+          yield [p0,dx0];
         }
       }()
-    ).it(`computeNewtonRegularized(0) returns correct [r,dr] given random under-determined examples`, ([x, y, p0, dx0]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
-          {M,N,MX} = solver;
+    ).it(`computeNewtonRegularized(0) returns correct [r,dr] given random under-determined examples`, ([p0, dx0]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       for( let i=MX*NX   ; i-- > 0; ) solver.J11[i] = Math.random()*1.8 + 0.1;
       for( let i=MX*NY*NX; i-- > 0; ) solver.J21[i] = Math.random()*4.0 - 2.0;
@@ -1367,25 +1272,15 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 1024; )
         {
-          const MX = _rand_int(1,32),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
-
-          yield [x,y, p0,dx0];
+          const             MX = _rand_int(1,32),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
+          yield [p0,dx0];
         }
       }()
-    ).it(`computeNewtonRegularized(0) returns correct [r,dr] given random rank-deficient examples`, ([x, y, p0, dx0]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0);
-
-      const {M,N,MX} = solver;
+    ).it(`computeNewtonRegularized(0) returns correct [r,dr] given random rank-deficient examples`, ([p0, dx0]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       const [{data: J22},rnk] = _rand_rankdef(MX*NY,NP);
       for( let i=MX*NX   ; i-- > 0; ) solver.J11[i] = Math.random()*1.8 + 0.1;
@@ -1420,28 +1315,20 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 2048; )
         {
-          const MX = _rand_int(NP,32),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
+          const             MX = _rand_int(NP,32),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
 
           const lambdas = Array.from({length: 6}, () => Math.random()*2);
           lambdas[_rand_int(0,lambdas.length)] = 0;
           lambdas[_rand_int(0,lambdas.length)] = 0;
           Object.freeze(lambdas);
 
-          yield [x,y, p0,dx0, lambdas];
+          yield [p0,dx0, lambdas];
         }
       }()
-    ).it(`computeNewtonRegularized(λ) returns correct [r,dr] given random over-determined examples`, ([x, y, p0, dx0, lambdas]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
+    ).it(`computeNewtonRegularized(λ) returns correct [r,dr] given random over-determined examples`, ([p0, dx0, lambdas]) => {
+      const solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
           {M,N,MX} = solver;
 
       for( let i=MX*NX   ; i-- > 0; ) solver.J11[i] = Math.random()*1.8 + 0.1;
@@ -1477,29 +1364,21 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 4096; )
         {
-          const MX = _rand_int(1,NP),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
+          const             MX = _rand_int(1,NP),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
 
           const lambdas = Array.from({length: 6}, () => Math.random()*2);
           lambdas[_rand_int(0,lambdas.length)] = 0;
           lambdas[_rand_int(0,lambdas.length)] = 0;
           Object.freeze(lambdas);
 
-          yield [x,y, p0,dx0, lambdas];
+          yield [p0,dx0, lambdas];
         }
       }()
-    ).it(`computeNewtonRegularized(λ) returns correct [r,dr] given random under-determined examples`, ([x, y, p0, dx0, lambdas]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
-          {M,N,MX} = solver;
+    ).it(`computeNewtonRegularized(λ) returns correct [r,dr] given random under-determined examples`, ([p0, dx0, lambdas]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       for( let i=MX*NX   ; i-- > 0; ) solver.J11[i] = Math.random()*1.8 + 0.1;
       for( let i=MX*NY*NX; i-- > 0; ) solver.J21[i] = Math.random()*4.0 - 2.0;
@@ -1534,29 +1413,21 @@ for( const [name,{NP,NX,NY,f,fgg}] of Object.entries(funcs) )
       function*(){
         for( let run=0; run++ < 1024; )
         {
-          const MX = _rand_int(1,32),
-             shape = [MX,NX],
-                 p = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-                p0 = tabulate( [NP], 'float64', () => Math.random()*4 - 2),
-               dx0 = tabulate(shape, 'float64', () => Math.random()*4 - 2);
-
-          let x = tabulate(shape, 'float64', () => Math.random()*8 - 4),
-              y = stack( [...x].map(f(p)) );
-
-          x = x.mapElems('float64', x => x + rand_normal() / 8 );
-          y = y.mapElems('float64', y => y + rand_normal() / 8 );
+          const             MX = _rand_int(1,32),
+             p0 = tabulate(   [NP], 'float64', () => Math.random()*4 - 2),
+            dx0 = tabulate([MX,NX], 'float64', () => Math.random()*4 - 2);
 
           const lambdas = Array.from({length: 6}, () => Math.random()*2);
           lambdas[_rand_int(0,lambdas.length)] = 0;
           lambdas[_rand_int(0,lambdas.length)] = 0;
           Object.freeze(lambdas);
 
-          yield [x,y, p0,dx0, lambdas];
+          yield [p0,dx0, lambdas];
         }
       }()
-    ).it(`computeNewtonRegularized(λ) returns correct [r,dr] given random rank-deficient examples`, ([x, y, p0, dx0, lambdas]) => {
-      const solver = new TrustRegionSolverODR_NY(x,y, fgg, p0,dx0),
-          {M,N,MX} = solver;
+    ).it(`computeNewtonRegularized(λ) returns correct [r,dr] given random rank-deficient examples`, ([p0, dx0, lambdas]) => {
+      const        solver = new TrustRegionSolverODR_NY(fgg, p0,dx0),
+        {M,N,MX} = solver;
 
       const [{data: J22},rnk] = _rand_rankdef(MX*NY,NP);
       for( let i=MX*NX   ; i-- > 0; ) solver.J11[i] = Math.random()*1.8 + 0.1;

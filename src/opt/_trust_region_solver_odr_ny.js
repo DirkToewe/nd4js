@@ -31,6 +31,128 @@ import {_triu_solve,
 import {OptimizationNoProgressError} from "./optimization_error";
 
 
+export function fit_odr_gen( trust_region )
+{
+  const fit_odr_gen = (x,y, fgg,p0, opt) =>
+  {
+    if( ! (fgg instanceof Function) )
+      throw new Error(`${NAME}(x,y, fgg,p0): fgg must be function.`);
+
+    x  =   array('float64', x );
+    y  =   array('float64', y );
+    p0 = asarray('float64', p0);
+
+    const dx0 = 'dx0' in opt
+      ?      array('float64', opt.dx0)
+      : x.mapElems('float64', () => 0);
+
+    const NAME = fit_odr_gen.name;
+
+    if(p0.ndim !== 1 ) throw new Error(`${NAME}(x,y, fgg,p0): p0.ndim must be 1.`);
+    if( x.ndim !== 1 &&
+        x.ndim !== 2 ) throw new Error(`${NAME}(x,y, fgg,p0): x.ndim must be 1 or 2.`);
+    if( y.ndim !== 1 &&
+        y.ndim !== 2 ) throw new Error(`${NAME}(x,y, fgg,p0): y.ndim must be 1 or 2.`);
+    if( x.ndim !== dx0.ndim ) throw new Error(`${NAME}(x,y, fgg,p0, opt): opt.dx0 and x must have same ndim.`);
+
+    const [MX,NX=1] = x.shape,
+          [MY,NY=1] = y.shape,
+            [NP  ] =p0.shape;
+
+    if( x.ndim == 2 &&
+        NX !== dx0.shape[1] ) throw new Error(`${NAME}(x,y, fgg,p0, opt): opt.dx0 and x must have same shape.`);
+    if( MX !== dx0.shape[0] ) throw new Error(`${NAME}(x,y, fgg,p0, opt): opt.dx0 and x must have same shape.`);
+    if( MX !== MY ) throw new Error(`${NAME}(x,y, fgg,p0, opt): x.shape[0] must equal y.shape[0].`);
+
+    const x_ndim  = x.ndim,
+          y_ndim  = y.ndim,
+        xi_shape = x.shape.slice(1);
+    const  
+            dy    = new Float64Array(MX*NY),
+            dy_dp = new Float64Array(MX*NY*NP),
+            dy_dx = new Float64Array(MX*NY*NX),
+      result_dy    = new NDArray(                  y.shape                        , dy    ),
+      result_dy_dp = new NDArray( Int32Array.of(...y.shape,NP                    ), dy_dp ),
+      result_dy_dx = new NDArray( Int32Array.of(...y.shape,...x.shape.subarray(1)), dy_dx );
+
+    x = x.data;
+    y = y.data;
+
+    const fjj = (p,dx) => {
+      if( !  p.dtype.startsWith('float') )  throw new Error('Assertion failed.');
+      if( ! dx.dtype.startsWith('float') )  throw new Error('Assertion failed.');
+
+      if( p.ndim     !== 1 ) throw new Error('Assertion failed.');
+      if( p.shape[0] !== NP) throw new Error('Assertion failed.');
+
+      if(  x_ndim     !== dx.ndim ) throw new Error('Assertion failed.');
+      if(  x_ndim     !== 1 &&
+          dx.shape[1] !== NX ) throw new Error('Assertion failed.');
+      if( dx.shape[0] !== MX ) throw new Error('Assertion failed.');
+
+      const fgg_p = fgg(p);
+
+      dx = dx.data;
+
+      for( let i=0; i < MX; i++ )
+      {
+        const xi = dx.slice(NX*i, NX*(i+1));
+
+        for( let j=NX; j-- > 0; )
+          xi[j] += x[NX*i + j];
+
+        let [
+          dyi,
+          dyi_dp,
+          dyi_dx
+        ] = fgg_p( new NDArray(xi_shape, xi) );
+
+        dyi    = asarray('float', dyi   );
+        dyi_dp = asarray('float', dyi_dp);
+        dyi_dx = asarray('float', dyi_dx);
+
+        if( dyi   .ndim !== y_ndim - 1 ) throw new Error('Assertion failed.');
+        if( dyi_dp.ndim !== y_ndim     ) throw new Error('Assertion failed.');
+        if( dyi_dx.ndim !== y_ndim - 2 +
+                            x_ndim     ) throw new Error('Assertion failed.');
+
+        if( y_ndim !== 1 )
+        {
+          if( dyi   .shape[0] !== NY ) throw new Error('Assertion failed.');
+          if( dyi_dp.shape[0] !== NY ) throw new Error('Assertion failed.');
+          if( dyi_dx.shape[0] !== NY ) throw new Error('Assertion failed.');
+        }
+
+        if(              x_ndim    !== 1 &&
+            dyi_dx.shape[y_ndim-1] !== NX ) throw new Error('Assertion failed.');
+        if( dyi_dp.shape[y_ndim-1] !== NP ) throw new Error('Assertion failed.');
+
+        dyi    = dyi   .data;
+        dyi_dp = dyi_dp.data;
+        dyi_dx = dyi_dx.data;
+
+        for( let j=   NY; j-- > 0; ) dy   [   NY*i + j] = dyi   [j] - y[NY*i + j];
+        for( let j=NP*NY; j-- > 0; ) dy_dp[NP*NY*i + j] = dyi_dp[j];
+        for( let j=NX*NY; j-- > 0; ) dy_dx[NX*NY*i + j] = dyi_dx[j];
+      }
+
+      // we know that the TrustRegionSolverODR performs protection copies so we can reuse memory
+      return [
+        result_dy,
+        result_dy_dp,
+        result_dy_dx
+      ];
+    };
+
+    return trust_region( new TrustRegionSolverODR_NY(fjj, p0,dx0), opt );
+  }
+
+  Object.defineProperty(fit_odr_gen, 'name', {value: `fit_odr${trust_region.name}_gen`});
+
+  return fit_odr_gen;
+}
+
+
 const REPORT_STATE_READY    = 1,
       REPORT_STATE_NA       = 2,
       REPORT_STATE_CONSIDER = 3;
@@ -38,32 +160,48 @@ const REPORT_STATE_READY    = 1,
 
 export class TrustRegionSolverODR_NY
 {
-  constructor( samples_x, samples_y, fgg, p0, dx0 )
+  constructor( fgg, p0, dx0 )
   {
     if( ! (fgg instanceof Function) )
       throw new Error('Assertion failed.');
 
-    samples_x = array('float64', samples_x);
-    samples_y = array('float64', samples_y);
-           p0 = array('float64',  p0);
-          dx0 = array('float64', dx0);
+     p0 = array('float64',  p0);
+    dx0 = array('float64', dx0);
 
-    if(samples_x.ndim !== 1 &&
-       samples_x.ndim !== 2 ) throw new Error('Assertion failed.');
-    if(samples_y.ndim !== 1 &&
-       samples_y.ndim !== 2 ) throw new Error('Assertion failed.'); // <- TODO: support 2-dimensional samples_y
+    if( p0.ndim !== 1 ) throw new Error('Assertion failed.');
+    if(dx0.ndim !== 1 &&
+       dx0.ndim !== 2 ) throw new Error('Assertion failed.');
 
-    if(samples_x.ndim !==dx0.ndim) throw new Error('Assertion failed.');
-    if(             1 !== p0.ndim) throw new Error('Assertion failed.');
+    const [MX,NX=1] = dx0.shape,
+             [NP  ] =  p0.shape;
 
-    const [MX,NX=1] = samples_x.shape,
-          [MY,NY=1] = samples_y.shape,
-             [NP  ] =        p0.shape;
+    let [dy, dy_dp, dy_dx] = fgg(
+      new NDArray(  p0.shape, p0.data.slice() ),
+      new NDArray( dx0.shape,dx0.data.slice() )
+    );
 
-    if(   1 !== dx0.ndim
-      && NX !== dx0.shape[1] ) throw new Error('Assertion failed.');
-    if(  MX !== dx0.shape[0] ) throw new Error('Assertion failed.');
-    if(  MX !== MY           ) throw new Error('Assertion failed.');
+    dy    = array('float64', dy);
+    dy_dp = array('float64', dy_dp);
+    dy_dx = array('float64', dy_dx);
+
+    if( dy.ndim !== 1 &&
+        dy.ndim !== 2 ) throw new Error('Assertion failed.');
+    if( dy_dp.ndim !== dy.ndim+1 ) throw new Error('Assertion failed.');
+    if( dy_dx.ndim !== dy.ndim +
+                      dx0.ndim-1 ) throw new Error('Assertion failed.');
+
+    const [MY,NY=1] = dy.shape;
+
+    if( MX !== MY ) throw new Error('Assertion failed.');
+    if( dy_dp.shape[0] !== MX ) throw new Error('Assertion failed.');
+    if( dy_dx.shape[0] !== MX ) throw new Error('Assertion failed.');
+    if( dy.ndim === 2 )
+    {
+      if( dy_dp.shape[1] !== NY ) throw new Error('Assertion failed.');
+      if( dy_dx.shape[1] !== NY ) throw new Error('Assertion failed.');
+    }
+    if( dx0.ndim === 2 && dy_dx.shape[dy.ndim] !== NX ) throw new Error('Assertion failed.');
+    if(                   dy_dp.shape[dy.ndim] !== NP ) throw new Error('Assertion failed.');
 
     const M = MX*NX + MX*NY,
           N = MX*NX + NP,
@@ -73,9 +211,6 @@ export class TrustRegionSolverODR_NY
         J21 = new Float64Array(MX*NY*NX),
         J22 = new Float64Array(MX*NY*NP),
           D = new Float64Array(N),
-      _consider_J11 = J11.slice(),
-      _consider_J21 = J21.slice(),
-      _consider_J22 = J22.slice(),
 
       X0 = new Float64Array(N),
       F0 = new Float64Array(M),
@@ -84,9 +219,9 @@ export class TrustRegionSolverODR_NY
       tmp = new Float64Array( L*(L+3) >>> 1 ),
 
       // If NX < NY, we can use the prepare() step to reduce the work computeNewtonRegularized(λ) which should speed up Levenberg-Marquardt
-      prepared_J21 = NY < NX ? J21                : new Float64Array(MX*NX*NX + NX), // <- +NX as temp. memory for QR decomp.
-      prepared_J22 = NY < NX ? J22                : new Float64Array(K*NP),
-      prepared_QF  = NY < NX ? F0.subarray(MX*NX) : new Float64Array(K   ),
+      prepared_J21 = NY <= NX ? J21                : new Float64Array(MX*NX*NX + NX), // <- +NX as temp. memory for QR decomp.
+      prepared_J22 = NY <= NX ? J22                : new Float64Array(K*NP),
+      prepared_QF  = NY <= NX ? F0.subarray(MX*NX) : new Float64Array(K   ),
 
       // Working memory and result of computeNewton()
       newton_R11 = new Float64Array(MX * NX), // <- after computeNewton(), contains diagonal of R11
@@ -103,7 +238,13 @@ export class TrustRegionSolverODR_NY
       regularized_dX  = new Float64Array(N),
 
         QF = new Float64Array( Math.max(MX*NX + K, N+1) ),
-      norm = new Float64Array(2*NP);
+      norm = new Float64Array(2*NP),
+
+      _consider_J11 = J11.slice(),
+      _consider_J21 = dy_dx.data,
+      _consider_J22 = dy_dp.data;
+
+    _consider_J11.fill(1.0);
 
     Object.assign(this, {
       MX,NX,NY, NP, M,N,
@@ -112,19 +253,16 @@ export class TrustRegionSolverODR_NY
       rank: -1,
       _report_state: REPORT_STATE_NA,
       fgg,
-      report_p        : null,
-      report_dx       : null,
+      report_p        :  p0,
+      report_dx       : dx0,
       report_loss     : NaN,
       report_dloss_dp : null,
       report_dloss_ddx: null,
-      report_dy       : null,
+      report_dy       : dy,
 
-      samples_x: samples_x.data,
-      samples_y: samples_y.data,
-
-      x_shape: samples_x.shape,
-      y_shape: samples_y.shape,
-      p_shape:        p0.shape,
+      p_shape:  p0.shape,
+      x_shape: dx0.shape,
+      y_shape: dy .shape,
 
       QF,
       J11,
@@ -156,110 +294,28 @@ export class TrustRegionSolverODR_NY
     });
     Object.seal(this);
 
-     p0 =  p0.data;
-    dx0 = dx0.data;
-
-    for( let i=NP; i-- > 0; )
-      newton_dX[MX*NX + i] = p0[i];
-
-    for( let i=MX*NX; i-- > 0; )
-      newton_dX[i] = dx0[i];
-
-    this._considerMove(newton_dX);
-                       newton_dX.fill(0.0);
+    this._considerMove_computeLoss();
     this.makeConsideredMove();
   }
 
 
-  _considerMove( dX )
+  _considerMove_computeLoss()
   {
     const {
-      M,N, MX,NX,NY,NP,
-      fgg,
-      x_shape, samples_x,
-      y_shape, samples_y,
+      M, MX,NX,NY,NP,
+      x_shape,
       p_shape,
       _consider_J11: J11,
       _consider_J21: J21,
-      _consider_J22: J22,
-      X0
+      _consider_J22: J22
     } = this;
-
-    if( dX.length !== N  ) throw new Error('Assertion failed.');
 
     this._report_state = REPORT_STATE_CONSIDER;
 
-    const report_p        = new Float64Array(NP),
-          report_dx       = new Float64Array(MX*NX),
-          report_dy       = new Float64Array(MX*NY),
-          report_dloss_dp = new Float64Array(NP),
-          report_dloss_ddx= new Float64Array(MX*NX);
-     this.report_p        = new NDArray(p_shape, report_p        );
-     this.report_dx       = new NDArray(x_shape, report_dx       );
-     this.report_dy       = new NDArray(y_shape, report_dy       );
-     this.report_dloss_dp = new NDArray(p_shape, report_dloss_dp );
-     this.report_dloss_ddx= new NDArray(x_shape, report_dloss_ddx);
-
-    const gp_shape = Int32Array.of(...y_shape.slice(1), NP),
-          gx_shape = Int32Array.of(...y_shape.slice(1),
-                                   ...x_shape.slice(1));
-
-    for( let i=NP; i-- > 0; ) {
-      const                    I = MX*NX + i;
-      report_p[i] = X0[I] + dX[I];
-    }
-
-    for( let i=MX*NX; i-- > 0; )
-      report_dx[i] = X0[i] + dX[i];
-
-    const fgg_p = fgg(
-      new NDArray(p_shape, report_p.slice())
-    );
-
-    for( let i=MX; i-- > 0; )
-    {
-      let [f,gp,gx] = function(){
-        const xi = new Float64Array(NX);
-
-        for( let j=NX; j-- > 0; ) { const   ij = NX*i+j;
-          xi[j] = samples_x[ij] + report_dx[ij];
-        }
-
-        return fgg_p(
-          new NDArray(x_shape.slice(1), xi)
-        );
-      }();
-
-       f = asarray('float64', f);
-      gp = asarray('float64',gp);
-      gx = asarray('float64',gx);
-
-      if( f.ndim !== y_shape.length-1 ) throw new Error('Assertion failed.');
-      if( f.ndim !== 0 && f.shape[0] !== NY )
-        throw new Error(`Assertion failed: [${f.shape}]`);
-
-      if(gp.ndim !== gp_shape.length ) throw new Error('Assertion failed.');
-      for( let i  =  gp_shape.length; i-- > 0; )
-        if( gp.shape[i] !== gp_shape[i] )
-          throw new Error('Assertion failed.');
-
-      if(gx.ndim !== gx_shape.length ) throw new Error('Assertion failed.');
-      for( let i  =  gx_shape.length; i-- > 0; )
-        if( gx.shape[i] !== gx_shape[i] )
-          throw new Error('Assertion failed.');
-
-       f =  f.data;
-      gp = gp.data;
-      gx = gx.data;
-
-      for( let j=NY; j-- > 0; )
-        report_dy[NY*i+j] = f[j] - samples_y[NY*i+j];
-
-      for( let j=NY*NP; j-- > 0; ) J22[NY*NP*i+j] = gp[j];
-      for( let j=NY*NX; j-- > 0; ) J21[NY*NX*i+j] = gx[j];
-    }
-
-    J11.fill(1.0); // <- TODO: use weights instead;
+    const report_dloss_dp = new Float64Array(NP),
+          report_dloss_ddx= new Float64Array(MX*NX),
+          report_dx = this.report_dx.data,
+          report_dy = this.report_dy.data;
 
     // COMPUTE LOSS GRADIENT w.r.t. P
     for( let i=MX*NY; i-- > 0; )
@@ -295,19 +351,70 @@ export class TrustRegionSolverODR_NY
 
   considerMove( dX )
   {
-    this._considerMove(dX);
-
     const {
-      M, MX,NX,NY,NP,
-
+      M,N, MX,NX,NY,NP,
+      x_shape,
+      y_shape,
+      p_shape,
+      _consider_J11, 
+      _consider_J21, 
+      _consider_J22,
       J11,
-      J21,J22,
-
-      F0,X0
+      J21,J22, F0,X0, fgg
     } = this;
 
-    const report_p  = this.report_p .data,
-          report_dx = this.report_dx.data;
+    if( dX.length !== N  ) throw new Error('Assertion failed.');
+
+    const report_p  = new Float64Array(NP),
+          report_dx = new Float64Array(MX*NX);
+     this.report_p  = new NDArray(p_shape, report_p );
+     this.report_dx = new NDArray(x_shape, report_dx);
+
+    for( let i=NP; i-- > 0; ) {
+      const                    I = MX*NX + i;
+      report_p[i] = X0[I] + dX[I];
+    }
+
+    for( let i=MX*NX; i-- > 0; )
+      report_dx[i] = X0[i] + dX[i];
+
+    let [dy, dy_dp, dy_dx] = fgg(
+      new NDArray( p_shape, report_p .slice() ),
+      new NDArray( x_shape, report_dx.slice() )
+    );
+
+    dy    =   array('float64', dy);
+    dy_dp = asarray('float64', dy_dp);
+    dy_dx = asarray('float64', dy_dx);
+
+    if( dy   .ndim !== y_shape.length     ) throw new Error('Assertion failed.');
+    if( dy_dp.ndim !== y_shape.length + 1 ) throw new Error('Assertion failed.');
+    if( dy_dx.ndim !== y_shape.length +
+                       x_shape.length - 1 ) throw new Error('Assertion failed.');
+
+    if( dy   .shape[0] !== MX ) throw new Error('Assertion failed.');
+    if( dy_dp.shape[0] !== MX ) throw new Error('Assertion failed.');
+    if( dy_dx.shape[0] !== MX ) throw new Error('Assertion failed.');
+
+    if(                         dy_dp.shape[y_shape.length] !== NP ) throw new Error('Assertion failed.');
+    if( x_shape.length === 2 && dy_dx.shape[y_shape.length] !== NX ) throw new Error('Assertion failed.');
+
+    if( y_shape.length === 2 )
+    {
+      if( dy   .shape[1] !== NY ) throw new Error('Assertion failed.');
+      if( dy_dp.shape[1] !== NY ) throw new Error('Assertion failed.');
+      if( dy_dx.shape[1] !== NY ) throw new Error('Assertion failed.');
+    }
+
+    this.report_dy = dy;
+    dy_dx = dy_dx.data;
+    dy_dp = dy_dp.data;
+
+    for( let i=MX*NY*NX; i-- > 0; ) _consider_J21[i] = dy_dx[i];
+    for( let i=MX*NY*NP; i-- > 0; ) _consider_J22[i] = dy_dp[i];
+                                    _consider_J11.fill(1.0);
+
+    this._considerMove_computeLoss();
 
     let predict_loss = 0.0;
     for( let i=MX*NX; i-- > 0; ) {
@@ -660,60 +767,92 @@ export class TrustRegionSolverODR_NY
     // STEP 2.1: ELIMINATE R21 USING GIVENS ROTATIONS
     //           O( MX*(NX+NP) ) operations
     //
-    for( let i=0; i < MX; i++ ) // <- for each block i
+    if( 1 === L )
     {
-      // Q keeps track of rotations in block 
-      Q.fill(0.0,  /*start=*/L,/*end=*/L*(L+3) >>> 1);
-      // init Q to:
-      //     ┏                  ┓   
-      //     ┃ 0                ┃
-      //     ┃ 1                ┃
-      //     ┃    1             ┃
-      // Q = ┃       .          ┃
-      //     ┃          .       ┃
-      //     ┃             .    ┃
-      //     ┃                1 ┃
-      //     ┗                  ┛
-      // (Q[1:] is stored sparsly as the upper off-diagonal entries will always be 0)
-      for( let i=L; i > 0; i-- )
-        Q[L-1 + ( i*(i+1) >>> 1 )] = 1;
-
-      for( let k=0; k < NX; k++ ) // <- for each column in block i
+      // THIS BRANCH IS PURELY FOR PERFORMANCE REASONS
+      //   - JIT compilers seem to be unable to optimize for L===1
+      //   - With this branch takes half as long as without it for L===1
+      //   - TODO: remove once JIT compilers become better
+      for( let i=0; i < MX; i++ )
       {
-        Q.fill(0.0, 0,L);
+        let cc = 1;
 
-        let r1 = R11[NX*i+k];
-        for( let j=0; j < L; j++ ) // <- for each entry j in column k of block i
-        {
-          const Q_off = L + ( j*(j+1) >>> 1 );
+        for( let j=0; j < NX; j++ )
+        { const            ij = NX*i+j,
+                r1   = R11[ij],
+                r2   = J21[ij] * cc,
+            [c,s,nrm]=_giv_rot_qr(r1,r2);
+          if(0===nrm)
+            throw new Error('Assertion failed: Sparse part of J must not be singular.');
 
-          let                       r2 = 0.0;
-          for( let l=-1; l++ < j; ) r2+= Q[Q_off+l] * J21[NX*(L*i+l)+k];
+          R21[ij] = cc * s; if( s === 0 ) continue;
+                    cc *=c;
+          R11[ij] = nrm;
 
-          if( 0 === r2) continue;
-
-          const [c,s,nrm] = _giv_rot_qr(r1,r2);
-          r1 = nrm;
-
-          if( 0 === s ) continue
-
-          _giv_rot_rows(Q,j+1, 0,Q_off, c,s);
-          _giv_rot_rows(QF, 1, NX*i+k,
-                               MX*NX + L*i+j, c,s);
+          _giv_rot_rows(QF,1, ij,MX*NX+i, c,s);
         }
-        R11[NX*i+k] = r1;
 
-        // write finished row of Q to R21
-        for( let j=0; j < L; j++ )
-          R21[NX*(L*i+j)+k] = Q[j];
+        for( let j=0; j < NP; j++ )
+          R22[NP*i+j] = cc * J22[NP*i+j];
       }
+    }
+    else
+    {
+      for( let i=0; i < MX; i++ ) // <- for each block i
+      {
+        // Q keeps track of rotations in block
+        Q.fill(0.0,  /*start=*/L,/*end=*/L*(L+3) >>> 1);
+        // init Q to:
+        //     ┏                  ┓
+        //     ┃ 0                ┃
+        //     ┃ 1                ┃
+        //     ┃    1             ┃
+        // Q = ┃       .          ┃
+        //     ┃          .       ┃
+        //     ┃             .    ┃
+        //     ┃                1 ┃
+        //     ┗                  ┛
+        // (Q[1:] is stored sparsly as the upper off-diagonal entries will always be 0)
+        for( let i=L; i > 0; i-- )
+          Q[L-1 + ( i*(i+1) >>> 1 )] = 1;
 
-      // apply Q to J22
-      R22.fill(0.0, NP*L*i, NP*L*(i+1));
-      for( let j=0; j <  L; j++ ) { const Q_off = L + ( j*(j+1) >>> 1 );
-      for( let k=0; k <= j; k++ )
-      for( let l=0; l < NP; l++ )
-        R22[NP*(L*i+j)+l] += Q[Q_off+k] * J22[NP*(L*i+k)+l];
+        for( let k=0; k < NX; k++ ) // <- for each column in block i
+        {
+          Q.fill(0.0, 0,L);
+
+          let r1 = R11[NX*i+k];
+          for( let j=0; j < L; j++ ) // <- for each entry j in column k of block i
+          {
+            const Q_off = L + ( j*(j+1) >>> 1 );
+
+            let                       r2 = 0.0;
+            for( let l=-1; l++ < j; ) r2+= Q[Q_off+l] * J21[NX*(L*i+l)+k];
+
+            if( 0 === r2) continue;
+
+            const [c,s,nrm] = _giv_rot_qr(r1,r2);
+            r1 = nrm;
+
+            if( 0 === s ) continue
+
+            _giv_rot_rows(Q,j+1, 0,Q_off, c,s);
+            _giv_rot_rows(QF, 1, NX*i+k,
+                                 MX*NX + L*i+j, c,s);
+          }
+          R11[NX*i+k] = r1;
+
+          // write finished row of Q to R21
+          for( let j=0; j < L; j++ )
+            R21[NX*(L*i+j)+k] = Q[j];
+        }
+
+        // apply Q to J22
+        R22.fill(0.0, NP*L*i, NP*L*(i+1));
+        for( let j=0; j <  L; j++ ) { const Q_off = L + ( j*(j+1) >>> 1 );
+        for( let k=0; k <= j; k++ )
+        for( let l=0; l < NP; l++ )
+          R22[NP*(L*i+j)+l] += Q[Q_off+k] * J22[NP*(L*i+k)+l];
+        }
       }
     }
 
@@ -925,7 +1064,7 @@ export class TrustRegionSolverODR_NY
       F0 : raw_F
     } = this;
 
-        this.prepared = this.prepared || NX > NY; // <- FIXME: NX >= NY
+        this.prepared = this.prepared || NX >= NY; // <- FIXME: NX >= NY
     if( this.prepared ) return;
         this.prepared = true;
 

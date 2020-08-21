@@ -107,7 +107,7 @@ export class TrustRegionSolverLSQ
     Object.seal(this);
 
     // INIT DATA
-    this._considerMove_computeMSE();
+    this._considerMove_computeLoss();
     this.makeConsideredMove();
   }
 
@@ -118,7 +118,7 @@ export class TrustRegionSolverLSQ
   }
 
 
-  _considerMove_computeMSE()
+  _considerMove_computeLoss()
   {
     const { M,N, report_f: {data: F},
                  report_J: {data: J} } = this;
@@ -235,7 +235,7 @@ export class TrustRegionSolverLSQ
     this.report_f = f;
     this.report_J = J;
 
-    this._considerMove_computeMSE();
+    this._considerMove_computeLoss();
 
     let predict_loss = 0.0;
     for( let i=M; i-- > 0; )

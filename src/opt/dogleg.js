@@ -24,7 +24,7 @@ import {OptimizationNoProgressError} from "./optimization_error";
 import {roots1d_polyquad} from './polyquad';
 import {TrustRegionSolverLBFGS} from './_trust_region_solver_lbfgs';
 import {TrustRegionSolverLSQ  } from './_trust_region_solver_lsq';
-import {TrustRegionSolverODR  } from "./_trust_region_solver_odr";
+import {fit_odr_gen} from "./_trust_region_solver_odr_ny";
 
 
 export function min_dogleg_gen(fg, x0, opt={})
@@ -216,11 +216,7 @@ export function* _dogleg(
 //   ???
 
 
-export const fit_odr_dogleg_gen = (x,y, fgg,p0, opt) => {
-  x = asarray('float64', x);
-  const { dx0 = x.mapElems('float64', () => 0) } = opt;
-  return _dogleg( new TrustRegionSolverODR(x,y, fgg, p0,dx0), opt );
-}
+export const fit_odr_dogleg_gen = fit_odr_gen(_dogleg);
 
 
 export function* fit_dogleg_gen(

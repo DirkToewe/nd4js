@@ -137,7 +137,8 @@ export function generic_test_fit_odr_gen( fit_odr_gen )
     for( const NX of [1,2,3,4] )
       forEachItemIn(
         function*(){
-          for( let run=0; run++ < 48 / NX**1.5; )
+          const                   N_RUNS = 64 / NX**1.5;
+          for( let run=0; run++ < N_RUNS; )
           {
             const fgh = new rand_quadratic_poly(NX);
 
@@ -161,10 +162,13 @@ export function generic_test_fit_odr_gen( fit_odr_gen )
           }
         }()
       ).it(`fits random quadratic_poly(${NX}) correctly`, ([samples_x, samples_y, fgh, P, P0, dx0]) => {
-        let     p,dx, mse,dmse_dp,dmse_dx, dy;
+
+        let     p,dx, mse,dmse_dp,dmse_dx, dy, nIter=0;
         try {
           for( [p,dx, mse,dmse_dp,dmse_dx, dy] of fit_odr_gen(samples_x, samples_y, fgh, P0, {dx0}) )
           {
+            expect(nIter++).toBeLessThan(64);
+
             if(   norm(dmse_dp) < 1e-8
                && norm(dmse_dx) < 1e-8 )
               break;

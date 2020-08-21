@@ -24,7 +24,7 @@ import {FrobeniusNorm} from '../la/norm'
 
 import {OptimizationNoProgressError} from "./optimization_error";
 import {TrustRegionSolverLSQ} from './_trust_region_solver_lsq';
-import {TrustRegionSolverODR} from "./_trust_region_solver_odr";
+import {fit_odr_gen} from "./_trust_region_solver_odr_ny";
 
 
 // References
@@ -220,11 +220,7 @@ export function* _lm(
 //   ???
 
 
-export const fit_odr_lm_gen  = (x,y, fgg,p0, opt) => {
-  x = asarray('float64', x);
-  const { dx0 = x.mapElems('float64', () => 0) } = opt;
-  return _lm( new TrustRegionSolverODR(x,y, fgg, p0,dx0), opt );
-}
+export const fit_odr_lm_gen  = fit_odr_gen(_lm);
 
 
 export function* fit_lm_gen(
