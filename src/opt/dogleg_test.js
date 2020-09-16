@@ -16,16 +16,19 @@
  * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {generic_test_fit_gen    } from "./_generic_test_fit";
-import {generic_test_lsq_gen    } from "./_generic_test_lsq";
-import {generic_test_min_gen    } from "./_generic_test_min";
-import {generic_test_fit_odr_gen} from "./_generic_test_fit_odr";
+import {generic_test_fit_gen} from "./_generic_test_fit";
+import {generic_test_lsq_gen} from "./_generic_test_lsq";
+import {generic_test_min_gen} from "./_generic_test_min";
+import {generic_test_odr_gen} from "./_generic_test_odr";
+import {generic_test_tls_gen} from "./_generic_test_tls";
 import {fit_dogleg_gen,
-    fit_odr_dogleg_gen,
         lsq_dogleg_gen,
-        min_dogleg_gen} from "./dogleg";
+        min_dogleg_gen,
+        odr_dogleg_gen,
+        tls_dogleg_gen} from "./dogleg";
 
-generic_test_fit_odr_gen(fit_odr_dogleg_gen);
-generic_test_min_gen    (    min_dogleg_gen);
-generic_test_lsq_gen    (    lsq_dogleg_gen);
-generic_test_fit_gen    (    fit_dogleg_gen);
+generic_test_tls_gen(tls_dogleg_gen);
+generic_test_odr_gen(odr_dogleg_gen);
+generic_test_min_gen(min_dogleg_gen);
+generic_test_lsq_gen(lsq_dogleg_gen);
+generic_test_fit_gen(fit_dogleg_gen);

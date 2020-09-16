@@ -31,9 +31,9 @@ import {_triu_solve,
 import {OptimizationNoProgressError} from "./optimization_error";
 
 
-export function fit_odr_gen( trust_region )
+export function odr_gen( trust_region )
 {
-  const fit_odr_gen = (x,y, fgg,p0, opt) =>
+  const fit_odr_gen = (x,y, fgg,p0, opt={}) =>
   {
     if( ! (fgg instanceof Function) )
       throw new Error(`${NAME}(x,y, fgg,p0): fgg must be function.`);
@@ -136,7 +136,7 @@ export function fit_odr_gen( trust_region )
         for( let j=NX*NY; j-- > 0; ) dy_dx[NX*NY*i + j] = dyi_dx[j];
       }
 
-      // we know that the TrustRegionSolverODR performs protection copies so we can reuse memory
+      // we know that the TrustRegionSolverTLS performs protection copies so we can reuse memory
       return [
         result_dy,
         result_dy_dp,
@@ -144,12 +144,11 @@ export function fit_odr_gen( trust_region )
       ];
     };
 
-    return trust_region( new TrustRegionSolverODR_NY(fjj, p0,dx0), opt );
+    return trust_region( new TrustRegionSolverTLS(fjj, p0,dx0), opt );
   }
 
-  Object.defineProperty(fit_odr_gen, 'name', {value: `fit_odr${trust_region.name}_gen`});
-
-  return fit_odr_gen;
+  Object.defineProperty(fit_odr_gen, 'name', {value: `odr${trust_region.name}_gen`});
+  return                fit_odr_gen;
 }
 
 
@@ -158,7 +157,7 @@ const REPORT_STATE_READY    = 1,
       REPORT_STATE_CONSIDER = 3;
 
 
-export class TrustRegionSolverODR_NY
+export class TrustRegionSolverTLS
 {
   constructor( fgg, p0, dx0 )
   {
@@ -221,7 +220,7 @@ export class TrustRegionSolverODR_NY
       // If NX < NY, we can use the prepare() step to reduce the work computeNewtonRegularized(λ) which should speed up Levenberg-Marquardt
       prepared_J21 = NY <= NX ? J21                : new Float64Array(MX*NX*NX + NX), // <- +NX as temp. memory for QR decomp.
       prepared_J22 = NY <= NX ? J22                : new Float64Array(K*NP),
-      prepared_QF  = NY <= NX ? F0.subarray(MX*NX) : new Float64Array(K   ),
+      prepared_QF  = NY <= NX ? F0.subarray(MX*NX) : new Float64Array(K),
 
       // Working memory and result of computeNewton()
       newton_R11 = new Float64Array(MX * NX), // <- after computeNewton(), contains diagonal of R11

@@ -120,7 +120,7 @@ export function generic_test_lsq_gen_with_test_fn( lsq_gen, test_fn, x_range )
 
   forEachItemIn(
     function(){
-      const N = Math.round( 2**(13/test_fn.nIn) );
+      const N = Math.round( 2**(9/test_fn.nIn) );
 
       return cartesian_prod(
         ...x_range.map( r => linspace(...r,N) )
@@ -131,7 +131,7 @@ export function generic_test_lsq_gen_with_test_fn( lsq_gen, test_fn, x_range )
 
   forEachItemIn(
     function*(){
-      for( let run=0; run++ < 3*1337; )
+      for( let run=0; run++ < 256; )
         yield x_range.map( ([lo,hi]) => {
           const s = Math.random();
           return lo*(1-s) + s*hi;

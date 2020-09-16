@@ -24,7 +24,8 @@ import {OptimizationNoProgressError} from "./optimization_error";
 import {roots1d_polyquad} from './polyquad';
 import {TrustRegionSolverLBFGS} from './_trust_region_solver_lbfgs';
 import {TrustRegionSolverLSQ  } from './_trust_region_solver_lsq';
-import {fit_odr_gen} from "./_trust_region_solver_odr_ny";
+import {TrustRegionSolverTLS,
+        odr_gen               } from "./_trust_region_solver_tls";
 
 
 export function min_dogleg_gen(fg, x0, opt={})
@@ -55,7 +56,7 @@ export function min_dogleg_gen(fg, x0, opt={})
  */
 export const lsq_dogleg_gen = (fJ, x0, opt) => _dogleg(new TrustRegionSolverLSQ(fJ,x0), opt);
 
-export function* _dogleg(
+function* _dogleg(
   solver,
   /*opt=*/{
     r0   = 1.1,               // <-   START TRUST REGION RADIUS (meaning radius AFTER scaling)
@@ -212,11 +213,10 @@ export function* _dogleg(
 }
 
 
-// export const odr_dogleg_gen = (fgg, p0, dx0, opt) => 
-//   ???
+export const tls_dogleg_gen = (fjj, p0, dx0, opt) => _dogleg(new TrustRegionSolverTLS(fjj,p0,dx0), opt);
 
 
-export const fit_odr_dogleg_gen = fit_odr_gen(_dogleg);
+export const odr_dogleg_gen = odr_gen(_dogleg);
 
 
 export function* fit_dogleg_gen(

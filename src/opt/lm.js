@@ -24,7 +24,8 @@ import {FrobeniusNorm} from '../la/norm'
 
 import {OptimizationNoProgressError} from "./optimization_error";
 import {TrustRegionSolverLSQ} from './_trust_region_solver_lsq';
-import {fit_odr_gen} from "./_trust_region_solver_odr_ny";
+import {TrustRegionSolverTLS,
+        odr_gen,            } from "./_trust_region_solver_tls";
 
 
 // References
@@ -42,7 +43,7 @@ import {fit_odr_gen} from "./_trust_region_solver_odr_ny";
  */
 export const lsq_lm_gen = (fJ, x0, opt) => _lm(new TrustRegionSolverLSQ(fJ,x0), opt);
 
-export function* _lm(
+function* _lm(
   solver,
   /*opt=*/{
     r0   = 1.1,               // <-   START TRUST REGION RADIUS. r0=1 MEANS THE TRUST REGION CONTAINS THE CAUCHY POINT ON ITS RADIUS.
@@ -216,11 +217,10 @@ export function* _lm(
 }
 
 
-// export const odr_dogleg_gen = (fgg, p0, dx0, opt) => 
-//   ???
+export const tls_lm_gen = (fjj, p0, dx0, opt) => _lm(new TrustRegionSolverTLS(fjj,p0,dx0), opt);
 
 
-export const fit_odr_lm_gen  = fit_odr_gen(_lm);
+export const odr_lm_gen  = odr_gen(_lm);
 
 
 export function* fit_lm_gen(

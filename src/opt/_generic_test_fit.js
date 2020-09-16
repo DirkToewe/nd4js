@@ -23,7 +23,7 @@ import {tabulate} from "../tabulate";
 import {norm} from "../la/norm";
 
 import {num_grad} from "./num_grad";
-import { OptimizationNoProgressError } from './optimization_error';
+import {OptimizationNoProgressError} from './optimization_error';
 
 
 export function generic_test_fit_gen( fit_gen )
@@ -35,48 +35,57 @@ export function generic_test_fit_gen( fit_gen )
   
   
     forEachItemIn(
-      function*(){
-        for( let run=24; run-- > 0; ) {
-          const                            N      =  Math.random()*4 + 1 | 0,
-                        coeffs = tabulate([N], () => Math.random()*4 - 2);
+      function*(rng){
+        for( let run=7; run-- > 0; ) {
+          const                            N      =  rng.int(1,4),
+                            x0 = tabulate([N], () => rng.uniform(-2,+2) ),
+                        coeffs = tabulate([N], () => rng.uniform(-2,+2) );
           Object.freeze(coeffs)
           Object.freeze(coeffs.data.buffer)
-          yield         coeffs;
-        }
-      }()
-    ).it(`fits coefficients of polynomial.`, coeffs => {
   
-      const [N] = coeffs.shape;
-  
-      const [f,g] = [
-        p => x => p.reduce( (sum,p,i) => sum + p * x**i ),
-        p => x => p.map( (p,i) => x**i )
-      ].map( f => {
-        expect(f).toEqual( jasmine.any(Function) );
-  
-        return p => {
-          expect(p).toEqual( jasmine.any(NDArray) );
-          expect(p.shape).toEqual(coeffs.shape);
-  
-          const fp = f(p.data);
-  
-          return x => {
-            expect(x).toEqual( jasmine.any(NDArray) );
-            expect(x.shape).toEqual( Int32Array.of(1) );
-  
-            return fp(x.data[0]);
+          const fg = p => {
+            expect(p).toEqual( jasmine.any(NDArray) );
+            expect(p.shape).toEqual(coeffs.shape);
+            p = p.data;
+    
+            return x => {
+              expect(x).toEqual( jasmine.any(NDArray) );
+              expect(x.shape).toEqual( Int32Array.of(1) );
+              x = x.data[0];
+    
+              return [
+                p.reduce( (sum,p,i) => sum + p * x**i ),
+                p.map( (p,i) => x**i )
+              ];
+            };
           };
-        };
-      });
-  
-      const fg = p => {
-        const fp = f(p),
-              gp = g(p);
-        return x => [ fp(x), gp(x) ];
-      };
+          const fg_c = fg(coeffs);
       
-  
-      ;{      
+          const           M = rng.int(128,256),
+            x = tabulate([M,1], 'float64', () => rng.uniform(-2,+2) ),
+            y = new NDArray(
+              Int32Array.of(M),
+              x.data.map(
+                x => fg_c( array([x]) )[0]
+              )
+            );    
+          Object.freeze(x);
+          Object.freeze(y);
+          Object.freeze(x.data.buffer);
+          Object.freeze(y.data.buffer);
+
+          yield [coeffs, fg,x,y, x0];
+        }
+      }
+    ).it(`fits coefficients of polynomial.`, ([coeffs, fg,x,y, x0]) => {
+      const [N] = coeffs.shape,
+            [M] =      y.shape;
+
+      const f = p => { const fg_p = fg(p); return x => fg_p(x)[0]; },
+            g = p => { const fg_p = fg(p); return x => fg_p(x)[1]; };
+
+      // check gradients
+      ;{
         const h = p => x => num_grad( p => f(p)(x) )(p);
   
         for( let repeat=128; repeat-- > 0; )
@@ -87,21 +96,7 @@ export function generic_test_fit_gen( fit_gen )
         }
       };
   
-      const M = 256;
-  
-      const x = tabulate([M,1], 'float64', () => Math.random()*8 - 4),
-            y = new NDArray(
-              Int32Array.of(M),
-              x.data.map(
-                x => f(coeffs)( array([x]) )
-              )
-            );
-      Object.freeze(x);
-      Object.freeze(y);
-      Object.freeze(x.data.buffer);
-      Object.freeze(y.data.buffer);
-  
-      const computeRes = p => x.data.map( (x,i) => f(p)( array([x]) ) - y(i) ),
+      const computeRes = p => x.data.map(        (x,i) =>        f(p)( array([x]) ) - y(i) ),
             computeErr = p => x.data.reduce( (sum,x,i) => sum + (f(p)( array([x]) ) - y(i))**2 / M, 0 ),
             computeGrad= num_grad(computeErr);
   
@@ -114,7 +109,7 @@ export function generic_test_fit_gen( fit_gen )
       try
       {
         for( [param, mse, grad, res] of fit_gen(
-          x,y, fg, tabulate([N], () => Math.random()*4 - 2)
+          x,y, fg, x0
         ))
         {
           expect(++nIter).toBeLessThan(64);
@@ -135,126 +130,124 @@ export function generic_test_fit_gen( fit_gen )
       expect(param).toBeAllCloseTo(coeffs);
     })
   
-  
-    forEachItemIn(
-      function*(){
-        for( let run=24; run-- > 0; )
-        { const                            N      =  Math.random()*4 + 1 | 0,
-                        coeffs = tabulate([N], () => Math.random()*4 - 2);
-          Object.freeze(coeffs)
-          Object.freeze(coeffs.data.buffer)
-          yield         coeffs;
-        }
-      }()
-    ).it('fits coefficients of polynomial in root form.', coeffs => {
-  
-      const [N] = coeffs.shape;
-  
-      const [f,g] = [
-        p => x => p.reduce( (prod,p) => prod*(p-x), 1 ),
-        p => x => p.map(
-          (_,i) => p.reduce( (prod,p,j) => i===j ? prod : prod*(p-x), 1 )
-        )
-      ].map( f => {
-        expect(f).toEqual( jasmine.any(Function) );
-  
-        return p => {
-          expect(p).toEqual( jasmine.any(NDArray) );
-          expect(p.shape).toEqual(coeffs.shape);
-  
-          const fp = f(p.data);
-  
-          return x => {
-            expect(x).toEqual( jasmine.any(NDArray) );
-            expect(x.shape).toEqual( Int32Array.of(1) );
-  
-            return fp(x.data[0]);
-          };
-        };
-      });
-  
-      const fg = p => {
-        const fp = f(p),
-              gp = g(p);
-        return x => [ fp(x), gp(x) ];
-      };
-      
-  
-      // check gradient
-      ;{      
-        const h = p => x => num_grad( p => f(p)(x) )(p);
-  
-        for( let repeat=16; repeat-- > 0; )
-        {
-          const x = array([ Math.random()*4 - 2 ]),
-                p = tabulate([N], 'float64', () => Math.random()*4 - 2);
-          expect( g(p)(x) ).toBeAllCloseTo( h(p)(x) );
-        }
-      };
-  
-      const M = 128;
-  
-      const x = tabulate([M,1], 'float64', () => Math.random()*8 - 4),
-            y = new NDArray(
-              Int32Array.of(M),
-              x.data.map(
-                x => f(coeffs)( array([x]) )
-              )
-            );
-      Object.freeze(x);
-      Object.freeze(y);
-      Object.freeze(x.data.buffer);
-      Object.freeze(y.data.buffer);
-  
-      const computeRes = p => x.data.map(        (x,i) =>        f(p)( array([x]) ) - y(i) ),
-            computeErr = p => x.data.reduce( (sum,x,i) => sum + (f(p)( array([x]) ) - y(i))**2 / M, 0 ),
-            computeGrad= num_grad(computeErr);
-  
-      let nIter = 0,
-          mse,
-          grad,
-          param,
-          res;
 
-      try
-      {
-        for( [param, mse, grad, res] of fit_gen(
-          x,y, fg, tabulate([N], () => Math.random()*4 - 2)
-        ))
+    for( const [N_RUNS,N] of [
+      [8,1],
+      [4,2],
+      [1,3],
+      [1,4]
+    ])
+      forEachItemIn(
+        function*(rng){
+          for( let run=0; run++ < N_RUNS; )
+          {
+            const         coeffs = tabulate([N], 'float64', () => rng.uniform(-2,+2) ),
+                     x0 = coeffs.mapElems('float64', x => x + rng.normal() );
+            Object.freeze(coeffs);
+            Object.freeze(coeffs.data.buffer);
+
+            const fg = p => {
+              expect(p).toEqual( jasmine.any(NDArray) );
+              expect(p.shape).toEqual(coeffs.shape);
+              p = p.data;
+    
+              return x => {
+                expect(x).toEqual( jasmine.any(NDArray) );
+                expect(x.shape).toEqual( Int32Array.of(1) );
+                x = x.data;
+    
+                return [
+                  p.reduce( (prod,p) => prod*(p-x), 1 ),
+                  p.map(
+                    (_,i) => p.reduce( (prod,p,j) => i===j ? prod : prod*(p-x), 1 )
+                  )
+                ];
+              };
+            };
+
+            const           M = rng.int(128,256),
+              x = tabulate([M,1], 'float64', () => rng.uniform(-2,+2) ),
+              y = new NDArray(
+                Int32Array.of(M),
+                x.data.map(
+                  x => fg(coeffs)(array([x]))[0]
+                )
+              );
+            Object.freeze(x);
+            Object.freeze(y);
+            Object.freeze(x.data.buffer);
+            Object.freeze(y.data.buffer);
+
+            yield [coeffs, fg,x,y, x0];
+          }
+        }
+      ).it(`fits coefficients of polynomial in root form with ${N} roots.`, ([coeffs, fg,x,y, x0]) => {
+        const [N] = coeffs.shape,
+              [M] =      y.shape;
+
+        const f = p => { const fg_p = fg(p); return x => fg_p(x)[0]; },
+              g = p => { const fg_p = fg(p); return x => fg_p(x)[1]; };
+
+        // check gradient
+        ;{      
+          const h = p => x => num_grad( p => f(p)(x) )(p);
+
+          for( let repeat=16; repeat-- > 0; )
+          {
+            const x = array([ Math.random()*4 - 2 ]),
+                  p = tabulate([N], 'float64', () => Math.random()*4 - 2);
+            expect( g(p)(x) ).toBeAllCloseTo( h(p)(x) );
+          }
+        };
+
+        const computeRes = p => x.data.map(        (x,i) =>        f(p)( array([x]) ) - y(i) ),
+              computeErr = p => x.data.reduce( (sum,x,i) => sum + (f(p)( array([x]) ) - y(i))**2 / M, 0 ),
+              computeGrad= num_grad(computeErr);
+
+        let nIter = 0,
+            mse,
+            grad,
+            param,
+            res;
+
+        try
         {
-          expect(++nIter).toBeLessThan(512);
-    
-          expect(mse ).toBeAllCloseTo( computeErr (param) );
-          expect(grad).toBeAllCloseTo( computeGrad(param), {rtol: 1e-3} );
-          expect(res ).toBeAllCloseTo( computeRes (param) );
-    
-          if( norm(grad) <= Math.sqrt(M)*1e-12 )
-            break;
-        } 
-      }
-      catch(    onpe ) {
-        if( ! ( onpe instanceof OptimizationNoProgressError ) )
-          throw onpe;
-      }
-  
-      const par =  param.data.slice().sort( (x,y) => x-y ),
-            coe = coeffs.data.slice().sort( (x,y) => x-y );
-  
-      expect(par).toBeAllCloseTo(coe);
-    })
-  
-  
+          for( [param, mse, grad, res] of fit_gen(x,y, fg, x0) )
+          {
+            expect(++nIter).toBeLessThan(512);
+
+            expect(mse ).toBeAllCloseTo( computeErr (param) );
+            expect(grad).toBeAllCloseTo( computeGrad(param), {rtol: 1e-3} );
+            expect(res ).toBeAllCloseTo( computeRes (param) );
+
+            if( norm(grad) <= Math.sqrt(M)*1e-12 )
+              break;
+          } 
+        }
+        catch(    onpe ) {
+          if( ! ( onpe instanceof OptimizationNoProgressError ) )
+            throw onpe;
+        }
+
+        const par =  param.data.slice().sort( (x,y) => x-y ),
+              coe = coeffs.data.slice().sort( (x,y) => x-y );
+
+        expect(par).toBeAllCloseTo(coe);
+      });
+
+
     forEachItemIn(
-      function*(){
-        for( let run=16; run-- > 0; )
+      function*(rng){
+        for( let run=4; run-- > 0; )
         {
-          const         coeffs = tabulate([2], () => Math.random()*4 - 2);
+          const         coeffs = tabulate([2], 'float64', () => rng.uniform(-2,+2) ),
+                   x0 = coeffs.mapElems('float64', x => x + rng.normal() );
           Object.freeze(coeffs);
           Object.freeze(coeffs.data.buffer);
-          yield         coeffs;
+          yield        [coeffs,x0];
         }
-      }()
-    ).it('fits scaled exponential function.', coeffs => {
+      }
+    ).it('fits scaled exponential function.', ([coeffs,x0]) => {
   
       expect( coeffs.shape ).toEqual( Int32Array.of(2) );
   
@@ -322,9 +315,7 @@ export function generic_test_fit_gen( fit_gen )
   
       try
       {
-        for( [param, mse, grad, res] of fit_gen(
-          x,y, fg, coeffs.mapElems( x => x + Math.random()*4 - 2 )
-        ))
+        for( [param, mse, grad, res] of fit_gen(x,y, fg, x0) )
         {
           expect(++nIter).toBeLessThan(1024);
     

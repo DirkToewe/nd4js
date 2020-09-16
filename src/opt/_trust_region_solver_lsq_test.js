@@ -62,12 +62,12 @@ describe('TrustRegionSolverLSQ', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=768; run-- > 0; )
-      { const N = randInt(1,64),
-              M = randInt(N,64);
+      for( let run=128; run-- > 0; )
+      { const N = randInt(1,32),
+              M = randInt(N,32);
 
         function* samples(){
-          for( let run=randInt(1,64); run-- > 0; )
+          for( let run=randInt(1,32); run-- > 0; )
           {
             const dx = tabulate([  N],'float64', () => Math.random()*4-2),
                    f = tabulate([M  ],'float64', () => Math.random()*4-2),
@@ -155,17 +155,17 @@ describe('TrustRegionSolverLSQ', () => {
 
 
   forEachItemIn(
-    function*(){
-      for( let run=384; run-- > 0; )
-      { const M = randInt(1,64),
-              N = randInt(M,64);
+    function*(rng){
+      for( let run=96; run-- > 0; )
+      { const M = rng.int(1,42),
+              N = rng.int(M,42);
 
         function* samples(){
-          for( let run=randInt(1,64); run-- > 0; )
+          for( let run=rng.int(1,42); run-- > 0; )
           {
-            const dx = tabulate([  N],'float64', () => Math.random()*4-2),
-                   f = tabulate([M  ],'float64', () => Math.random()*4-2),
-                   J = tabulate([M,N],'float64', () => Math.random()*4-2);
+            const dx = tabulate([  N],'float64', () => rng.uniform(-2,+2) ),
+                   f = tabulate([M  ],'float64', () => rng.uniform(-2,+2) ),
+                   J = tabulate([M,N],'float64', () => rng.uniform(-2,+2) );
 
             Object.freeze(dx);
             Object.freeze(f);
@@ -180,7 +180,7 @@ describe('TrustRegionSolverLSQ', () => {
 
         yield [M,N, samples()];
       }
-    }()
+    }
   ).it(`computeNewton() works for random under-determined examples`, ([M,N, samples]) => {
 
     let solver, dx,f,J, x0 = 0;
@@ -265,12 +265,12 @@ describe('TrustRegionSolverLSQ', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=384; run-- > 0; )
-      { const N = randInt(1,48),
-              M = randInt(1,48);
+      for( let run=128; run-- > 0; )
+      { const N = randInt(1,32),
+              M = randInt(1,32);
 
         function* samples(){
-          for( let run=randInt(1,64); run-- > 0; )
+          for( let run=randInt(1,32); run-- > 0; )
           {
             const dx = tabulate([  N],'float64', () => Math.random()*4-2),
                    f = tabulate([M  ],'float64', () => Math.random()*4-2),
@@ -373,10 +373,10 @@ describe('TrustRegionSolverLSQ', () => {
         for( let N=8; N > 1; N-- )
           yield [M,N];
 
-        for( let run=384; run-- > 0; )
+        for( let run=128; run-- > 0; )
         {
-          const M = randInt(1,64),
-                N = randInt(1,64); // <- TODO remove after testing
+          const M = randInt(1,32),
+                N = randInt(1,32); // <- TODO remove after testing
           yield [M,N];
         }
       }
@@ -491,7 +491,7 @@ describe('TrustRegionSolverLSQ', () => {
       };
     }();
 
-    const [M,N] = J.shape,                        x0 = tabulate([N], 'float64', () => Math.random()*4-2),
+    const [M,N] = J.shape,                     x0 = tabulate([N], 'float64', () => Math.random()*4-2),
          solver = new TrustRegionSolverLSQ(fJ, x0);
 
     for( let i=4; i-- > 0; )
@@ -537,7 +537,7 @@ describe('TrustRegionSolverLSQ', () => {
       };
     }();
 
-    const [M,N] = J.shape,                        x0 = tabulate([N], 'float64', () => Math.random()*4-2),
+    const [M,N] = J.shape,                     x0 = tabulate([N], 'float64', () => Math.random()*4-2),
          solver = new TrustRegionSolverLSQ(fJ, x0);
 
     for( let i=4; i-- > 0; )
@@ -577,7 +577,7 @@ describe('TrustRegionSolverLSQ', () => {
         for( let M=N-1; M++ < 4; )
           yield [M,N];
 
-        for( let run=1024; run-- > 0; ) {
+        for( let run=96; run-- > 0; ) {
           const N = randInt(1,16),
                 M = randInt(N,16);
           yield[M,N];
@@ -700,7 +700,7 @@ describe('TrustRegionSolverLSQ', () => {
         for( let N=M-1; N++ < 4; )
           yield [M,N];
 
-        for( let run=768; run-- > 0; ) {
+        for( let run=73; run-- > 0; ) {
           const M = randInt(1,16),
                 N = randInt(M,16);
           yield[M,N];
@@ -832,7 +832,7 @@ describe('TrustRegionSolverLSQ', () => {
         for( let N=0; N++ < 4; )
           yield [M,N];
 
-        for( let run=768; run-- > 0; ) {
+        for( let run=73; run-- > 0; ) {
           const M = randInt(1,16),
                 N = randInt(M,16);
           yield[M,N];
@@ -963,7 +963,7 @@ describe('TrustRegionSolverLSQ', () => {
         for( let N=0; N++ < 4; )
           yield [M,N];
 
-        for( let run=768; run-- > 0; ) {
+        for( let run=128; run-- > 0; ) {
           const M = randInt(1,16),
                 N = randInt(M,16);
           yield[M,N];
@@ -973,7 +973,7 @@ describe('TrustRegionSolverLSQ', () => {
       for( const [M,N] of shapes() )
       {
         function* samples(){
-          for( let run=randInt(1,16); run-- > 0; )
+          for( let run=randInt(1,14); run-- > 0; )
           {
             const dx =   tabulate([  N],'float64', () => Math.random()*8-4),
                    f =   tabulate([M  ],'float64', () => Math.random()*8-4),
@@ -1098,14 +1098,14 @@ describe('TrustRegionSolverLSQ', () => {
 
     const data_gens = {
       [`[X0,F0,J0,G0] and the report are consistent with ${test_fn.name} at generated sampling points`]: function(){
-        const N = Math.ceil( 2**(13/test_fn.nIn) );
+        const N = Math.ceil( 2**(11.1/test_fn.nIn) );
 
         return cartesian_prod(
           ...x_range.map( r => linspace(...r,N) )
         )
       },
       [`[X0,F0,J0,G0] and the report are consistent with ${test_fn.name} at random sampling points`]: function*(){
-        for( let run=0; run++ < 7*1337; )
+        for( let run=0; run++ < 3*1337; )
           yield x_range.map( ([lo,hi]) => {
             const s = Math.random();
             return lo*(1-s) + s*hi;
@@ -1188,10 +1188,10 @@ describe('TrustRegionSolverLSQ', () => {
         for( let N=8; N > 1; N-- )
           yield [M,N];
 
-        for( let run=512; run-- > 0; )
+        for( let run=128; run-- > 0; )
         {
-          const M = randInt(1,64),
-                N = randInt(1,64); // <- TODO remove after testing
+          const M = randInt(1,32),
+                N = randInt(1,32); // <- TODO remove after testing
           yield [M,N];
         }
       }
@@ -1268,10 +1268,10 @@ describe('TrustRegionSolverLSQ', () => {
         for( let N=8; N > 1; N-- )
           yield [M,N];
 
-        for( let run=2048; run-- > 0; )
+        for( let run=337; run-- > 0; )
         {
-          const M = randInt(1,64),
-                N = randInt(1,64); // <- TODO remove after testing
+          const M = randInt(1,48),
+                N = randInt(1,48); // <- TODO remove after testing
           yield [M,N];
         }
       }
