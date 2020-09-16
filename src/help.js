@@ -1057,6 +1057,86 @@ Example
 `
 
 
+nd.opt.fit_dogleg_gen.__doc__ = `\
+Nonlinear least squares fit of a function to the given sample points using
+the (single) Dogleg trust region method.
+
+Parameters
+----------
+x: float[n_samples,n_inputs]
+  Function inputs of the sample points that the function is fit through.
+y: float[n_samples]
+  Function outputs of the sample points that the function is fit through.
+fg: (params: float[nParam]) => (x: float[nDim]) => [f: float, g: float[nParam]]
+  Functions whose parameters are fitted. Returns the function value and its
+  gradients with respect to its parameters.
+p0: float[nParam]
+  Starting values for the parameters for fitting.
+opt : {
+  r0: float
+    [optional] Starting value for trust region radius.
+  rMin: float
+    [optional] Lower trust region radius bounds.
+  rMax: float
+    [optional] Upper trust region radius bounds.
+  rTol: float
+    [optional] Relative tolerance by which the iteration adheres to the trust region radius.
+  shrinkLower: float ∈ (0,shrinkUpper]
+    [optional] During a single iteration, the trust region radius may at most decrease by this factor.
+  shrinkUpper: float ∈ [shrinkLower,1)
+    [optional] During a single iteration, the trust region radius may at least decrease by this factor.
+  grow: float
+    [optional] During a single iteration, the trust region radius may increase by this factor.
+  expectGainMin: float
+    [optional] The iteration is expected to provide at least \`expectGainMin\` of the predicted improvement.
+    Otherwise the trust region is shrunk.
+  expectGainMax: float
+    [optional] The iteration is expected to provide at most \`expectGainMax\` of the predicted improvement.
+    Otherwise the trust region is increased.
+}
+
+Returns
+-------
+Iterator<[
+  p: float[nParam]
+    Current parameter values of the iteration.
+  mse: float
+    Mean squared error.
+  mse_grad: float[nParam]
+    Gradient of the mean squared error with respect to the parameters.
+  res: float[]
+    Residuals of the fit.
+  res_jac: float[]
+    Jaciobian of the residuals with respect to the parameters.
+]>
+
+References
+----------
+.. [1] https://en.wikipedia.org/wiki/Powell%27s_dog_leg_method
+
+Example
+-------
+>>> // Determine half-life of beer using dataset from:
+... // "Multivariate Analyses of Beer Foam Stand" by James J. Hackbart
+... const time = nd.array([[ 0,    15,    30,    45,    60,   90,   120,   150,   180,   210,   240,   270,   300   ]]).T,
+...     height = nd.array( [17.40, 15.10, 13.10, 11.60, 10.60, 8.70,  7.40,  6.35,  5.40,  4.50,  3.80,  3.30,  2.90] );
+... 
+... // Exponential decay function.
+... const fG = ([H0, c]) => ([t]) => [
+...    H0 * 2**(-t*c),
+...   [     2**(-t*c),                    // <- d(fG) / d(H0)
+...    H0 * 2**(-t*c) * Math.log(2) * -t] // <- d(fG) / d(c)
+... ];
+... 
+... for( const [[H0, c], mse, mse_grad] of nd.opt.fit_dogleg_gen(time, height, fG, /*p0=*/[1,1]) )
+...   if( nd.la.norm(mse_grad) <= 1e-5 ) {
+...     console.log({H0, half_life: 1/c});
+...     break;
+...   }
+  { H0: 16.386111804437096, half_life: 108.02447353397987 }
+`;
+
+
 nd.opt.fit_lm_gen.__doc__ = `\
 Nonlinear least squares fit of a function to the given sample points using
 the Levenberg-Marquardt trust region method.
@@ -1137,7 +1217,76 @@ Example
 ...     break;
 ...   }
   { H0: 16.386111806695105, half_life: 108.02447348677644 }
-`
+`;
+
+
+// nd.opt.odr_dogleg_gen.__doc__ = `\
+// Nonlinear total least squares (TLS) fit of a function to the given sample points. Also
+// known as orthogonal distance regression (ODR). This variant uses the (single) Dogleg
+// trust region method to solve the ODR problem. In other words this function minimizes
+// the following least-squares problem:
+
+//   minimize F(p,x) = ∑ᵢ (f(x[i,:]) - y[i,:])²   +   ∑ᵢⱼ dx[i,j]²
+
+// Parameters
+// ----------
+// x: float[n_samples(,n_inputs)]
+//   Function inputs of the sample points that the function is fit through.
+// y: float[n_samples(,n_outputs)]
+//   Function outputs of the sample points that the function is fit through.
+// fgg: (params: float[nParam]) => (x: float[nDim]) => [f: float, dfdp: float[(n_outputs,)nParam], dfdx: float[(n_outputs,)n_inputs]]
+//   Functions whose parameters are fitted. Returns the function value and the derivatives of the function value w.r.t.
+//   the parameters p and input x.
+// p0: float[nParam]
+//   Starting values for the parameters for fitting.
+// opt : {
+//   dx0: float[n_samples(,n_inputs)]
+//     [optional] Starting value of the correction delta added to x.
+//   r0: float
+//     [optional] Starting value for trust region radius.
+//   rMin: float
+//     [optional] Lower trust region radius bounds.
+//   rNewton: float
+//     [optional] If the Gauss-Newton is inside the trust region, the trust radius is set to
+//     \`rNewton\` times the distance to the Gauss-Newton point.
+//   shrinkLower: float ∈ (0,shrinkUpper]
+//     [optional] During a single iteration, the trust region radius may at most decrease by this factor.
+//   shrinkUpper: float ∈ [shrinkLower,1)
+//     [optional] During a single iteration, the trust region radius may at least decrease by this factor.
+//   grow: float
+//     [optional] During a single iteration, the trust region radius may increase by this factor.
+//   expectGainMin: float
+//     [optional] The iteration is expected to provide at least \`expectGainMin\` of the predicted improvement.
+//     Otherwise the trust region is shrunk.
+//   expectGainMax: float
+//     [optional] The iteration is expected to provide at most \`expectGainMax\` of the predicted improvement.
+//     Otherwise the trust region is increased.
+//   stuckLimit: int
+//     [optional] The maximum number of consecutive function calls allowed without any minimization progress.
+// }
+
+// Returns
+// -------
+// Iterator<[
+//   p: float[nParam]
+//     Current parameter values of the iteration.
+//   dx: float[n_samples(,n_inputs)]
+//     Current value of the correction delta added to x.
+//   mse: float
+//     Mean squared error.
+//   dmse_dp: float[nParam]
+//     Gradient of the mean squared error w.r.t. to the parameters p.
+//   dmse_dx: float[nParam]
+//     Gradient of the mean squared error w.r.t. to the sample inputs x.
+//   dy: float[]
+//     Residuals of the function outputs.
+// ]>
+
+// References
+// ----------
+// .. [1] https://en.wikipedia.org/wiki/Powell%27s_dog_leg_method
+// .. [2] https://en.wikipedia.org/wiki/Total_least_squares
+// `;
 
 
   //
@@ -1944,3 +2093,27 @@ sv: NDArray[..., min(N,M) ]
 V : NDArray[...,min(N,M),M]
   An orthogonal, rectangular matrix, such that \`A == U @ diag(sv) @ V\`.
 `
+
+
+
+// nd.la.urv_decomp.__doc__ = `\
+// Computes the (full) URV decomposition of a matrix. The URV decomposition
+// is also known as complete orthogonal decomposition. Amongs other things,
+// the URV decomposition can be used (as a faster alternative to the SVD)
+// for finding the minimum-norm solution to under-determined least-squares
+// problems.
+
+// Parameters
+// ----------
+// A: NDArray[...,M,N]
+//   The matrix (or batch of matrices) that is to be URV decomposed.
+
+// Returns
+// -------
+// U: NDArray[...,M,M]
+//   An orthogonal, square matrix.
+// R: NDArray[...,M,N]
+//   An upper triangular, square matrix.
+// V: NDArray[...,N,N]
+//   An orthogonal, square matrix, such that \`A = U @ R @ V\`
+// `

@@ -80,7 +80,7 @@ export class TrustRegionSolverLBFGS
     this.lbfgs = new LBFGSB_Solver(historySize, N);
     this.lbfgs.scale = scaleInit;
 
-    this.D = new Float64Array(N); this.D.fill( Math.sqrt(scaleInit) );
+    this.D = new Float64Array(N); this.D.fill( Math.sqrt(scaleInit) ); // <- TODO: improve/rethink ... this scaling is awful
 
     this.X0 = Float64Array.from(x0);
     this.G0 = Float64Array.from( g);
@@ -226,7 +226,7 @@ export class TrustRegionSolverLBFGS
               const     B_ii = lbfgs.compute_ubbv(bv,1,bv);
               if( !(0 < B_ii) )
                 throw new Error('Assertion failed: LBFGS model not positive definite.');
-              D[i] = Math.max(D[i], Math.sqrt(B_ii)); // <- TODO: improve/rethink
+              D[i] = Math.max(D[i], Math.sqrt(B_ii)); // <- TODO: improve/rethink ... this scaling is awful
             }
 
             for( let i=N; i-- > 0; ) last_X[i] = X0[i] + dX[i];
