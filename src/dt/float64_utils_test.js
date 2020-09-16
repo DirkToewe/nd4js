@@ -99,7 +99,7 @@ describe('nextUp', () => {
       function*(){
         const TINY = Number.MIN_VALUE * 2**54;
 
-        for( let run=0; run++ < 4*1024*1024; )
+        for( let run=0; run++ < 512*1024; )
           yield sgn * Math.random() * TINY;
       }()
     ).it(`nextUp() works given random, ${sgn_label}, tiny inputs`, x => {
@@ -113,7 +113,7 @@ describe('nextUp', () => {
 
     forEachItemIn(
       function*(){
-        for( let run=0; run++ < 4*1024*1024; )
+        for( let run=0; run++ < 512*1024; )
           yield sgn * Math.random() * 1337;
       }()
     ).it(`nextUp() works given random, ${sgn_label} inputs`, x => {
@@ -127,7 +127,7 @@ describe('nextUp', () => {
   
     forEachItemIn(
       function*(){
-        for( let run=0; run++ < 4*1024*1024; )
+        for( let run=0; run++ < 512*1024; )
           yield sgn * Math.random() * (Number.MAX_VALUE * (1-Number.EPSILON/2));
       }()
     ).it(`nextUp() works given random, ${sgn_label}, huge inputs`, x => {
@@ -219,7 +219,7 @@ describe('nextDown', () => {
       function*(){
         const TINY = Number.MIN_VALUE * 2**54;
 
-        for( let run=0; run++ < 4*1024*1024; )
+        for( let run=0; run++ < 512*1024; )
           yield sgn * Math.random() * TINY;
       }()
     ).it(`nextDown() works given random, ${sgn_label}, tiny inputs`, x => {
@@ -233,7 +233,7 @@ describe('nextDown', () => {
 
     forEachItemIn(
       function*(){
-        for( let run=0; run++ < 4*1024*1024; )
+        for( let run=0; run++ < 512*1024; )
           yield sgn * Math.random() * 1337;
       }()
     ).it(`nextDown() works given random, ${sgn_label} inputs`, x => {
@@ -247,7 +247,7 @@ describe('nextDown', () => {
   
     forEachItemIn(
       function*(){
-        for( let run=0; run++ < 4*1024*1024; )
+        for( let run=0; run++ < 512*1024; )
           yield sgn * Math.random() * (Number.MAX_VALUE * (1-Number.EPSILON/2));
       }()
     ).it(`nextDown() works given random, ${sgn_label}, huge inputs`, x => {
