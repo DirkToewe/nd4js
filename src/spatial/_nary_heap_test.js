@@ -23,10 +23,10 @@ import {_rand_int} from '../_test_data_generators'
 import {NAryHeap} from "./_nary_heap";
 
 
-describe('arrays.compare', () => {
+describe('NArayHeap', () => {
   forEachItemIn(
     function*(){
-      for( let run=0; run++ < 7*1337; )
+      for( let run=0; run++ < 1337; )
       {
         const length = _rand_int(1,1337);
         yield Object.freeze(

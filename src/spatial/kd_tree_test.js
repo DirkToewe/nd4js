@@ -29,49 +29,48 @@ import {KDTree} from "./kd_tree";
 
 describe('KDTree', () => {
 
-  forEachItemIn(
-    function*(){
-      for( let run=0; run++ < 173; )
-      {
-        const ndim = _rand_int(1,4),
-              size = _rand_int(1,337);
-
-        const points =  Array.from({length: size}, () =>
-                        Array.from({length: ndim}, () => _rand_int(-1337, +1337) ));
-
-        for( let query=0; query++ < 73; )
+  for( const ndim of [1,2,3,4,5] )
+    forEachItemIn(
+      function*(){
+        for( let run=0; run++ < 32; )
         {
-          _shuffle(points);
-          const queryPoint = Array.from( {length: ndim}, () => _rand_int(-1337, +1337) );
-          yield Object.freeze([ queryPoint, points.slice() ]);
+          const                          size = _rand_int(1,337),
+            points = Array.from({length: size}, () =>
+                     Array.from({length: ndim}, () => _rand_int(-733, +733) ));
+
+          for( let query=0; query++ < 73; )
+          {
+            _shuffle(points);
+            const queryPoint = Array.from( {length: ndim}, () => _rand_int(-733, +733) );
+            yield Object.freeze([ queryPoint, points.slice() ]);
+          }
         }
+      }()
+    ).it(`works given random ${ndim}d examples`, ([queryPoint,points]) => {
+      const distance = pt => {
+        const len = pt.length;
+        if( queryPoint.length !== len ) throw new Error('Assertion failed.');
+
+        const norm = new FrobeniusNorm();
+        for( let i=len; i--> 0; )
+          norm.include( queryPoint[i] - pt[i] );
+
+        return norm.result;
+      };
+
+      const tree = new KDTree(points);
+
+      for( let repeat=0; repeat++ < 3; )
+      {
+        const sorted = Object.freeze([...tree.nearest_gen(queryPoint)]);
+
+        for( let i=sorted.length; --i > 0; )
+          expect                ( distance(sorted[i-1]) )
+            .toBeLessThanOrEqual( distance(sorted[i  ]) );
+
+        expect    ( sorted.slice().sort(compare_arrays) )
+          .toEqual( points.slice().sort(compare_arrays) );
       }
-    }()
-  ).it('works given random examples', ([queryPoint,points]) => {
-    const distance = pt => {
-      const len = pt.length;
-      if( queryPoint.length !== len ) throw new Error('Assertion failed.');
-
-      const norm = new FrobeniusNorm();
-      for( let i=len; i--> 0; )
-        norm.include( queryPoint[i] - pt[i] );
-
-      return norm.result;
-    };
-
-    const tree = new KDTree(points);
-
-    for( let repeat=0; repeat++ < 3; )
-    {
-      const sorted = Object.freeze([...tree.nearest_gen(queryPoint)]);
-
-      for( let i=sorted.length; --i > 0; )
-        expect                ( distance(sorted[i-1]) )
-          .toBeLessThanOrEqual( distance(sorted[i  ]) );
-
-      expect    ( sorted.slice().sort(compare_arrays) )
-        .toEqual( points.slice().sort(compare_arrays) );
-    }
-  })
+    });
 
 })

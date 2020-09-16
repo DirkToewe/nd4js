@@ -95,7 +95,16 @@ export class KDTree
 
     if( points.some(pt => pt.length !== ndim) ) throw new Error('new KDTree(points): points must be iterable of (typed) arrays of same length (NDArrays are not yet supported).');
     if( points.some(pt => ! is_array(pt)    ) ) throw new Error('new KDTree(points): points must be iterable of (typed) arrays of same length (NDArrays are not yet supported).');
-    
+
+    const swap = (i,j) => {
+//*DEBUG*/      if( !(i >= start) ) throw new Error('Assertion failed.');
+//*DEBUG*/      if( !(j >= start) ) throw new Error('Assertion failed.');
+//*DEBUG*/      if( !(i <  stop ) ) throw new Error('Assertion failed.');
+//*DEBUG*/      if( !(j <  stop ) ) throw new Error('Assertion failed.');
+      const magnum_pi = points[i];
+                        points[i] = points[j];
+                                    points[j] = magnum_pi;
+    };
 
     this.root = function build_tree( axis, start, stop )
     {
@@ -105,16 +114,6 @@ export class KDTree
 //*DEBUG*/      if( !(stop  <= points.length) ) throw new Error('Assertion failed.');
 //*DEBUG*/      if( !(axis >= 0  ) ) throw new Error('Assertion failed.');
 //*DEBUG*/      if( !(axis < ndim) ) throw new Error('Assertion failed.');
-
-      const swap = (i,j) => {
-        if( !(i >= start) ) throw new Error('Assertion failed.');
-        if( !(j >= start) ) throw new Error('Assertion failed.');
-        if( !(i <  stop ) ) throw new Error('Assertion failed.');
-        if( !(j <  stop ) ) throw new Error('Assertion failed.');
-        const magnum_pi = points[i];
-                          points[i] = points[j];
-                                      points[j] = magnum_pi;
-      }
 
       if( 1 === stop-start )
         return new Leaf(points[start]);
@@ -132,9 +131,9 @@ export class KDTree
           if(   pi <  threshold )   swap(l++, r);  r++; }
         }
 
-        if( !(l >= start) ) throw new Error('Assertion failed.');
-        if( !(l <= r    ) ) throw new Error('Assertion failed.');
-        if( !(r <= stop ) ) throw new Error('Assertion failed.');
+//*DEBUG*/        if( !(l >= start) ) throw new Error('Assertion failed.');
+//*DEBUG*/        if( !(l <= r    ) ) throw new Error('Assertion failed.');
+//*DEBUG*/        if( !(r <= stop ) ) throw new Error('Assertion failed.');
 
 //*DEBUG*/        for( let i=start; i <  l   ; i++ ) if( ! (points[i][axis] < threshold) ) throw new Error('Assertion failed.');
 //*DEBUG*/        for( let i=r    ; i <  stop; i++ ) if( ! (points[i][axis] > threshold) ) throw new Error('Assertion failed.');

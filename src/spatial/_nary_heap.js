@@ -16,14 +16,9 @@
  * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-
-const ARITY = 16;
-
-
-const child = parent => ARITY*parent + 1;
-
-
-const parent = child => (child-1) / ARITY | 0;
+const                            ARITY = 8,
+   child = parent =>  1 + parent*ARITY,
+  parent = child  => (child-1) / ARITY | 0;
 
 
 export class NAryHeap
@@ -48,8 +43,7 @@ export class NAryHeap
 
     // SIFT UP
     let i = heap.length-1;
-    for(;;)
-    {
+    for(;;) {
       const p = parent(i);
       if( i===0 || item.key >= heap[p].key )
         break;
@@ -70,7 +64,6 @@ export class NAryHeap
 
     // SIFT DOWN
     if( 0 < heap.length )
-    {
       for( let i=0;; )
       {
         const p = i;
@@ -88,7 +81,6 @@ export class NAryHeap
 
         heap[p] = heap[i]; // <- move smallest value to root/parent
       }
-    }
 
     return result;
   }
