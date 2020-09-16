@@ -417,6 +417,12 @@ export function rrqr_rank(R)
 
 export function rrqr_solve(Q,R,P, y)
 {
+  if( y == undefined ) {
+    if( P != undefined )
+      throw new Error('rrqr_lstsq(Q,R,P, y): Either 2 ([Q,R,P], y) or 4 arguments (Q,R,P, y) expected.')
+    y = R;
+     [Q,R,P] = Q;
+  }
   Q = asarray(Q)
   R = asarray(R)
   const N = Q.shape[Q.ndim-2]
@@ -441,12 +447,11 @@ export function rrqr_solve(Q,R,P, y)
 
 export function rrqr_lstsq(Q,R,P, y)
 {
-  if( y == undefined )
-  {
+  if( y == undefined ) {
     if( P != undefined )
       throw new Error('rrqr_lstsq(Q,R,P, y): Either 2 ([Q,R,P], y) or 4 arguments (Q,R,P, y) expected.')
-    y = R
-    ([Q,R,P] = Q)
+    y = R;
+     [Q,R,P] = Q;
   }
 
   Q = asarray(Q); if( Q.ndim < 2 ) throw new Error('rrqr_lstsq(Q,R,P, y): Q.ndim must be at least 2.')

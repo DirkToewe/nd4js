@@ -22,6 +22,6 @@ import {svd_decomp,
 
 export function rank( A )
 {
-  const [U,sv,V] = svd_decomp(A)
+  const        [U,sv,V] = svd_decomp(A)
   return svd_rank(sv)
 }

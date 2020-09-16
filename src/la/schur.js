@@ -21,6 +21,8 @@ import {MutableComplex} from '../dt/mutable_complex'
 import {math} from '../math'
 import {asarray, NDArray} from '../nd_array'
 
+import {AleaRNG} from '../rand/alea_rng'
+
 import {_giv_rot_qr} from './_giv_rot'
 import {hessenberg_decomp} from './hessenberg'
 import {matmul2} from './matmul'
@@ -494,7 +496,8 @@ function schur_qrfrancis_inplace(Q,H)
           };
     let stuck_o_meter = 0,
         start = 0,
-        end   = Q_stride;
+          end = Q_stride,
+          rng = new AleaRNG('nd.la.schur_qrfrancis_inplace');
 
     while(true)
     { // DETECT ZEROS ON THE SUB-DIAGONAL AND SHRINK WORK SIZE ACCORDINGLY
@@ -550,7 +553,7 @@ function schur_qrfrancis_inplace(Q,H)
         if( stuck_o_meter > 1e9 ) throw new Error('Too many iterations for a single eigenvalue.');
         tr  = Math.abs(h(j,i)) + Math.abs(h(i,end-3))
         det = tr*tr
-        tr *= Math.random()*0.5 + 1.25
+        tr *= rng.uniform(1.25, 1.75);
       }
 
       // FIRST COLUMN OF DOUBLE SHIFTED MATRIX (H-sI)*(H-conj(s)I) = H² - 2*Re(s)*H + |s|²I

@@ -21,6 +21,9 @@ import {ARRAY_TYPES} from '../dt'
 import {FrobeniusNorm} from './norm'
 
 
+// TODO: bidiag_solve
+
+
 export function _hessenberg_decomp(N, U,H, off)
 {
   N   |= 0;
@@ -47,7 +50,7 @@ export function _hessenberg_decomp(N, U,H, off)
     const  max =          NORM.max,
            div =Math.sqrt(NORM.sum);
     for( let j=i; j-- > 0; )
-      H[rowI+j] = H[rowI+j] * Math.SQRT2 / max / div;
+      H[rowI+j] = H[rowI+j] / max * Math.SQRT2 / div;
 
     // APPLY HOUSEHOLDER TO RIGHT OF H
     for( let j=i; j-- > 0; ) {
