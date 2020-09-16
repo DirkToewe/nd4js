@@ -32,6 +32,17 @@ import * as io  from './io'
 import * as iter from './iter'
 import * as la  from './la'
 import * as opt from './opt'
+import * as rand from './rand'
 import * as spatial from './spatial'
 
-export {dt,geom,io,la,opt,integrate,iter,spatial}
+export {
+  dt,
+  geom,
+  integrate,
+  io,
+  iter,
+  la,
+  opt,
+  rand,
+  spatial
+}
