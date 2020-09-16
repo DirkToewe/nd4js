@@ -115,7 +115,7 @@ export function generic_test_test_fn( test_fn, x_range )
 
     forEachItemIn(
       function(){
-        const N = Math.round( 2 ** (17/test_fn.nIn) );
+        const N = Math.round( 2 ** (16/test_fn.nIn) );
 
         return cartesian_prod(
           ...x_range.map( r => linspace(...r,N) )
@@ -172,7 +172,7 @@ export function generic_test_test_fn( test_fn, x_range )
     forEachItemIn(
       function*(){
         const {minima} = test_fn;
-        let len = minima.length || 2**16;
+        let len = minima.length || 2**15;
   
         for( const x of minima )
         {
@@ -203,7 +203,7 @@ export function generic_test_test_fn( test_fn, x_range )
     //
     forEachItemIn(
       function(){
-        const N = Math.round( 2 ** (17/test_fn.nIn) );
+        const N = Math.round( 2 ** (14/test_fn.nIn) );
 
         return cartesian_prod(
           ...x_range.map( r => linspace(...r,N) )
@@ -235,7 +235,7 @@ export function generic_test_test_fn( test_fn, x_range )
 
     forEachItemIn(
       function*(){
-        for( let run=0; run++ < 13*1337; )
+        for( let run=0; run++ < 3*1337; )
         {
           const shape = Int32Array.from({ length: _rand_int(1,4) }, () => _rand_int(1,8) );
           shape[shape.length-1] = test_fn.nIn;
@@ -267,7 +267,7 @@ export function generic_test_test_fn( test_fn, x_range )
     //
     forEachItemIn(
       function(){
-        const N = Math.round( 2 ** (16/test_fn.nIn) );
+        const N = Math.round( 2 ** (14/test_fn.nIn) );
 
         return cartesian_prod(
           ...x_range.map( r => linspace(...r,N) )
@@ -331,7 +331,7 @@ export function generic_test_test_fn( test_fn, x_range )
     //
     forEachItemIn(
       function(){
-        const N = Math.round( 2 ** (18/test_fn.nIn) );
+        const N = Math.round( 2 ** (15/test_fn.nIn) );
 
         return cartesian_prod(
           ...x_range.map( r => linspace(...r,N) )
@@ -399,7 +399,7 @@ export function generic_test_test_fn( test_fn, x_range )
     //
     forEachItemIn(
       function(){
-        const N = Math.round( 2 ** (17/test_fn.nIn) );
+        const N = Math.round( 2 ** (14/test_fn.nIn) );
 
         return cartesian_prod(
           ...x_range.map( r => linspace(...r,N) )
@@ -418,7 +418,7 @@ export function generic_test_test_fn( test_fn, x_range )
 
     forEachItemIn(
       function*(){
-        for( let run=0; run++ < 73*1337; )
+        for( let run=0; run++ < 13*1337; )
           yield x_range.map( ([lo,hi]) => {
             const s = Math.random();
             return lo*(1-s) + s*hi;
@@ -437,7 +437,7 @@ export function generic_test_test_fn( test_fn, x_range )
 
     forEachItemIn(
       function*(){
-        for( let run=0; run++ < 13*1337; )
+        for( let run=0; run++ < 7*1337; )
         {
           const shape = Int32Array.from({ length: _rand_int(1,4) }, () => _rand_int(1,8) );
           shape[shape.length-1] = test_fn.nIn;

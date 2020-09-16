@@ -33,14 +33,14 @@ describe('_min1d_interp_ffgg', () => {
   })
 
   forEachItemIn(
-    function*(){
-      const N = 13,
+    function*(rng){
+      const N = 7,
             M = Math.PI;
 
         for( const a of linspace(-M,+M, N) ) if( 0 !== a )
         for( const b of linspace(-M,+M, N) )
         for( const c of linspace(-M,+M, N) )
-        {    const d = Math.random()*M*2 - M;
+        {    const d = rng.uniform(-M,+M);
 
           const f = x => ((a/3*x - a/2*(b+c))*x + a*b*c)*x + d,
                 g = x => a*(x-b)*(x-c);
@@ -64,22 +64,22 @@ describe('_min1d_interp_ffgg', () => {
               ]);
             }
         }
-    }()
+    }
   ).it('works on generated examples', ([args, xMin]) => {
     expect( _min1d_interp_ffgg(...args) ).toBeAllCloseTo(xMin, {atol: 1e-5});
   });
 
   forEachItemIn(
-    function*(){
-        const N = 17,
+    function*(rng){
+        const N = 7,
               M = Math.PI;
 
-        for( let run=0; run++ < 773; )
+        for( let run=0; run++ < 373; )
         {
-          const a = (Math.random()*M + Number.EPSILON) * (Math.random() < 0.5 ? +1 : -1),
-                b =  Math.random()*M*2 - M,
-                c =  Math.random()*M*2 - M,
-                d =  Math.random()*M*2 - M;
+          const a = rng.uniform(Number.EPSILON,+M) * (rng.bool() < 0.5 ? +1 : -1),
+                b = rng.uniform(           -M, +M),
+                c = rng.uniform(           -M, +M),
+                d = rng.uniform(           -M, +M);
 
           const f = x => ((a/3*x - a/2*(b+c))*x + a*b*c)*x + d,
                 g = x => a*(x-b)*(x-c);
@@ -103,7 +103,7 @@ describe('_min1d_interp_ffgg', () => {
               ]);
             }
         }
-    }()
+    }
   ).it('works given random examples', ([args, xMin]) => {
     expect( _min1d_interp_ffgg(...args) ).toBeAllCloseTo(xMin, {atol: 1e-5});
   });
@@ -117,7 +117,7 @@ describe('_min1d_interp_gg', () => {
 
   forEachItemIn(
     function*(){
-      const N = 37,
+      const N = 17,
             M = Math.PI;
 
       for( const b of linspace(Number.EPSILON,M, N) )
@@ -144,8 +144,8 @@ describe('_min1d_interp_ffg', () => {
 
   forEachItemIn(
     function*(){
-      const N = 4,
-            M = 2;
+      const N =   3,
+            M = 5/3;
 
       for( let a = -M; a <= +M; a += 1/N )
       for( let b =1/N; b <= +M; b += 1/N )
@@ -165,24 +165,24 @@ describe('_min1d_interp_ffg', () => {
   });
 
   forEachItemIn(
-    function*(){
-      for( let i=1024; i-- > 0; )
+    function*(rng){
+      for( let i=256; i-- > 0; )
       {
-        const a = Math.random()*8 - 4,
-              b = Math.random()*8 + 1/4,
-              z = Math.random()*8 - 4;
+        const a = rng.uniform(-4,+4),
+              b = rng.uniform(1/4,8),
+              z = rng.uniform(-4,+4);
 
         const f = x => a + b*(x-z)*(x-z),
               g = x =>   2*b*(x-z);
 
-        for( let j=1024; j-- > 0; )
+        for( let j=512; j-- > 0; )
         {
-          const x1 =  Math.random()*8 - 4,
-           x2 = x1 + (Math.random()*4 + 1e-4) * (Math.random() < 0.5 ? +1 : -1);
+          const x1 = rng.uniform(  -4,+4),
+           x2 = x1 + rng.uniform(1e-4,+4) * (rng.bool() ? +1 : -1);
           yield Object.freeze([ [x1,x2, f(x1),f(x2), g(x1)], z ]);
         }
       }
-    }()
+    }
   ).it('works on random examples.', ([args, xMin]) => {
     expect( _min1d_interp_ffg(...args) ).toBeAllCloseTo(xMin, {atol: 1e-6});
   });

@@ -17,18 +17,19 @@
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
+import math from '../math'
+import {NDArray} from '../nd_array'
 import {tabulate} from '../tabulate'
+import {zip_elems} from '../zip_elems'
+
+import {eye} from './eye'
+import {matmul,
+        matmul2} from './matmul'
+import {qr_decomp} from './qr'
+import {rank} from './rank'
 import {schur_decomp,
         schur_eigen,
         schur_eigenvals} from './schur'
-import {matmul, matmul2} from './matmul'
-import {eye} from './eye'
-import math from '../math'
-import {zip_elems} from '../zip_elems'
-import {rank} from './rank'
-import {qr_decomp,
-        qr_lstsq} from './qr'
-import {NDArray} from '../nd_array'
 import {tril_solve} from './tri'
 
 
@@ -42,10 +43,10 @@ describe('schur', () => {
     function*(){
       const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
 
-      for( let run=1024; run-- > 0; )
+      for( let run=512; run-- > 0; )
       {
         const N = randInt(1,16),
-          shape = Array.from({length: randInt(0,3)}, () => randInt(1,8) )
+          shape = Array.from({length: randInt(0,4)}, () => randInt(1,4) )
         shape.push(N,N)
   
         const [Q,_]= qr_decomp( tabulate(shape, 'float64', () => Math.random()*2-1) ),
@@ -120,8 +121,8 @@ describe('schur', () => {
       for( let run=1024; run-- > 0; )
       {
         const N = randInt(1,32),
-           ndim = randInt(2,5),
-          shape = Array.from({ length: ndim-2 }, () => randInt(1,8) )
+           ndim = randInt(2,6),
+          shape = Array.from({ length: ndim-2 }, () => randInt(1,4) )
         shape.push(N,N)
 
         const A = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1)
@@ -155,11 +156,11 @@ describe('schur', () => {
     function*(){
       const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
 
-      for( let run=1024; run-- > 0; )
+      for( let run=373; run-- > 0; )
       {
         const N = randInt(1,16),
-           ndim = randInt(2,5),
-          shape = Array.from({ length: ndim-2 }, () => randInt(1,8) )
+           ndim = randInt(2,6),
+          shape = Array.from({ length: ndim-2 }, () => randInt(1,4) )
         shape.push(N,N)
 
         const A = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1)
@@ -194,11 +195,11 @@ describe('schur', () => {
     function*(){
       const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
 
-      for( let run=1024; run-- > 0; )
+      for( let run=733; run-- > 0; )
       {
-        const N = randInt(1,16),
-           ndim = randInt(2,5),
-          shape = Array.from({ length: ndim-2 }, () => randInt(1,8) )
+        const N = randInt(1,24),
+           ndim = randInt(2,6),
+          shape = Array.from({ length: ndim-2 }, () => randInt(1,4) )
         shape.push(N,N)
 
         const A = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1)

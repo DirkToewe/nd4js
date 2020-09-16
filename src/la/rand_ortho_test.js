@@ -48,9 +48,6 @@ describe('nd.la.rand_ortho', () => {
     ).it(`${rndo_name} orthogonal matrices`, N => {
       const I = eye(N);
 
-      const E = new Float64Array(N*N),
-            s = new Float64Array(N*N);
-
       const Q = rndo_method(N);
 
       const Q_T = Q.T

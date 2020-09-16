@@ -23,11 +23,11 @@ import {forEachItemIn} from './jasmine_utils'
 describe('tabulate', () => {
   forEachItemIn(
     function*(){
-      yield []
-      for( let i=1; i < 10; i++ ) { yield [i]
-      for( let j=1; j < 10; j++ ) { yield [i,j]
-      for( let k=1; k < 10; k++ ) { yield [i,j,k]
-      for( let l=1; l < 10; l++ ) { yield [i,j,k,l] }}}}
+      yield [];
+      for( let i=0; i++ < 8; ) { yield [i];
+      for( let j=0; j++ < 8; ) { yield [i,j];
+      for( let k=0; k++ < 8; ) { yield [i,j,k];
+      for( let l=0; l++ < 8; ) { yield [i,j,k,l]; }}}}
     }()
   ).it('works for generated examples', shape => {
     shape = Int32Array.from(shape)

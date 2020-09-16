@@ -31,8 +31,8 @@ describe(`${freudenstein_roth.name}`, () => {
 
   forEachItemIn(
     cartesian_prod(
-      linspace(-16, +16, 513),
-      linspace(-16, +16, 513)
+      linspace(-16, +16, 256),
+      linspace(-16, +16, 256)
     )
   ).it('works for generated examples', ([x,y]) => {
     const f = freudenstein_roth([x,y]),
@@ -45,7 +45,7 @@ describe(`${freudenstein_roth.name}`, () => {
 
   forEachItemIn(
     function*(){
-      for( let run=0; run++ < 173*1337; )
+      for( let run=0; run++ < 37*1337; )
         yield [
           Math.random()*64 - 32,
           Math.random()*64 - 32

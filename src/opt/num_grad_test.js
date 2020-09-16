@@ -20,6 +20,7 @@ import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {num_grad,
         num_grad_forward} from './num_grad'
 import {array, NDArray} from '../nd_array'
+import {linspace} from '../iter'
 
 
 describe('num_grad_forward', () => {
@@ -30,7 +31,7 @@ describe('num_grad_forward', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=8192; run-- > 0; )
+      for( let run=4096; run-- > 0; )
       {
         const [a,b,c] = function*(){ for(;;) yield Math.random()*2-1 }(),
               F = x => a + (b + c*x)*x,
@@ -48,7 +49,7 @@ describe('num_grad_forward', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=1024; run-- > 0; )
+      for( let run=373; run-- > 0; )
       {
         const [a,b,c,d,e,f] = function*(){ for(;;) yield Math.random()*2-1 }(),
               F = (x,y) => a + (b + d*y + e*x)*x + (c + f*y)*y,
@@ -70,7 +71,7 @@ describe('num_grad_forward', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=128; run-- > 0; )
+      for( let run=32; run-- > 0; )
       {
         const a = Array.from({length: 10}, () => Math.random()*2-1),
               F = (x,y,z) => {
@@ -134,7 +135,7 @@ describe('num_grad', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=1024; run-- > 0; )
+      for( let run=512; run-- > 0; )
       {
         const [a,b,c,d,e,f] = function*(){ for(;;) yield Math.random()*2-1 }(),
               F = (x,y) => a + (b + d*y + e*x)*x + (c + f*y)*y,
@@ -156,7 +157,7 @@ describe('num_grad', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=128; run-- > 0; )
+      for( let run=0; run++ < 8; )
       {
         const a = Float64Array.from({length: 3*3*2 + 1}, () => Math.random()*2-1),
               F = (x,y,z) => {
@@ -194,7 +195,7 @@ describe('num_grad', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=8; run-- > 0; )
+      for( let run=3; run-- > 0; )
       {
         const a = Float64Array.from({length: 3*3*3*2 + 1}, () => Math.random()*2-1),
               F = (x,y,z,w) => {
@@ -226,10 +227,10 @@ describe('num_grad', () => {
   ).it('works given random float[2,2] -> float      polynomials of degree 2', ([F,G]) => {
     const g = num_grad( xy => F(...xy.data) )
 
-    for( let x=-3.14; x <=3.14; x+=0.42 )
-    for( let y=-3.14; y <=3.14; y+=0.42 )
-    for( let z=-3.14; z <=3.14; z+=0.42 )
-    for( let w=-3.14; w <=3.14; w+=0.42 )
+    for( const x of linspace(-Math.PI,+Math.PI, 7) )
+    for( const y of linspace(-Math.PI,+Math.PI, 7) )
+    for( const z of linspace(-Math.PI,+Math.PI, 7) )
+    for( const w of linspace(-Math.PI,+Math.PI, 7) )
       expect( g([[x,y],
                  [z,w]]) ).toBeAllCloseTo(G(x,y,z,w))//, {rtol:1e-4, atol:1e-6})
   });
@@ -237,7 +238,7 @@ describe('num_grad', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=8192; run-- > 0; )
+      for( let run=3371; run-- > 0; )
       {
         const [a1,b1,c1,
                a2,b2,c2,
@@ -274,7 +275,7 @@ describe('num_grad', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=512; run-- > 0; )
+      for( let run=96; run-- > 0; )
       {
         const [a1,b1,c1,d1,e1,f1,
                a2,b2,c2,d2,e2,f2,

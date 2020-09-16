@@ -17,11 +17,16 @@
  */
 
 import {asarray, NDArray} from '../nd_array'
-import {super_dtype, ARRAY_TYPES} from '../dt'
+import {ARRAY_TYPES} from '../dt'
 import {_giv_rot_qr,
         _giv_rot_rows} from './_giv_rot'
 import {FrobeniusNorm} from './norm'
 import {_transpose_inplace} from './transpose_inplace'
+
+
+// TODO: bidiag_decomp_full
+// TODO: bidiag_solve
+// TODO: bidiag_lstsq?
 
 
 function _bidiag_decomp_vert( M,N, U,U_off, B,V,BV_off )
@@ -312,7 +317,3 @@ export function bidiag_decomp(A)
     new NDArray(V_shape, V)
   ];
 }
-
-// TODO: bidiag_decomp_full
-// TODO: bidiag_solve
-// TODO: bidiag_lstsq?

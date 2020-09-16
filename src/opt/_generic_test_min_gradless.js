@@ -72,7 +72,7 @@ export function generic_test_min_gradless_gen_with_test_fn( minimize_gen, test_f
 
     const F = x => {
       if( ++nCalls > MAX_CALLS )
-        throw new Error('Assertion failed.');
+        throw new Error('Too many function calls.');
       return test_fn(x);
     };
 
@@ -83,21 +83,22 @@ export function generic_test_min_gradless_gen_with_test_fn( minimize_gen, test_f
     {
       for( [x,f] of minimize_gen(F, x0) )
       {
-        expect(x).toEqual( jasmine.any(NDArray) );
-        expect(f).toEqual( jasmine.any(Number ) );
+        // Jasmine create huge memory overhead so we have to use these hacky assertions instead... yikes
+        if( !(x instanceof NDArray) ) throw new Error('Assertion failed.');
+        if(  'number' !== typeof f  ) throw new Error('Assertion failed.');
 
-        expect(f).not.toBeNaN();
+        if( ! isFinite(f) ) throw new Error('Assertion failed.');
 
-        expect(f).toBeAllCloseTo(test_fn(x), {rtol:0, atol:0})
+        if( f != test_fn(x) )
+          throw new Error('Assertion failed.');
 
-        expect(f).toBeLessThan(fPrev);
-                               fPrev = f;
+        if( ! (fPrev > f) ) throw new Error('Assertion failed.');
+        else   fPrev = f;
 
-        expect(x.ndim).toBe(1);
+        if( x.ndim     !== 1         ) throw new Error('Assertion failed.');
+        if( x.shape[0] !== x0.length ) throw new Error('Assertion failed.');
 
-        expect(x.shape).toEqual( Int32Array.of(x0.length) );
-
-        expect(++nIter).toBeLessThan(MAX_CALLS);
+        if( !(++nIter <= MAX_CALLS) ) throw new Error('Too many iterations.');
       }
     }
     catch(    err ) {
@@ -121,18 +122,15 @@ export function generic_test_min_gradless_gen_with_test_fn( minimize_gen, test_f
         ...x_range.map( r => linspace(...r,N) )
       )
     }()  
-  ).it(`works with ${test_fn.name} given generated starting points`, test_body)
+  ).it(`works with ${test_fn.name} given generated x0`, test_body);
 
 
   forEachItemIn(
-    function*(){
-      for( let run=0; run++ < 31; )
-        yield x_range.map( ([lo,hi]) => {
-          const s = Math.random();
-          return lo*(1-s) + s*hi;
-        })
-    }()
-  ).it(`works with ${test_fn.name} given random starting points`, test_body)
+    function*(rng){
+      for( let run=0; run++ < 42; )
+        yield x_range.map( ([lo,hi]) => rng.uniform(lo,hi) );
+    }
+  ).it(`works with ${test_fn.name} given random x0`, test_body);
 }
 
 
@@ -150,15 +148,15 @@ export function generic_test_min_gradless_gen( minimize_gen )
     // generic_test_min_gradless_gen_with_test_fn( minimize_gen, brown_badscale, [[1e+6 - 2e+5, 1e+6 + 2e+5],
     //                                                                            [2e-6 - 4e-7, 2e-6 + 4e-7]] ); // <- TODO: increase range of starting points once line search improved
 
-    generic_test_min_gradless_gen_with_test_fn( minimize_gen, freudenstein_roth, [[-Math.PI/2, +16],
-                                                                                  [-Math.PI/2,  +8]] );
+    generic_test_min_gradless_gen_with_test_fn( minimize_gen, freudenstein_roth, [[ 4, Math.PI*4],
+                                                                                  [-Math.PI/2, 5]]);
 
     // generic_test_min_gradless_gen_with_test_fn( minimize_gen, helical_valley, [[-Math.PI/2, +2],
     //                                                                            [-Math.PI/2, +2],
     //                                                                            [-Math.PI/2, +2]] );
 
-    generic_test_min_gradless_gen_with_test_fn( minimize_gen, new JennrichSampson(10), [[-1, 0.35],
-                                                                                        [-1, 0.35]] );
+    generic_test_min_gradless_gen_with_test_fn( minimize_gen, new JennrichSampson(10), [[0.15, 0.32],
+                                                                                        [0.15, 0.32]] );
 
     // generic_test_min_gradless_gen_with_test_fn( minimize_gen, powell_badscale, [[-10.1, +10.0], // <- avoids starting at x1=x2 which leads to a saddle point
     //                                                                             [-10.0, +10.1]] );
@@ -170,8 +168,7 @@ export function generic_test_min_gradless_gen( minimize_gen )
 
     for( const length of range(2,4) )
       generic_test_min_gradless_gen_with_test_fn(
-        minimize_gen, new Rosenbrock(length), Array.from({length}, () => [1 - Math.PI/2,
-                                                                          1 + Math.PI/2])
+        minimize_gen, new Rosenbrock(length), Array.from({length}, () => [-Math.PI*1,+Math.PI*2])
       );
 
   });

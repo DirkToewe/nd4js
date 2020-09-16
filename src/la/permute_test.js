@@ -117,8 +117,8 @@ describe('permute', () => {
 
       for( let run=1024; run-- > 0; )
       {
-        let  ndim = randInt(0,5),
-          shape_A = Int32Array.from({length: ndim}, () => randInt(1,8)),
+        let  ndim = randInt(0,6),
+          shape_A = Int32Array.from({length: ndim}, () => randInt(1,4)),
           shape_P = shape_A.slice(),
               cut = randInt(0,ndim+1)
 
@@ -133,10 +133,10 @@ describe('permute', () => {
         if( Math.random() < 0.5 ) shape_A = shape_A.slice(cut)
         else                      shape_P = shape_P.slice(cut)
 
-        const M = randInt(1,24),
-              N = randInt(1,24)
+        const M = randInt(1,32),
+              N = randInt(1,32)
 
-        let A = tabulate( shape_A, () => tabulate([M,N], 'float64', () => Math.random()*2-1) ),
+        let A = tabulate( shape_A, () => tabulate([M,N], 'float64', () => Math.random()*8-4) ),
             P = tabulate( shape_P, () => {
               const P = Int32Array.from({length: M}, (_,i) => i)
               for( let i=M; i-- > 0; )
@@ -169,8 +169,8 @@ describe('permute', () => {
 
       for( let run=1024; run-- > 0; )
       {
-        let  ndim = randInt(0,5),
-          shape_A = Int32Array.from({length: ndim}, () => randInt(1,8)),
+        let  ndim = randInt(0,6),
+          shape_A = Int32Array.from({length: ndim}, () => randInt(1,4)),
           shape_P = shape_A.slice(),
               cut = randInt(0,ndim+1)
 
@@ -185,10 +185,10 @@ describe('permute', () => {
         if( Math.random() < 0.5 ) shape_A = shape_A.slice(cut)
         else                      shape_P = shape_P.slice(cut)
 
-        const M = randInt(1,24),
-              N = randInt(1,24)
+        const M = randInt(1,32),
+              N = randInt(1,32)
 
-        let A = tabulate( shape_A, () => tabulate([M,N], () => Math.random()*2-1) ),
+        let A = tabulate( shape_A, () => tabulate([M,N], () => Math.random()*8-4) ),
             P = tabulate( shape_P, () => {
               const P = Int32Array.from({length: N}, (_,i) => i)
               for( let i=N; i-- > 0; )
@@ -221,8 +221,8 @@ describe('permute', () => {
 
       for( let run=1024; run-- > 0; )
       {
-        let  ndim = randInt(0,5),
-          shape_A = Int32Array.from({length: ndim}, () => randInt(1,8)),
+        let  ndim = randInt(0,6),
+          shape_A = Int32Array.from({length: ndim}, () => randInt(1,4)),
           shape_P = shape_A.slice(),
               cut = randInt(0,ndim+1)
 
@@ -237,10 +237,10 @@ describe('permute', () => {
         if( Math.random() < 0.5 ) shape_A = shape_A.slice(cut)
         else                      shape_P = shape_P.slice(cut)
 
-        const M = randInt(1,24),
-              N = randInt(1,24)
+        const M = randInt(1,48),
+              N = randInt(1,48)
 
-        let A = tabulate( shape_A, () => tabulate([M,N], () => Math.random()*2-1) ),
+        let A = tabulate( shape_A, () => tabulate([M,N], () => Math.random()*8-4) ),
             P = tabulate( shape_P, () => {
               const P = Int32Array.from({length: M}, (_,i) => i)
               for( let i=M; i-- > 0; )
@@ -275,8 +275,8 @@ describe('permute', () => {
 
       for( let run=1024; run-- > 0; )
       {
-        let  ndim = randInt(0,5),
-          shape_A = Int32Array.from({length: ndim}, () => randInt(1,8)),
+        let  ndim = randInt(0,6),
+          shape_A = Int32Array.from({length: ndim}, () => randInt(1,4)),
           shape_P = shape_A.slice(),
               cut = randInt(0,ndim+1)
 
@@ -291,10 +291,10 @@ describe('permute', () => {
         if( Math.random() < 0.5 ) shape_A = shape_A.slice(cut)
         else                      shape_P = shape_P.slice(cut)
 
-        const M = randInt(1,24),
-              N = randInt(1,24)
+        const M = randInt(1,48),
+              N = randInt(1,48)
 
-        let A = tabulate( shape_A, () => tabulate([M,N], () => Math.random()*2-1) ),
+        let A = tabulate( shape_A, () => tabulate([M,N], () => Math.random()*8-4) ),
             P = tabulate( shape_P, () => {
               const P = Int32Array.from({length: N}, (_,i) => i)
               for( let i=N; i-- > 0; )

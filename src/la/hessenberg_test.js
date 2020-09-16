@@ -18,8 +18,11 @@
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {tabulate} from '../tabulate'
+import {_rand_rows0,
+        _rand_cols0} from '../_test_data_generators'
+
 import {hessenberg_decomp} from './hessenberg'
-import {matmul} from './matmul'
+import {matmul, matmul2} from './matmul'
 import {eye} from './eye'
 
 
@@ -28,93 +31,98 @@ describe('hessenberg', () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
 
-  const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
 
-  for( const [rng,suffix] of [
-    [() =>                           Math.random()*8 - 4, ''                      ],
-    [() => Math.random() < 0.1 ? 0 : Math.random()*8 - 4, ' with occasional zeros']
+  const test_body = A => {
+    const [N]= A.shape.slice(-1),
+        [U,H]= hessenberg_decomp(A);
+
+    expect(U.shape).toEqual(A.shape);
+    expect(H.shape).toEqual(A.shape);
+
+    expect(H).toBeUpperHessenberg();
+
+    const                                   I = eye(N);
+    expect( matmul2(U,U.T) ).toBeAllCloseTo(I);
+    expect( matmul2(U.T,U) ).toBeAllCloseTo(I);
+
+    const  a = matmul(U,H,U.T);
+    expect(a).toBeAllCloseTo(A);
+  };
+
+
+  function* ndarray_shapes(rng) {
+    for( let run=0; run++ < 32; )
+    for( let   N=0;   N++ <  8; )
+      yield [N,N];
+
+    for( let run=0; run++ < 512; )
+    {
+      const N = rng.int(1,48),
+         ndim = rng.int(2,6);
+      yield [
+        ...Array.from({ length: ndim-2 }, () => rng.int(1,4) ),
+        N,N
+      ];
+    }
+  }
+
+
+  function* matrix_shapes(rng) {
+    for( let run=0; run++ < 32; )
+    for( let   N=0;   N++ <  8; )
+      yield [N,N];
+
+    for( let run=256; run-- > 0; )
+    {
+      const  N = rng.int(1,128); // <- TODO remove after testing
+      yield [N,N];
+    }
+  }
+
+
+  for( const [rand,suffix] of [
+    [rng => () => rng.uniform(-4,+4)                           , ''                      ],
+    [rng => () => rng.uniform(-4,+4) * (rng.uniform(0,1) < 0.9), ' with occasional zeros']
   ])
-  forEachItemIn(
-    function*(){
-      function* shapes()
-      {
-        for( let run = 0; run < 16; run++ )
-        for( let N=1; N < 16; N++ )
-          yield [N,N];
-
-        for( let run=1024; run-- > 0; )
-        {
-          const N = randInt(1,64),
-             ndim = randInt(2,5),
-            shape = Array.from({ length: ndim-2 }, () => randInt(1,8) );
-          yield [...shape, N,N];
-        }
+    forEachItemIn(
+      function*(rng){
+        for( const shape of ndarray_shapes(rng) )
+          yield tabulate(shape, 'float64', rand(rng));
       }
-
-      for( const shape of shapes() )
-      {
-        const A = tabulate(shape, 'float64', rng);
-        Object.freeze(A.data.buffer);
-        yield A;
-      }
-    }()
-  ).it('hessenberg_decomp works on random examples' + suffix, A => {
-    const [N]= A.shape.slice(-1),
-        [U,H]= hessenberg_decomp(A),
-           a = matmul(U,H,U.T)
-
-    expect(U.shape).toEqual(A.shape)
-    expect(H.shape).toEqual(A.shape)
-
-    const I = eye(N)
-    expect( matmul(U,U.T) ).toBeAllCloseTo(I)
-    expect( matmul(U.T,U) ).toBeAllCloseTo(I)
-    expect(a).toBeAllCloseTo(A)
-
-    expect(H).toBeUpperHessenberg()
-  })
+    ).it('works on random examples'+suffix, test_body);
 
 
   forEachItemIn(
-    function*(){
-      function* shapes()
-      {
-        for( let run = 0; run < 16; run++ )
-        for( let N=1; N < 16; N++ )
-          yield [N,N];
-
-        for( let run=1024; run-- > 0; )
-        {
-          const N = randInt(1,64),
-             ndim = randInt(2,5),
-            shape = Array.from({ length: ndim-2 }, () => randInt(1,8) );
-          yield [...shape, N,N];
-        }
+    function*(rng){
+      for( const shape of ndarray_shapes(rng) ) {
+        const                                  density = rng.uniform(0,1);
+        yield tabulate(shape, 'float64', () =>(density > rng.uniform(0,1)) * rng.uniform(-4,+4) );
       }
+    }
+  ).it('works on random sparse examples', test_body);
 
-      for( const shape of shapes() )
-      {
-        const                         sparseness = Math.random(),
-          rng = () => Math.random() < sparseness ? 0 : Math.random()*2 - 1;
 
-        const A = tabulate(shape, 'float64', rng);
-        Object.freeze(A.data.buffer);
-        yield A;
-      }
-    }()
-  ).it('hessenberg_decomp works on random sparse examples', A => {
-    const [N]= A.shape.slice(-1),
-        [U,H]= hessenberg_decomp(A),
-           a = matmul(U,H,U.T)
+  forEachItemIn(
+    function*(rng){
+      for( const shape of ndarray_shapes(rng) )
+        yield rng.rankDef(...shape)[0];
+    }
+  ).it('works on random rank-deficient examples', test_body);
 
-    expect(U.shape).toEqual(A.shape)
-    expect(H.shape).toEqual(A.shape)
 
-    const I = eye(N)
-    expect( matmul(U,U.T) ).toBeAllCloseTo(I)
-    expect( matmul(U.T,U) ).toBeAllCloseTo(I)
-    expect(a).toBeAllCloseTo(A)
+  forEachItemIn(
+    function*(rng){
+      for( const [M,N] of matrix_shapes(rng) )
+        yield _rand_rows0(M,N);
+    }
+  ).it('works on random matrices with zero rows', test_body);
 
-    expect(H).toBeUpperHessenberg()
-  })
+
+  forEachItemIn(
+    function*(rng){
+      for( const [M,N] of matrix_shapes(rng) )
+        yield _rand_cols0(M,N);
+    }
+  ).it('works on random matrices with zero columns', test_body);
+
 })

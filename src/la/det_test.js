@@ -136,7 +136,7 @@ describe('det', () => {
 
 
   forEachItemIn(
-    function*(){
+    function*(rng){
       function* shapes() {
         for( let k=1; k <= 8; k++ ) { yield     [k,k]
         for( let j=1; j <= 8; j++ ) { yield   [j,k,k]
@@ -148,11 +148,11 @@ describe('det', () => {
       {
         const L = tabulate(shape, dtype, (...idx) => {
                 const [i,j] = idx.slice(-2);
-                return i < j ? 0 : Math.random()*2 - 1;
+                return i < j ? 0 : rng.uniform(-2,+2);
               }),
               U = tabulate(shape, dtype, (...idx) => {
                 const [i,j] = idx.slice(-2);
-                return i > j ? 0 : Math.random()*2 - 1;
+                return i > j ? 0 : rng.uniform(-2,+2);
               }),
               LU = matmul2(
                 L.mapElems('float64'),
@@ -163,7 +163,7 @@ describe('det', () => {
         Object.freeze(LU.data.buffer);
         yield [L,U, LU];
       }
-    }()
+    }
   ).it('slogdet works for random matrices', ([L,U,A]) => {
     const [s1,l1] = slogdet_tri(L),
           [s2,l2] = slogdet_tri(U),

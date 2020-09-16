@@ -26,8 +26,7 @@ import {norm} from '../la/norm'
 
 import {KDTree} from "../spatial/kd_tree";
 
-import {LineSearchError,
-        LineSearchNoProgressError} from "./line_search/line_search_error";
+import {LineSearchNoProgressError} from "./line_search/line_search_error";
 
 import {beale}             from './test_fn/beale';
 import {brown_badscale}    from './test_fn/brown_badscale';
@@ -37,7 +36,7 @@ import {JennrichSampson}   from './test_fn/jennrich_sampson';
 import {powell_badscale}   from './test_fn/powell_badscale';
 import {Rastrigin}         from './test_fn/rastrigin'
 import {Rosenbrock}        from './test_fn/rosenbrock'
-import { OptimizationNoProgressError } from './optimization_error';
+import {OptimizationNoProgressError} from './optimization_error';
 
 
 export function generic_test_min_gen_with_test_fn( minimize_gen, test_fn, x_range )
@@ -70,8 +69,8 @@ export function generic_test_min_gen_with_test_fn( minimize_gen, test_fn, x_rang
 
     let nCalls = 0
     const fg = x => {
-      if( ++nCalls > 512*1024 )
-        throw new Error('Too many iterations.');
+      if( ++nCalls > 64*1024 )
+        throw new Error('Too many functions calls.');
       return [
         test_fn(x),
         test_fn.grad(x)
@@ -83,23 +82,30 @@ export function generic_test_min_gen_with_test_fn( minimize_gen, test_fn, x_rang
     {
       for( [x,f,g] of minimize_gen(fg, x0) )
       {
-        expect(x).toEqual( jasmine.any(NDArray) )
-        expect(f).toEqual( jasmine.any(Number ) )
-        expect(g).toEqual( jasmine.any(NDArray) )
+        if( !(x instanceof NDArray) ) throw new Error('Assertion failed.');
+        if( !(g instanceof NDArray) ) throw new Error('Assertion failed.');
+        if(  'number' !== typeof f  ) throw new Error('Assertion failed.');
 
-        expect(x.ndim).toBe(1)
-        expect(g.ndim).toBe(1)
+        if( ! isFinite(f) ) throw new Error('Assertion failed.');
 
-        expect(x.shape).toEqual( Int32Array.of(x0.length) )
-        expect(g.shape).toEqual( Int32Array.of(x0.length) )
+        if( x.ndim !== 1 ) throw new Error('Assertion failed.');
+        if( g.ndim !== 1 ) throw new Error('Assertion failed.');
 
-        expect(f).toBeAllCloseTo(test_fn     (x), {rtol:0, atol:0})
-        expect(g).toBeAllCloseTo(test_fn.grad(x), {rtol:0, atol:0})
+        if( x.shape[0] !== x0.length ) throw new Error('Assertion failed.');
+        if( g.shape[0] !== x0.length ) throw new Error('Assertion failed.');
+
+        if( f != test_fn(x) ) throw new Error('Assertion failed.');
+
+        const gx = test_fn.grad(x).data;
+        if( ! g.data.every((g,i) => g===gx[i]) )
+          throw new Error('Assertion failed.');
 
         const gNorm = norm(g) / Math.sqrt(g.data.length);
-        if(   gNorm <= 1e-8 )
+        if(   gNorm <= 1e-5 )
           break
-        expect(++nIter).toBeLessThan(128*1024)
+
+        if( !(++nIter <= 16*1024) )
+          throw new Error('Too many iterations.');
       }
     }
     catch( err ) {
@@ -117,24 +123,21 @@ export function generic_test_min_gen_with_test_fn( minimize_gen, test_fn, x_rang
 
   forEachItemIn(
     function(){
-      const N = Math.ceil( 2**(10/test_fn.nIn) );
+      const N = Math.ceil( 2**(7.5/test_fn.nIn) ); if( ! (N >= 2) ) throw new Error('Assertion failed.');
 
       return cartesian_prod(
         ...x_range.map( r => linspace(...r,N) )
       )
-    }()  
-  ).it(`works with ${test_fn.name} given generated starting points`, test_body)
+    }()
+  ).it(`minimizes ${test_fn.name} starting at generated x0`, test_body);
 
 
   forEachItemIn(
-    function*(){
-      for( let run=0; run++ < 1337; )
-        yield x_range.map( ([lo,hi]) => {
-          const s = Math.random();
-          return lo*(1-s) + s*hi;
-        })
-    }()
-  ).it(`works with ${test_fn.name} given random starting points`, test_body)
+    function*(rng){
+      for( let run=0; run++ < 768; )
+        yield x_range.map( ([lo,hi]) => rng.uniform(lo,hi) );
+    }
+  ).it(`minimizes ${test_fn.name} starting at random x0`, test_body);
 }
 
 
@@ -149,8 +152,8 @@ export function generic_test_min_gen( minimize_gen )
     generic_test_min_gen_with_test_fn( minimize_gen, beale, [[+0.1, +5.0],
                                                              [-0.5, +1.0]] );
 
-    generic_test_min_gen_with_test_fn( minimize_gen, brown_badscale, [[1e+6 - 2e+5, 1e+6 + 2e+5],
-                                                                      [2e-6 - 4e-7, 2e-6 + 4e-7]] ); // <- TODO: increase range of starting points once line search improved
+    generic_test_min_gen_with_test_fn( minimize_gen, brown_badscale, [[1e+6 - 4e+5, 1e+6 + 4e+5],
+                                                                      [2e-6 - 8e-7, 2e-6 + 8e-7]] ); // <- TODO: increase range of starting points once line search improved
 
     generic_test_min_gen_with_test_fn( minimize_gen, freudenstein_roth, [[ 4, Math.PI*4],
                                                                          [-Math.PI/2, 5]] );

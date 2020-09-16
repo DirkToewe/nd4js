@@ -32,8 +32,8 @@ describe(`test_fn.${powell_badscale.name}`, () => {
 
   forEachItemIn(
     cartesian_prod(
-      linspace(-24, +24, 513),
-      linspace(-24, +24, 513)
+      linspace(-24, +24, 137),
+      linspace(-24, +24, 137)
     )
   ).it('works for generated examples', ([x,y]) => {
     const f = powell_badscale([x,y]),
@@ -46,7 +46,7 @@ describe(`test_fn.${powell_badscale.name}`, () => {
 
   forEachItemIn(
     function*(){
-      for( let run=0; run++ < 173*1337; )
+      for( let run=0; run++ < 73*1337; )
         yield [
           Math.random()*64 - 32,
           Math.random()*64 - 32

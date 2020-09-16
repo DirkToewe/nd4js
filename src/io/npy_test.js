@@ -43,26 +43,26 @@ describe('npy', () => {
   })
 
 
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
+  for( const dtype of ['int32','float32','float64'] )
+    forEachItemIn(
+      function*(){
+        const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
 
-      for( const dtype of ['int32','float32','float64'] )
-      for( let run=1024; run-- > 0; )
-      {
-        const shape = Int32Array.from({length: randInt(0,5)}, () => randInt(1,24)),
-              A = tabulate(shape, dtype, () => Math.random() < 0.1 ? 0 : Math.random()*2e3-1e3)
-        Object.freeze(A.data.buffer)
-        yield A
-      }
-    }()
-  ).it('npy_serialize works for random examples', (A) => {
-    const B = npy_deserialize(npy_serialize_gen(A))
+        for( let run=173; run-- > 0; )
+        {
+          const shape = Int32Array.from({length: randInt(0,5)}, () => randInt(1,24)),
+                A = tabulate(shape, dtype, () => Math.random() < 0.1 ? 0 : Math.random()*2e3-1e3)
+          Object.freeze(A.data.buffer)
+          yield A
+        }
+      }()
+    ).it(`npy_serialize works for random ${dtype.padStart(7)} examples`, (A) => {
+      const B = npy_deserialize(npy_serialize_gen(A))
 
-    expect(B.dtype).toBe   (A.dtype)
-    expect(B.shape).toEqual(A.shape)
+      expect(B.dtype).toBe   (A.dtype)
+      expect(B.shape).toEqual(A.shape)
 
-    if( A.dtype.startsWith('complex') ) expect(B.data._array).toEqual(A.data._array)
-    else                                expect(B.data       ).toEqual(A.data       )
-  })
+      if( A.dtype.startsWith('complex') ) expect(B.data._array).toEqual(A.data._array)
+      else                                expect(B.data       ).toEqual(A.data       )
+    })
 })

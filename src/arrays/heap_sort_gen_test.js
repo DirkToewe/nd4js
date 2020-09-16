@@ -22,31 +22,28 @@ import {heap_sort_gen} from './heap_sort_gen'
 
 describe('heap_sort_gen', () => {
 
+  for( const ArrayType of [Int32Array,Float64Array] )
   for( const [suffix, ...args] of [
     [''],
     [' with descending comparator', (x,y) => y-x],
-    [' with ascending comparator', (x,y) => x-y]
+    [' with ascending comparator',  (x,y) => x-y]
   ])
     forEachItemIn(
       function*(){
-        for( const ArrayType of [Int32Array,Float64Array] )
-          for( let length=0; length++ < 512; ) {
-            const         items = ArrayType.from({length}, () => Math.random()*8192 - 4096);
-            Object.freeze(items.buffer);
-            yield         items;
-          }
+        for( let length=0; length++ < 137; ) {
+          const         items = ArrayType.from({length}, () => Math.random()*512 - 256 );
+          Object.freeze(items.buffer);
+          yield         items;
+        }
       }()
-    ).it('works on random examples' + suffix, unsorted => {
+    ).it(`works given random ${ArrayType.name} examples ${suffix}`, unsorted => {
       const items = unsorted.slice(),
             order = unsorted.slice();
 
       Object.freeze(order.buffer);
       expect(items.buffer).not.toBe(order.buffer);
 
-      if( args.length > 0 )
-        order.sort(args[0]);
-      else
-        order.sort( (x,y) => x-y );
+      order.sort( args[0] || ((x,y) => x-y) );
 
       const seq = heap_sort_gen(items, ...args);
 

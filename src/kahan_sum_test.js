@@ -26,21 +26,23 @@ describe('KahanSum', () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
 
-  forEachItemIn(Float64Array.of(
-    1e6, 3e6, 6e6, 7e6, 8e6, 9e6,
-    1e5, 3e5, 6e5, 7e5, 8e5, 9e5,
-    1e7, 3e7, 6e7, 7e7, 8e7, 9e7
-  )).it(`n times 1/n sums up to 1.`, N => {
-    const kahan = new KahanSum();
+  for( const N_str of [
+    '1e6', '3e6', '6e6', '7e6', '8e6', '9e6',
+    '1e5', '3e5', '6e5', '7e5', '8e5', '9e5',
+    '1e7', '3e7', '6e7', '7e7', '8e7', '9e7'
+  ])
+    it(`${N_str} times 1/${N_str} sums up to 1.`, () => {
+      const N = N_str*1,
+        kahan = new KahanSum();
 
-    for( let repeat=3; repeat-- > 0; )
-    {
-      for( let i=N; i-- > 0; )
-        kahan.add(1/N);
+      for( let repeat=3; repeat-- > 0; )
+      {
+        for( let i=N*1; i-- > 0; )
+          kahan.add(1/N);
 
-      expect(kahan.sum).toBeAllCloseTo(1, {rtol: 0, atol: Number.EPSILON});
+        expect(kahan.sum).toBeAllCloseTo(1, {rtol: 0, atol: Number.EPSILON});
 
-      kahan.set(0);
-    }
-  })
+        kahan.set(0);
+      }
+    });
 })

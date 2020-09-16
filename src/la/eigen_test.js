@@ -82,7 +82,7 @@ describe('eigen', () => {
               return 0
             return Math.random()*2 - 1
           })
-          if( Math.random < 0.5 )
+          if( Math.random() < 0.5 )
             A = A.T
           Object.freeze(A.data.buffer)
           yield A
@@ -118,10 +118,10 @@ describe('eigen', () => {
     function*(){
       const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
 
-      for( let run=1024; run-- > 0; )
+      for( let run=373; run-- > 0; )
       {
         const N = randInt(1,16),
-          shape = Array.from({length: randInt(0,3)}, () => randInt(1,8) )
+          shape = Array.from({length: randInt(0,4)}, () => randInt(1,4) )
         shape.push(N,N)
   
         let A = tabulate(shape, 'float64', (...idx) => {
@@ -130,7 +130,7 @@ describe('eigen', () => {
             return 0
           return Math.random()*2 - 1
         })
-        if( Math.random < 0.5 )
+        if( Math.random() < 0.5 )
           A = A.T
         Object.freeze(A.data.buffer)
         yield A
@@ -164,10 +164,10 @@ describe('eigen', () => {
     function*(){
       const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
 
-      for( let run=1024; run-- > 0; )
+      for( let run=512; run-- > 0; )
       {
         const N = randInt(1,16),
-          shape = Array.from({length: randInt(0,3)}, () => randInt(1,8) )
+          shape = Array.from({length: randInt(0,4)}, () => randInt(1,4) )
         shape.push(N,N)
   
         let A = tabulate(shape, 'float64', (...idx) => {
@@ -176,7 +176,7 @@ describe('eigen', () => {
             return 0
           return Math.random()*2 - 1
         })
-        if( Math.random < 0.5 )
+        if( Math.random() < 0.5 )
           A = A.T
         Object.freeze(A.data.buffer)
         yield A
@@ -208,10 +208,10 @@ describe('eigen', () => {
     function*(){
       const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from
 
-      for( let run=1024; run-- > 0; )
+      for( let run=512; run-- > 0; )
       {
-        const N = randInt(1,16),
-          shape = Array.from({length: randInt(0,3)}, () => randInt(1,8) )
+        const N = randInt(1,24),
+          shape = Array.from({length: randInt(0,4)}, () => randInt(1,4) )
         shape.push(N,N)
   
         let A = tabulate(shape, 'float64', (...idx) => {
@@ -220,16 +220,16 @@ describe('eigen', () => {
             return 0
           return Math.random()*2 - 1
         })
-        if( Math.random < 0.5 )
+        if( Math.random() < 0.5 )
           A = A.T
         Object.freeze(A.data.buffer)
         yield A
       }
     }()
-  ).it('eigenvals works on random examples', A => {
+  ).it('eigenvals works given random examples', A => {
     const [Λ] = eigen    (A),
            L  = eigenvals(A)
 
-    expect(L).toBeAllCloseTo(Λ)
+    expect(L).toBeAllCloseTo(Λ, {rtol: 0, atol: 0})
   })
 })

@@ -59,7 +59,7 @@ export function* cartesian_prod( ...seqs )
       seq instanceof   Uint8Array ||
       seq instanceof  Uint16Array ||
       seq instanceof  Uint32Array
-    ) ? seq.slice() : Array.from(seq)
+    ) ? seq.slice() : [...seq]
   );
 
   const result = new Array(seqs.length);
@@ -107,4 +107,33 @@ export function* zip( ...seqs )
 
     yield next;
   }
+}
+
+
+export function* repeat( n, seq )
+{
+  if( undefined === seq ) {
+    seq = n;
+          n = Infinity;
+  }
+
+  if( n !== Infinity ) {
+    if( n%1 !== 0 ) throw new Error('repeat(n,seq): n must be a non-negative int or Infinity.');
+    if( ! (n >= 0)) throw new Error('repeat(n,seq): n must be a non-negative int or Infinity.');
+  }
+
+  seq = (
+    seq instanceof        Array ||
+    seq instanceof Float32Array ||
+    seq instanceof Float64Array ||
+    seq instanceof    Int8Array ||
+    seq instanceof   Int16Array ||
+    seq instanceof   Int32Array ||
+    seq instanceof   Uint8Array ||
+    seq instanceof  Uint16Array ||
+    seq instanceof  Uint32Array
+  ) ? seq.slice() : [...seq];
+
+  for( let i=n; i-- > 0; )
+    yield* seq;
 }

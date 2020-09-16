@@ -38,7 +38,7 @@ describe('simplex', () => {
     ['float64']
   ])
     forEachItemIn(
-      range(1,128)
+      range(1,64)
     ).it(`regular_simplex(${[...args,''].join(', ')}N) generates N+1 vertices with distance 1 to each other`, N => {
       let verts = regular_simplex(...args,N);
 
@@ -78,8 +78,8 @@ describe('simplex', () => {
     ['float32'],
     ['float64']
   ])
-    it('regular_simplex(1024) generates N+1 vertices with distance 1 to each other', () => {
-      const N = 1024;
+    it('regular_simplex(373) generates N+1 vertices with distance 1 to each other', () => {
+      const N = 373;
 
       let verts = regular_simplex(...args,N);
 

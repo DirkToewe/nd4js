@@ -28,28 +28,41 @@ import {solve} from '../la/solve'
 
 import {LBFGS_Solver       } from './_lbfgs_solver'
 import {LBFGS_SolverRefImpl,
-        _rand_updates      } from './_lbfgs_solver_test_utils'
+        _rand_updates_v2   } from './_lbfgs_solver_test_utils'
 
 
-describe('LBFGS_Solver', () => {
+describe(`LBFGS_Solver`, () => {
   beforeEach( () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
 
 
   for( const [suffix, rand_scale] of [
-    [''           , () => 1                  ],
-    [' and scales', () => Math.random() + 0.5]
+    [''           , rng => () => 1                    ],
+    [' and scales', rng => () => rng.uniform(0.5, 1.5)]
   ])
+  for( let M=0; M++ <  7; )
+  for( let N=0; N++ < 13; )
   {
     forEachItemIn(
-      function*(){
-        for( let run=0; run++ < 2; )
-        for( let M=0; M++ <  8; )
-        for( let N=0; N++ < 16; )
-          yield [M,N];
-      }()
-    ).it('compute_Hv works given random updates' + suffix, ([M,N]) => {
+      function*(rng){
+        const rand_scale_rng = rand_scale(rng);
+        for( let run=0; run++ < 17; )
+          yield function*(){
+            let len = rng.int(32,64);
+
+            for( const [dx,dg] of _rand_updates_v2(rng,N) )
+              if( --len < 0 )
+                break;
+              else
+                yield [
+                  dx,dg,
+                  rand_scale_rng(),
+                  tabulate([N,1], 'float64', () => rng.uniform(-4,+4))
+                ];
+          }();
+      }
+    ).it(`compute_Hv works given random updates${suffix} [M=${M},N=${N.toString().padStart(2)}]`, updates => {
       const ref = new LBFGS_SolverRefImpl(M,N),
             tst = new LBFGS_Solver       (M,N);
 
@@ -58,13 +71,11 @@ describe('LBFGS_Solver', () => {
 
       const shape = Int32Array.of(N,1);
 
-      let i=0;
-      for( let [dx,dg] of _rand_updates(N) )
+      for( const [dx,dg, scale, y] of updates )
       {
         ref.update(dx.data, dg.data);
         tst.update(dx.data, dg.data);
 
-        const       scale = rand_scale();
         ref.scale = scale;
 
         const compute_Hv = v => {
@@ -79,8 +90,7 @@ describe('LBFGS_Solver', () => {
         Object.freeze(indices.buffer);
 
         const {B} = ref,
-               Z  = tabulate([N,N], (i,j) => 1*(i === indices[j]) ),
-               y  = tabulate([N,1], () => Math.random()*8 - 4);
+               Z  = tabulate([N,N], (i,j) => 1*(i === indices[j]) );
 
         const b = matmul(Z.T, B, Z),
               x = solve(b,y);
@@ -93,8 +103,6 @@ describe('LBFGS_Solver', () => {
               atol: 1e-4 * Math.max(norm(X), norm(x))
             };
         expect(X).toBeAllCloseTo(Zx, tol);
-
-        if( ++i >= 64 ) break;
       }
     })
   }

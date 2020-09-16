@@ -17,6 +17,7 @@
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
+import {generic_test_solve} from "./_generic_test_solve";
 import {zip_elems} from '../zip_elems'
 import {tabulate} from '../tabulate'
 import {matmul, matmul2} from './matmul'
@@ -26,10 +27,18 @@ import {array} from '../nd_array'
 import math from '../math'
 
 
+for( const solve of Object.values({
+  [`lu_decomp + lu_solve   `]: (A,y) => lu_solve(   lu_decomp(A), y ),
+  [`lu_decomp + lu_solve...`]: (A,y) => lu_solve(   lu_decomp(A), y )
+}))
+  generic_test_solve(solve);
+
+
 describe('lu', () => {
   beforeEach( () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
+
 
   function test_lu_decomp(A)
   {
@@ -60,14 +69,15 @@ describe('lu', () => {
      expect( matmul2(L,U) ).toBeAllCloseTo(A)
   }
 
-  it('lu_decomp works on example of shape [3,3]', () => {
+  it('lu_decomp correctly decomposes hand-crafted example of shape [3,3]', () => {
     const A = array(
       [[2, -1,  6],
        [1, -2,  3],
        [0,  2,-10]]
     )
     test_lu_decomp(A)
-  })
+  });
+
 
   forEachItemIn(
     function*(){
@@ -75,13 +85,14 @@ describe('lu', () => {
 
       for( let run=1024; run-- > 0; )
       {
-        let A_shape = Int32Array.from({ length: randInt(2,5) }, () => randInt(1,24))
-        A_shape[A_shape.length-2] = A_shape[A_shape.length-1]
-  
-        yield tabulate(A_shape, 'float64', () => Math.random()*2 - 1)
+        const A_shape = Int32Array.from({ length: randInt(2,6) }, () => randInt(1,4))
+              A_shape[ A_shape.length - 2 ] =
+              A_shape[ A_shape.length - 1 ] = randInt(1,32);
+        yield tabulate(A_shape, 'float64', () => Math.random()*8 - 4);
       }
     }()
-  ).it('lu_decomp works on random examples', test_lu_decomp)
+  ).it('lu_decomp correctly decomposes random examples', test_lu_decomp);
+
 
   forEachItemIn(
     function*(){
@@ -94,11 +105,11 @@ describe('lu', () => {
            P_shape,
            y_shape
         ] = function(){
-          const shape = Array.from({ length: randInt(2,6) }, () => randInt(1,8) ),
+          const shape = Array.from({ length: randInt(0,4) }, () => randInt(1,4) ),
                 shapes = [
-                  shape.slice( randInt(0, shape.length) ),
-                  shape.slice( randInt(0, shape.length) )
-                ]
+                  shape.slice( randInt(0, shape.length+1) ),
+                  shape.slice( randInt(0, shape.length+1) )
+                ];
           shapes.splice( randInt(0,3), 0, shape )
   
           for( let d=shape.length; d > 0; d-- )
@@ -112,8 +123,8 @@ describe('lu', () => {
           return shapes
         }()
 
-        const M = randInt(1,24),
-              N = randInt(1,24)
+        const M = randInt(1,32),
+              N = randInt(1,32)
         LU_shape.push(M,M)
          P_shape.push(M)
          y_shape.push(M,N)
@@ -162,5 +173,6 @@ describe('lu', () => {
     })
 
     expect(y).toBeAllCloseTo(Y)
-  })
-})
+  });
+
+});

@@ -78,17 +78,17 @@ describe('matmul', () => {
      expect(abc).toBeAllCloseTo(ABC)
   })
 
-  for( const dtype1 of ['float64', 'complex128'] )
-  for( const dtype2 of ['float64', 'complex128'] )
+  for( const dtype1 of ['int32', 'float64', 'complex128'] )
+  for( const dtype2 of ['int32', 'float64', 'complex128'] )
     forEachItemIn(
       function*(){
         const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
   
-        for( let run=1024; run-- > 0; )
+        for( let run=373; run-- > 0; )
         {
-          let cShape = Int32Array.from({ length: randInt(2,8) }, () => randInt(1,8) ),
+          let cShape = Int32Array.from({ length: randInt(2,6) }, () => randInt(1,4) ),
               aShape = cShape.slice(),
-              bShape = cShape.slice( randInt(0,cShape.length-2) );
+              bShape = cShape.slice( randInt(0,cShape.length-1) );
       
           for( let a=aShape.length-2, b=bShape.length-2; a-- > 0 && b-- > 0; )
             switch( randInt(0,3) )
@@ -99,27 +99,35 @@ describe('matmul', () => {
             }
       
           if( Math.random() < 0.5 ) {
-            const tmp = aShape; aShape = bShape; bShape = tmp;
-          }
-          aShape[aShape.length-2] = randInt(1,5)
-          aShape[aShape.length-1] = bShape[bShape.length-2]
-          bShape[bShape.length-1] = randInt(1,5)
+            const tmp = aShape;
+                        aShape = bShape;
+                                 bShape = tmp;
+          };
+          aShape[aShape.length-2] = randInt(1,16)
+          aShape[aShape.length-1] =
+          bShape[bShape.length-2] = randInt(1,16);
+          bShape[bShape.length-1] = randInt(1,16);
 
-          let a = Float64Array.from({length: aShape.reduce(math.mul,1)*(dtype1==='complex128' ? 2 : 1)}, ()=>Math.random()*2-1),
-              b = Float64Array.from({length: bShape.reduce(math.mul,1)*(dtype2==='complex128' ? 2 : 1)}, ()=>Math.random()*2-1)
-          if( dtype1==='complex128' ) a = new Complex128Array(a.buffer)
-          if( dtype2==='complex128' ) b = new Complex128Array(b.buffer)
+          let a = ( dtype1==='int32' ? Int32Array : Float64Array ).from( {length: aShape.reduce(math.mul,1)*(1 + (dtype1==='complex128'))}, () => Math.random()*4-2 ),
+              b = ( dtype2==='int32' ? Int32Array : Float64Array ).from( {length: bShape.reduce(math.mul,1)*(1 + (dtype2==='complex128'))}, () => Math.random()*4-2 );
+          if( dtype1==='complex128' ) a = new Complex128Array(a.buffer);
+          if( dtype2==='complex128' ) b = new Complex128Array(b.buffer);
           yield [
             new NDArray(aShape, a),
             new NDArray(bShape, b)
-          ]
+          ];
         }
       }()
     ).it(`matmul2 works on random examples with dtypes ${dtype1} and ${dtype2}`, ([a,b]) => {
       expect(a.dtype).toBe(dtype1)
       expect(b.dtype).toBe(dtype2)
-      const dtype3 = dtype1==='complex128'
-                  || dtype2==='complex128' ? 'complex128' : 'float64',
+      const dtype3 = function(){
+              if( dtype1 === 'complex128' ) return 'complex128';
+              if( dtype2 === 'complex128' ) return 'complex128';
+              if( dtype1 !==      'int32' ) return    'float64';
+              if( dtype2 !==      'int32' ) return    'float64';
+              return              'int32';
+            }(),
             c = matmul2(a,b),
             C = zip_elems([
               a.sliceElems('...','new'),

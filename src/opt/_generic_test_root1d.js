@@ -312,7 +312,7 @@ export function generic_test_root1d_bracketed( root1d )
 
 
     forEachItemIn(
-      linspace(0,64, 773*1337)
+      linspace(0,64, 13*1337)
     ).it('computes square roots correctly', xx => {
       let n=0;
       const xMin = 0,
@@ -336,7 +336,7 @@ export function generic_test_root1d_bracketed( root1d )
     })
 
     forEachItemIn(
-      linspace(0,64, 773*1337)
+      linspace(0,64, 13*1337)
     ).it('computes cube roots correctly', xxx => {
       let n=0;
       const xMin = 0,

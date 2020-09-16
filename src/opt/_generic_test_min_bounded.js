@@ -54,14 +54,7 @@ export function generic_test_min_gen_bounded_with_test_fn( minimize_bounded_gen,
   }
 
 
-  function rand_float( min, max )
-  {
-    const s = Math.random();
-    return min*(1-s) + s*max;
-  }
-
-
-  function rand_bounds( X )
+  function rand_bounds( rng, X )
   {
     const N = X.length;
 
@@ -76,13 +69,13 @@ export function generic_test_min_gen_bounded_with_test_fn( minimize_bounded_gen,
       x_min -= dx/2;
       x_max += dx/2;
 
-           if( Math.random() < 0.05 ) x_min = -Infinity;
-      else if( Math.random() < 0.05 ) x_min = x;
-      else                            x_min = rand_float(x,x_min);
+           if( rng.uniform(0,1) < 0.05 ) x_min = -Infinity;
+      else if( rng.uniform(0,1) < 0.05 ) x_min = x;
+      else                               x_min = rng.uniform(x,x_min);
 
-           if( Math.random() < 0.05 ) x_max = +Infinity;
-      else if( Math.random() < 0.05 ) x_max = x;
-      else                            x_max = rand_float(x,x_max);
+           if( rng.uniform(0,1) < 0.05 ) x_max = +Infinity;
+      else if( rng.uniform(0,1) < 0.05 ) x_max = x;
+      else                               x_max = rng.uniform(x,x_max);
 
       if( ! (x_min <= x) ) throw new Error('Assertion failed.');
       if( ! (x_max >= x) ) throw new Error('Assertion failed.');
@@ -165,7 +158,7 @@ export function generic_test_min_gen_bounded_with_test_fn( minimize_bounded_gen,
         }
 
         const gNorm = norm(g) / Math.sqrt(g.data.length);
-        if(   gNorm <= 1e-8 )
+        if(   gNorm <= 1e-5 )
           break
         expect(++nIter).toBeLessThan(16*1024)
       }
@@ -190,8 +183,8 @@ export function generic_test_min_gen_bounded_with_test_fn( minimize_bounded_gen,
 
 
   forEachItemIn(
-    function*(){
-      const N = Math.ceil( 2**(9.5/test_fn.nIn) );
+    function*(rng){
+      const N = Math.ceil( 2**(6.5/test_fn.nIn) );
 
       const seq = cartesian_prod(
         ...x_range.map( r => linspace(...r,N) )
@@ -199,25 +192,22 @@ export function generic_test_min_gen_bounded_with_test_fn( minimize_bounded_gen,
 
       for( const x of seq ) {
         Object.freeze(x);
-        yield Object.freeze([x, rand_bounds(x)]);
+        yield Object.freeze([x, rand_bounds(rng,x)]);
       }
-    }()  
-  ).it(`works with ${test_fn.name} given generated starting points`, test_body)
+    }
+  ).it(`minimizes ${test_fn.name} starting at generated x0`, test_body)
 
 
   forEachItemIn(
-    function*(){
-      for( let run=0; run++ < 733; )
+    function*(rng){
+      for( let run=0; run++ < 173; )
       {
-        const x = x_range.map( ([lo,hi]) => {
-          const s = Math.random();
-          return lo*(1-s) + s*hi;
-        })
+        const x = x_range.map( ([lo,hi]) => rng.uniform(lo,hi) );
 
-        yield Object.freeze([x, rand_bounds(x)]);
+        yield Object.freeze([x, rand_bounds(rng,x)]);
       }
-    }()
-  ).it(`works with ${test_fn.name} given random starting points`, test_body)
+    }
+  ).it(`minimizes ${test_fn.name} starting at random x0`, test_body)
 }
 
 
@@ -235,15 +225,15 @@ export function generic_test_min_gen_bounded( minimize_bounded_gen )
     generic_test_min_gen_bounded_with_test_fn( minimize_bounded_gen, brown_badscale, [[1e+6 - 2e+5, 1e+6 + 2e+5],
                                                                                       [2e-6 - 4e-7, 2e-6 + 4e-7]] ); // <- TODO: increase range of starting points once line search improved
 */
-    generic_test_min_gen_bounded_with_test_fn( minimize_bounded_gen, freudenstein_roth, [[ Math.PI  , +14],
-                                                                                         [-Math.PI/2,  +6]] );
+    generic_test_min_gen_bounded_with_test_fn( minimize_bounded_gen, freudenstein_roth, [[ 4, Math.PI*4],
+                                                                                         [-Math.PI/2, 5]] );
 
     generic_test_min_gen_bounded_with_test_fn( minimize_bounded_gen, helical_valley, [[-Math.PI/2, +2],
                                                                                       [-Math.PI/2, +2],
                                                                                       [-Math.PI/2, +1]] );
 
-    generic_test_min_gen_bounded_with_test_fn( minimize_bounded_gen, new JennrichSampson(10), [[-1, 0.35],
-                                                                                               [-1, 0.35]] );
+    generic_test_min_gen_bounded_with_test_fn( minimize_bounded_gen, new JennrichSampson(10), [[0.15, 0.32],
+                                                                                               [0.15, 0.32]] );
 /*
     generic_test_min_gen_bounded_with_test_fn( minimize_bounded_gen, powell_badscale, [[-10.1, +10.0], // <- avoids starting at x1=x2 which leads to a saddle point
                                                                                        [-10.0, +10.1]] );

@@ -32,7 +32,7 @@ describe('arrays.compare', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=0; run++ < 1337*1337; )
+      for( let run=0; run++ < 73*1337; )
       {
         const length = _rand_int(0,32);
 

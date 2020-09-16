@@ -20,12 +20,13 @@ import {cartesian_prod,
         enumerate,
         linspace,
         range,
+        repeat,
         zip} from '.'
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {_rand_int} from '../_test_data_generators'
 
 
-describe('_iter_utils', () => {
+describe('nd.iter', () => {
   beforeEach( () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
@@ -33,7 +34,7 @@ describe('_iter_utils', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=0; run++ < 16*1024; )
+      for( let run=0; run++ < 2048; )
       {
         const start = Math.random()*512 - 256,
                 end = Math.random()*512 - 256;
@@ -57,9 +58,9 @@ describe('_iter_utils', () => {
 
   forEachItemIn(
     function*(){
-      for( let start = -64; start <=  64; start++ )
-      for( let stop  = -64; stop  <=  64; stop ++ )
-      for( let step  =   1; step  <= 128; step ++ )
+      for( let start = -32; start <= 32; start++ )
+      for( let stop  = -32; stop  <= 32; stop ++ )
+      for( let step  =   1; step  <= 64; step ++ )
         yield [start, stop, step];
     }()
   ).it('range works for generated examples with step > 0', ([start, stop, step]) => {
@@ -97,9 +98,9 @@ describe('_iter_utils', () => {
 
   forEachItemIn(
     function*(){
-      for( let start = -64; start <=  64; start++ )
-      for( let stop  = -64; stop  <=  64; stop ++ )
-      for( let step  =   1; step  <= 128; step ++ )
+      for( let start = -48; start <= 48; start++ )
+      for( let stop  = -48; stop  <= 48; stop ++ )
+      for( let step  =   1; step  <= 48; step ++ )
         yield [start, stop, -step];
     }()
   ).it('range works for generated examples with step < 0', ([start, stop, step]) => {
@@ -114,11 +115,42 @@ describe('_iter_utils', () => {
   })
 
 
-  it('cartesian_prod works for examples with 1, 2, 3 and 4 args', () => {
+  it('cartesian_prod works for a single  example  with 0, 1, 2, 3 and 4 args', () => {
     const a = Object.freeze([...range( 16, 32) ]),
           b = Object.freeze([...range( 64, 80) ]),
           c = Object.freeze([...range( 96, 99) ]),
           d = Object.freeze([...range(-17, -3) ]);
+
+    const prod_a = [],
+          prod_ab = [],
+          prod_abc = [],
+          prod_abcd = [];
+    for( const x of a ) { prod_a   .push([x]);
+    for( const y of b ) { prod_ab  .push([x,y]);
+    for( const z of c ) { prod_abc .push([x,y,z]);
+    for( const u of d ) { prod_abcd.push([x,y,z,u]); }}}}
+
+    expect([...cartesian_prod(       ) ]).toEqual( Object.freeze([[]]     ) );
+    expect([...cartesian_prod(a      ) ]).toEqual( Object.freeze(prod_a   ) );
+    expect([...cartesian_prod(a,b    ) ]).toEqual( Object.freeze(prod_ab  ) );
+    expect([...cartesian_prod(a,b,c  ) ]).toEqual( Object.freeze(prod_abc ) );
+    expect([...cartesian_prod(a,b,c,d) ]).toEqual( Object.freeze(prod_abcd) );
+  })
+
+
+  forEachItemIn(
+    function*(){
+      const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from;
+
+      for( let i=0; i < 7; i++ ) { const a = function(){ const a0 = randInt(-1337,+1337); return Array.from({length: i}, (_,h) => h+a0); }();
+      for( let j=0; j < 7; j++ ) { const b = function(){ const b0 = randInt(-1337,+1337); return Array.from({length: j}, (_,h) => h+b0); }();
+      for( let k=0; k < 7; k++ ) { const c = function(){ const c0 = randInt(-1337,+1337); return Array.from({length: k}, (_,h) => h+c0); }();
+      for( let l=0; l < 7; l++ ) { const d = function(){ const d0 = randInt(-1337,+1337); return Array.from({length: l}, (_,h) => h+d0); }();
+        yield Object.freeze([a,b,c,d]);
+      }}}}
+    }()
+  ).it('cartesian_prod works for generated examples with    1, 2, 3 and 4 args', ([a,b,c,d]) => {
+    // console.log('a,b,c,d:\n[' + a + ']\n[' + b + ']\n[' + c + ']\n[' + d + ']');
 
     const prod_a = [],
           prod_ab = [],
@@ -138,7 +170,7 @@ describe('_iter_utils', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=0; run++ < 7*1337; )
+      for( let run=0; run++ < 1733; )
       {
         const length = _rand_int(0,1337);
 
@@ -160,7 +192,7 @@ describe('_iter_utils', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=0; run++ < 7*1337; )
+      for( let run=0; run++ < 3*1337; )
         yield Object.freeze([
           Array.from({length: _rand_int(0,512)}, () => _rand_int(-1337,+1337) ),
           Array.from({length: _rand_int(0,512)}, () => _rand_int(-1337,+1337) )
@@ -183,7 +215,7 @@ describe('_iter_utils', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=0; run++ < 7*1337; )
+      for( let run=0; run++ < 3*1337; )
         yield Object.freeze([
           Array.from({length: _rand_int(0,512)}, () => _rand_int(-1337,+1337) ),
           Array.from({length: _rand_int(0,512)}, () => _rand_int(-1337,+1337) ),
@@ -202,5 +234,26 @@ describe('_iter_utils', () => {
       n++;
     }
     expect(n).toBe(N);
+  })
+
+
+  forEachItemIn(
+    cartesian_prod(
+      ['Cat', 'Dog', 'Golden hamster', 'Guinea pig', 'Tarantula', 'Turtle', 'Bird', 'Gold fish'],
+      range(0,17)
+    )
+  ).it('repeat(n,seq) works given generated inputs', ([s,n]) => {
+    expect( [...repeat(n,s) ].join('') ).toBe( s.repeat(n) );
+  })
+
+
+  forEachItemIn(
+    ['Cat', 'Dog', 'Golden hamster', 'Guinea pig', 'Tarantula', 'Turtle', 'Bird', 'Gold fish', [1,2,3], [5,6], [7]]
+  ).it('repeat(  seq) works given generated inputs', s => {
+    const r = repeat(s)[Symbol.iterator]();
+
+    for( let run=0; run++ < 1337; )
+      for( const x of s )
+        expect(r.next().value).toBe(x);
   })
 })

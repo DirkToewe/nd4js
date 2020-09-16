@@ -29,10 +29,10 @@ describe('transpose_inplace', () => {
   forEachItemIn(
     function*(){
       function* shapes() {
-        for( let i=1; i <= 8; i++ ) { yield [i,i]
-        for( let j=1; j <= 8; j++ ) { yield [i,j,j]
-        for( let k=1; k <= 8; k++ ) { yield [i,j,k,k]
-        for( let l=1; l <= 8; l++ ) { yield [i,j,k,l,l] }}}}
+        for( let i=1; i < 7; i++ ) { yield [i,i]
+        for( let j=1; j < 7; j++ ) { yield [i,j,j]
+        for( let k=1; k < 7; k++ ) { yield [i,j,k,k]
+        for( let l=1; l < 7; l++ ) { yield [i,j,k,l,l] }}}}
       }
 
       for( const shape of shapes() )
@@ -45,6 +45,6 @@ describe('transpose_inplace', () => {
   ).it('works on generated examples', A => {
     const A_T = A.T
     transpose_inplace(A)
-    expect(A).toBeAllCloseTo(A_T)
+    expect(A).toBeAllCloseTo(A_T, {rtol:0,atol:0});
   })
 })

@@ -16,30 +16,8 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {forEachItemIn} from '../jasmine_utils'
-import {eye} from './eye'
+import {generic_test_svd_decomp} from "./_generic_test_svd_decomp";
+import {svd_jac_classic} from './svd_jac_classic';
 
 
-describe('eye', () => {
-  forEachItemIn(
-    function*(){
-      for( let i=0; i++ < 8; ) { yield [i]
-      for( let j=0; j++ < 8; ) { yield [i,j]
-      for( let k=0; k++ < 7; ) { yield [i,j,k]
-      for( let l=0; l++ < 7; ) { yield [i,j,k,l] }}}}
-    }()
-  ).it('works on random shapes', shape => {
-    const I = eye(...shape)
-
-    if( shape.length === 1 )
-      shape = [...shape, ...shape]
-    shape = Int32Array.from(shape)
-
-    expect(I.shape).toEqual(shape)
-
-    for( const [idx,I_idx] of I.elems() ) {
-      const [i,j] = idx.slice(-2)
-      expect(I_idx).toBe( 1*(i===j) )
-    }
-  })
-})
+generic_test_svd_decomp(svd_jac_classic);

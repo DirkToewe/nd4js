@@ -25,7 +25,7 @@ import {Complex128Array} from "../dt/complex_array";
 import {is_array} from './is_array'
 
 
-describe('arrays.compare', () => {
+describe('is_array', () => {
 
   forEachItemIn([
                 Array,

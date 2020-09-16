@@ -34,13 +34,13 @@ describe('newton', () => {
 
 
   forEachItemIn(
-    function*(){
+    function*(rng){
 
       for( let run=1024; run-- > 0; )
       {
-        const X  = Math.random()*2 - 1,
-              c  = Math.random()*2 + 1,
-              x0 = Math.random()*4 - 2;
+        const X  = rng.uniform(-1,+1),
+              c  = rng.uniform(+1,+3),
+              x0 = rng.uniform(-2,+2);
 
         const fH = ({data: [x,y]}) => [
            [ (x-X)*(x*x+c) ],
@@ -54,7 +54,7 @@ describe('newton', () => {
         yield [fH, X, x0];
       }
 
-    }()
+    }
   ).it('root_newton_gen solves generated univariate example.', ([fH, X, x0]) => {
     let x,f,H, nIter = -1,
           F = Infinity;
@@ -87,14 +87,14 @@ describe('newton', () => {
 
 
   forEachItemIn(
-    function*(){
+    function*(rng){
 
       for( let run=1024; run-- > 0; )
       {
-        const X  = Math.random()*2 - 1,
-              Y  = Math.random()*2 - 1,
-              x0 = Math.random()*4 - 2,
-              y0 = Math.random()*4 - 2;
+        const X  = rng.uniform(-1,+1),
+              Y  = rng.uniform(-1,+1),
+              x0 = rng.uniform(-2,+2),
+              y0 = rng.uniform(-2,+2);
 
         const fH = ({data: [x,y]}) => [
            [ x-X,
@@ -110,7 +110,7 @@ describe('newton', () => {
         yield [fH, X,Y, x0,y0];
       }
 
-    }()
+    }
   ).it('root_newton_gen solves generated bivariate example.', ([fH, X,Y, x0,y0]) => {
     let xy,f,H, nIter = -1,
            F = Infinity;

@@ -59,7 +59,7 @@ export function generic_test_line_search_with_test_fn( line_search, test_fn, x_r
 
     forEachItemIn(
       function*(){
-        const N = Math.round( 2**(16/test_fn.nIn) );
+        const N = Math.round( 2**(12.3/test_fn.nIn) );
 
         const samples = cartesian_prod(
           ...x_range.map( r => linspace(...r,N) )

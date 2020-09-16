@@ -34,7 +34,7 @@ describe('fit_lin', () => {
   forEachItemIn(
     function*(){
 
-      for( let run=1024; run-- > 0; )
+      for( let run=512; run-- > 0; )
       {
         let funcs = [
           x => 1,
@@ -81,7 +81,7 @@ describe('fit_lin', () => {
   forEachItemIn(
     function*(){
 
-      for( let run=256; run-- > 0; )
+      for( let run=137; run-- > 0; )
       {
         let funcs = [
           ([x,y]) => 1,

@@ -24,118 +24,120 @@ import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {_rand_int} from '../_test_data_generators'
 
 
-describe('iters min/max', () => {
+describe('nd.iter min/max', () => {
   beforeEach( () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
-  })
+  });
+
+
 
 
   forEachItemIn(
     function*(){
-      for( let run=0; run++ < 32*1024; )
+      for( let run=0; run++ < 4096; )
         yield Object.freeze(
           Array.from({length: _rand_int(1,1337)}, () => _rand_int(-1337,+1337))
         );
     }()
   ).it('argmin works given random examples', seq => {
-    const i = argmin(seq);
-    expect( seq           .every(x => x >= seq[i]) ).toBeTrue();
-    expect( seq.slice(0,i).every(x => x >  seq[i]) ).toBeTrue();
-  })
+    const                                                      i = argmin(seq);
+              expect(seq           ).toBeAllGreaterOrClose(seq[i], {rtol:0, atol:0});
+    if(0!==i) expect(seq.slice(0,i)).toBeAllGreater       (seq[i], {rtol:0, atol:0});
+  });
 
 
   forEachItemIn(
     function*(){
-      for( let run=0; run++ < 32*1024; )
+      for( let run=0; run++ < 4096; )
         yield Object.freeze(
           Array.from({length: _rand_int(1,1337)}, () => _rand_int(-1337,+1337))
         );
     }()
   ).it('argmin works given random examples and custom comparator', seq => {
-    const i = argmin(seq, (x,y) => y-x);
-    expect( seq           .every(x => x <= seq[i]) ).toBeTrue();
-    expect( seq.slice(0,i).every(x => x <  seq[i]) ).toBeTrue();
-  })
+    const                                                   i = argmin(seq, (x,y) => y-x);
+              expect(seq           ).toBeAllLessOrClose(seq[i], {rtol:0, atol:0});
+    if(0!==i) expect(seq.slice(0,i)).toBeAllLess       (seq[i], {rtol:0, atol:0});
+  });
 
 
   forEachItemIn(
     function*(){
-      for( let run=0; run++ < 32*1024; )
+      for( let run=0; run++ < 4096; )
         yield Object.freeze(
           Array.from({length: _rand_int(1,1337)}, () => _rand_int(-1337,+1337))
         );
     }()
   ).it('argmax works given random examples', seq => {
-    const i = argmax(seq);
-    expect( seq           .every(x => x <= seq[i]) ).toBeTrue();
-    expect( seq.slice(0,i).every(x => x <  seq[i]) ).toBeTrue();
-  })
+    const                                                   i = argmax(seq);
+              expect(seq           ).toBeAllLessOrClose(seq[i], {rtol:0, atol:0});
+    if(0!==i) expect(seq.slice(0,i)).toBeAllLess       (seq[i], {rtol:0, atol:0});
+  });
 
 
   forEachItemIn(
     function*(){
-      for( let run=0; run++ < 32*1024; )
+      for( let run=0; run++ < 4096; )
         yield Object.freeze(
           Array.from({length: _rand_int(1,1337)}, () => _rand_int(-1337,+1337))
         );
     }()
   ).it('argmax works given random examples and custom comparator', seq => {
-    const i = argmax(seq, (x,y) => y-x);
-    expect( seq           .every(x => x >= seq[i]) ).toBeTrue();
-    expect( seq.slice(0,i).every(x => x >  seq[i]) ).toBeTrue();
-  })
+    const                                                      i = argmax(seq, (x,y) => y-x);
+              expect(seq           ).toBeAllGreaterOrClose(seq[i], {rtol:0, atol:0});
+    if(0!==i) expect(seq.slice(0,i)).toBeAllGreater       (seq[i], {rtol:0, atol:0});
+  });
 
 
 
 
   forEachItemIn(
     function*(){
-      for( let run=0; run++ < 32*1024; )
+      for( let run=0; run++ < 4096; )
         yield Object.freeze(
           Array.from({length: _rand_int(1,1337)}, () => _rand_int(-1337,+1337))
         );
     }()
   ).it('min works given random examples', seq => {
-    const v = min(seq);
-    expect( seq.every(x => x >= v) ).toBeTrue();
+    const                             v = min(seq);
+    expect(seq).toBeAllGreaterOrClose(v, {rtol:0, atol:0});
   })
 
 
   forEachItemIn(
     function*(){
-      for( let run=0; run++ < 32*1024; )
+      for( let run=0; run++ < 4096; )
         yield Object.freeze(
           Array.from({length: _rand_int(1,1337)}, () => _rand_int(-1337,+1337))
         );
     }()
   ).it('min works given random examples and custom comparator', seq => {
-    const v = min(seq, (x,y) => y-x);
-    expect( seq.every(x => x <= v) ).toBeTrue();
+    const                          v = min(seq, (x,y) => y-x);
+    expect(seq).toBeAllLessOrClose(v, {rtol:0, atol:0});
   })
 
 
   forEachItemIn(
     function*(){
-      for( let run=0; run++ < 32*1024; )
+      for( let run=0; run++ < 4096; )
         yield Object.freeze(
           Array.from({length: _rand_int(1,1337)}, () => _rand_int(-1337,+1337))
         );
     }()
   ).it('max works given random examples', seq => {
-    const v = max(seq);
-    expect( seq.every(x => x <= v) ).toBeTrue();
+    const                          v = max(seq);
+    expect(seq).toBeAllLessOrClose(v, {rtol:0, atol:0});
   })
 
 
   forEachItemIn(
     function*(){
-      for( let run=0; run++ < 32*1024; )
+      for( let run=0; run++ < 4096; )
         yield Object.freeze(
           Array.from({length: _rand_int(1,1337)}, () => _rand_int(-1337,+1337))
         );
     }()
   ).it('max works given random examples and custom comparator', seq => {
-    const v = max(seq, (x,y) => y-x);
-    expect( seq.every(x => x >= v) ).toBeTrue();
+    const                             v = max(seq, (x,y) => y-x);
+    expect(seq).toBeAllGreaterOrClose(v, {rtol:0, atol:0});
   })
 });

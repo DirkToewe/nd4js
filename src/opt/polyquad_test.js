@@ -23,12 +23,12 @@ import {roots1d_polyquad} from './polyquad'
 
 describe('polyquad', () => {
   forEachItemIn(
-    function*() {
-      const N = 24;
+    function*(rng) {
+      const N = 12;
 
       function* xRange() {
         for( let i=-N; i <= +N; i++ )
-          yield Math.PI * i/42;
+          yield Math.PI * i/N;
 
         for( let i=-N; i <= +N; i++ )
           yield Number.EPSILON*i;
@@ -39,14 +39,14 @@ describe('polyquad', () => {
 
       function* cRange() {
         for( let run=N; run-- > 0; )
-          yield Math.random()*8-4;
+          yield rng.uniform(-4,+4);
       }
 
       for( const x1 of xRange() )
       for( const x2 of xRange() )
       for( const c  of cRange() )
         yield [c,x1,x2];
-    }()
+    }
   ).it('roots1d_polyquad(a,b,c) satisfies element-wise mixed stability', ([c, x1, x2]) => {
     let a = +(x1*x2) * c,
         b = -(x1+x2) * c;

@@ -27,11 +27,11 @@ describe('binary_search', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=0; run < 160; run++ )
-      for( let len=0; len < 160; len++ )
+      for( let run=0; run < 128; run++ )
+      for( let len=0; len < 128; len++ )
       {
         const array = [];
-        let x = _rand_int(-1337,+1337);
+        let x = _rand_int(-733,+733);
         for( let i=len; i-- > 0; )
           array.push( x += _rand_int(0,4) );
         yield Object.freeze(array);
@@ -67,11 +67,11 @@ describe('binary_search', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=0; run < 160; run++ )
-      for( let len=0; len < 160; len++ )
+      for( let run=0; run < 128; run++ )
+      for( let len=0; len < 128; len++ )
       {
         const array = [];
-        let x = _rand_int(-1337,+1337);
+        let x = _rand_int(-733,+733);
         for( let i=len; i-- > 0; )
           array.push( x -= _rand_int(0,4) );
         yield Object.freeze(array);
@@ -111,11 +111,11 @@ describe('binary_rangesearch', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=0; run < 112; run++ )
-      for( let len=0; len < 112; len++ )
+      for( let run=0; run < 73; run++ )
+      for( let len=0; len < 73; len++ )
       {
         const array = [];
-        let x = _rand_int(-1337,+1337);
+        let x = _rand_int(-337,+337);
         for( let i=len; i-- > 0; )
           array.push( x += _rand_int(0,4) );
         yield Object.freeze(array);
@@ -155,11 +155,11 @@ describe('binary_rangesearch', () => {
 
   forEachItemIn(
     function*(){
-      for( let run=0; run < 112; run++ )
-      for( let len=0; len < 112; len++ )
+      for( let run=0; run < 73; run++ )
+      for( let len=0; len < 73; len++ )
       {
         const array = [];
-        let x = _rand_int(-1337,+1337);
+        let x = _rand_int(-337,+337);
         for( let i=len; i-- > 0; )
           array.push( x -= _rand_int(0,4) );
         yield Object.freeze(array);

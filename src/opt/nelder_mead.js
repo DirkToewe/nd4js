@@ -23,10 +23,11 @@ import {regular_simplex} from "../geom/simplex";
 
 import {matmul2} from "../la/matmul";
 import {FrobeniusNorm} from '../la/norm';
-import {rand_ortho} from '../la/rand_ortho'
 
 import {argmax,
         argmin} from '../iter/min_max'
+
+import {AleaRNG} from "../rand/alea_rng";
 
 import {OptimizationNoProgressError} from "./optimization_error";
 
@@ -35,6 +36,7 @@ import {OptimizationNoProgressError} from "./optimization_error";
 // ----------
 // .. [1] "A  simplex  method  for  function  minimization."
 //         J. A. Nelder and R. Mead
+const RNG = new AleaRNG('opt/nelder_mead.js');
 
 
 export function* min_nelder_mead_gen(
@@ -47,7 +49,8 @@ export function* min_nelder_mead_gen(
     worstRatio    = 1e-10,
     contractOuter = 2 / (1 + Math.sqrt(5)),
     contractInner = 2 / (1 + Math.sqrt(5)),
-    shrink        = 2.5/Math.PI
+    shrink        = 2.5/Math.PI,
+    rng = RNG
   } = {}
 )
 {
@@ -110,7 +113,7 @@ export function* min_nelder_mead_gen(
   }
 
   // INIT SIMPLEX
-  const {data: verts_x} = matmul2( regular_simplex(N), rand_ortho(N) );
+  const {data: verts_x} = matmul2( regular_simplex(N), rng.ortho(N) );
 
   for( let i=N+1; i-- > 0; )
   for( let j=N  ; j-- > 0; )

@@ -16,8 +16,9 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {array, NDArray} from './nd_array'
+import {Complex128Array} from './dt';
 import {forEachItemIn} from './jasmine_utils'
+import {array, NDArray} from './nd_array'
 
 
 describe('NDArray.dtype', () => {
@@ -161,57 +162,63 @@ describe('NDArray(...indices)', () => {
     test()
   })
 
-  forEachItemIn(
-    function*(){ 
-      for( const T of [Array, Int32Array, Float32Array, Float64Array] )
-      {
-        yield [T,[]]
-        for( let i=1; i <= 4; i++ ) { yield [T,Int32Array.of(i)]
-        for( let j=1; j <= 4; j++ ) { yield [T,Int32Array.of(i,j)]
-        for( let k=1; k <= 4; k++ ) { yield [T,Int32Array.of(i,j,k)] }}}
-      }
-    }()
-  ).it('works on generated examples', ([ArrayType,shape]) => {
-    expect( shape.every( d => 0 < d && d < 10 ) ).toBe(true)
 
-    const len = shape.length,
-          arr = new NDArray( Int32Array.from(shape), ArrayType.from(
-            { length: shape.reduce( (len,d) => len*d, 1 ) },
-            (_,i) => i
-          )),
-          visited = Uint8Array.from(arr.data, () => 0 )
+  for( const [DType,ArrayType] of Object.entries({
+        'object':           Array,
+         'int32':      Int32Array,
+       'float32':    Float32Array,
+       'float64':    Float64Array,
+    'complex128': Complex128Array
+  }))
+    forEachItemIn(
+      function*(){                 yield Int32Array.of();
+        for( let i=0; i++ < 4; ) { yield Int32Array.of(i);
+        for( let j=0; j++ < 4; ) { yield Int32Array.of(i,j);
+        for( let k=0; k++ < 3; ) { yield Int32Array.of(i,j,k); }}}
+      }()
+    ).it(`works on generated ${ `'${DType}'`.padStart(12) } examples`, shape => {
+      expect( shape.every( d => 0 < d && d < 10 ) ).toBe(true)
 
-    function test(d, ...multi_idx)
-    {
-      if( shape.length == d )
+      const len = shape.length,
+            arr = new NDArray( Int32Array.from(shape), ArrayType.from(
+              { length: shape.reduce( (len,d) => len*d, 1 ) },
+              (_,i) => i
+            )),
+            visited = Uint8Array.from(arr.data, () => 0 )
+
+      expect(arr.dtype).toBe(DType);
+
+      function test(d, ...multi_idx)
       {
-        let idx = 0,
-            stride = 1,
-            out_of_bounds = false
-        for( let i=len; i-- > 0; stride *= shape[i] )
+        if( shape.length == d )
         {
-          idx += multi_idx[i] * stride
-          if(0 > multi_idx[i])
-            idx  +=  shape[i] * stride
-          out_of_bounds |= (
-               multi_idx[i] < -shape[i] 
-            || multi_idx[i] >= shape[i]
-          )
+          let idx = 0,
+              stride = 1,
+              out_of_bounds = false
+          for( let i=len; i-- > 0; stride *= shape[i] )
+          {
+            idx += multi_idx[i] * stride
+            if(0 > multi_idx[i])
+              idx  +=  shape[i] * stride
+            out_of_bounds |= (
+                 multi_idx[i] < -shape[i] 
+              || multi_idx[i] >= shape[i]
+            )
+          }
+          if( out_of_bounds )
+            expect( () => arr(...multi_idx) ).toThrow()
+          else {
+            expect( 4*(1<<len) ).not.toBeLessThan( ++visited[idx] )
+            expect( arr(...multi_idx)*1 ).toBe(idx)
+          }
         }
-        if( out_of_bounds )
-          expect( () => arr(...multi_idx) ).toThrow()
-        else {
-          expect( 4*(1<<len) ).not.toBeLessThan( ++visited[idx] )
-          expect( arr(...multi_idx) ).toBe(idx)
-        }
+        else for( let i=-8; i < +8; i++ )
+          test(d+1, ...multi_idx, i)
       }
-      else for( let i=-8; i < +8; i++ )
-        test(d+1, ...multi_idx, i)
-    }
-    test(0)
-    expect( visited.every( x => x === 1<<len ) ).toBe(true)
+      test(0)
+      expect( visited.every( x => x === 1<<len ) ).toBe(true)
+    })
   })
-})
 
 
 describe('NDArray.elems', () => {

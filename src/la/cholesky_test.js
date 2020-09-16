@@ -34,10 +34,10 @@ describe('cholesky', () => {
     function*(){
       const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
 
-      for( let run=6144; run-- > 0; )
+      for( let run=2048; run-- > 0; )
       {
         let ndim = randInt(0,4),
-          shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
+          shapes = [ Array.from({length: ndim}, () => randInt(1,4)) ]
         shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
 
         for( let d=ndim; d > 0; d-- )
@@ -47,8 +47,8 @@ describe('cholesky', () => {
           if(0<=j) shape[j] = 1
         }
 
-        const M = randInt(1,24); shapes[0].push(M,M)
-        const N = randInt(1,24); shapes[1].push(M,N)
+        const M = randInt(1,32); shapes[0].push(M,M)
+        const N = randInt(1,32); shapes[1].push(M,N)
 
         const y = tabulate(shapes[1],'float64', () => Math.random()*2-1),
               L = tabulate(shapes[0],'float64', (...indices) => {
@@ -73,9 +73,9 @@ describe('cholesky', () => {
     function*(){
       const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
 
-      for( let run=4096; run-- > 0; )
+      for( let run=2048; run-- > 0; )
       {
-        const shape = Int32Array.from({ length: randInt(2,6) }, () => randInt(1,8) );
+        const shape = Int32Array.from({ length: randInt(2,6) }, () => randInt(1,4) );
         shape[shape.length-2] =
         shape[shape.length-1] = randInt(1,32);
         yield tabulate(shape,'float64',(...indices) => {
@@ -101,7 +101,7 @@ describe('cholesky', () => {
   forEachItemIn(
     function*(){
 
-      for( let N=3; N < 1536; N = N*1.4 | 0 )
+      for( let N=1; N < 1024; N = Math.max(N+1,N*1.5) | 0 )
       {
         const A = new NDArray(
             Int32Array.of(N,N),

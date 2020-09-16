@@ -18,24 +18,12 @@
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {NDArray} from '../nd_array'
-import {diag_mat} from './diag'
 import {tabulate} from '../tabulate'
-import {_rand_rows0,
-        _rand_cols0} from '../_test_data_generators'
-import {zip_elems} from '../zip_elems'
-import {matmul, matmul2} from './matmul'
+import {matmul,
+        matmul2} from './matmul'
 import {eye} from './eye'
-import {eps} from '../dt'
-import {norm} from './norm'
 
-import {svd_rank,
-        svd_decomp,
-        svd_solve,
-        svd_lstsq} from './svd'
-import {svd_jac_2sided        } from './svd_jac_2sided'
-import {svd_jac_2sided_blocked} from './svd_jac_2sided_blocked'
-import {svd_jac_classic       } from './svd_jac_classic'
-import {rand_ortho} from './rand_ortho'
+import {generic_test_svd_decomp} from "./_generic_test_svd_decomp";
 import {svd_dc,
        _svd_dc_1x2,
        _svd_dc_2x3,
@@ -43,25 +31,28 @@ import {svd_dc,
        _svd_dc_bidiag} from './svd_dc'
 
 
+generic_test_svd_decomp(svd_dc);
+
+
 describe('svd_dc', () => {
   beforeEach( () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
-  })
+  });
 
 
   forEachItemIn(
-    function*(){
-      for( let run=1024; run-- > 0; )
+    function*(rng){
+      for( let run=7331; run-- > 0; )
       {
-        const rng = () => Math.random() < 0.1 ? 0 : Math.random()*2-1
-        const B = new NDArray(
-            Int32Array.of(1,2),
-          Float64Array.of( rng(), rng() )
-        );
+        const rand = () => rng.uniform(-4,+4) * (rng.uniform(0,1) < 0.9),
+                 B = new NDArray(
+                     Int32Array.of(1,2),
+                   Float64Array.of( rand(), rand() )
+                 );
         Object.freeze(B.data.buffer);
         yield B;
       }
-    }()
+    }
   ).it('_svd_dc_1x2 works random square examples', B => {
     const U_arr = new Float64Array(1),
          BV_arr =     Float64Array.of( B(0,0), B(0,1), 0,0,0,0 );
@@ -74,11 +65,9 @@ describe('svd_dc', () => {
 
     expect(BV_arr[0]).not.toBeLessThan(0);
 
-    const I = eye(2);
-
     expect( matmul2(U,U.T) ).toBeAllCloseTo(1)
     expect( matmul2(U.T,U) ).toBeAllCloseTo(1)
-
+    const                                   I = eye(2);
     expect( matmul2(V,V.T) ).toBeAllCloseTo(I)
     expect( matmul2(V.T,V) ).toBeAllCloseTo(I)
   
@@ -87,21 +76,21 @@ describe('svd_dc', () => {
 
 
   forEachItemIn(
-    function*(){
-      for( let run=1024; run-- > 0; )
+    function*(rng){
+      for( let run=7331; run-- > 0; )
       {
-        const rng = () => Math.random() < 0.1 ? 0 : Math.random()*2-1
-        const B = new NDArray(
-            Int32Array.of(2,3),
-          Float64Array.of(
-               rng(), rng(), 0,
-            0, rng(), rng()
-          )
-        );
+        const rand = () => rng.uniform(-4,+4) * (rng.uniform(0,1) < 0.9),
+                 B = new NDArray(
+                     Int32Array.of(2,3),
+                   Float64Array.of(
+                        rand(), rand(), 0,
+                     0, rand(), rand()
+                   )
+                 );
         Object.freeze(B.data.buffer);
         yield B;
       }
-    }()
+    }
   ).it('_svd_dc_2x3 works random square examples', B => {
     const U_arr = new Float64Array(4),
          BV_arr =     Float64Array.of(B(0,0), B(0,1), B(1,1), B(1,2), ...new Float64Array(9));
@@ -116,12 +105,11 @@ describe('svd_dc', () => {
     expect(BV_arr[2]).not.toBeLessThan(0);
     expect(BV_arr[0]).not.toBeLessThan(BV_arr[2]);
 
-    const I2 = eye(2),
-          I3 = eye(3);
-
+    const                                   I2 = eye(2);
     expect( matmul2(U,U.T) ).toBeAllCloseTo(I2)
     expect( matmul2(U.T,U) ).toBeAllCloseTo(I2)
 
+    const                                   I3 = eye(3);
     expect( matmul2(V,V.T) ).toBeAllCloseTo(I3)
     expect( matmul2(V.T,V) ).toBeAllCloseTo(I3)
   
@@ -130,38 +118,33 @@ describe('svd_dc', () => {
 
 
   forEachItemIn(
-    function*(){
-      for( let run=0; run < 256; run++ )
-      for( let N=2; N < 32; N++ )
+    function*(rng){
+      for( let run=0; run < 32; run++ )
+      for( let   N=2;   N < 32;   N++ )
       {
         const M = N-1,
             mid = M >>> 1;
 
-        const rng = () => (Math.random()*2-1) * (Math.random() < 0.875),
-             diag = Float64Array.from({length: M}, () => Math.random());
+        const rand = () => rng.uniform(-4,+4) * (rng.uniform(0,1) < 0.875),
+              diag = Float64Array.from({length: M}, () => rng.uniform(0,4) );
         diag[0] = 0;
 
-        if( Math.random() >= 0.9375 )
+        if( rng.uniform(0,1) >= 0.9375 )
           // create duplicates on diagonal
-          for( let k=Math.random()*(M-1) | 0; k-- > 0; )
-          {
-            let i = (Math.random()*(M-1) | 0) + 1,
-                j =  Math.random()* M    | 0;
+          for( let k = rng.int(0,M); k-- > 0; )
+          {    let i = rng.int(1,M),
+                   j = rng.int(0,M);
             diag[i] = diag[j];
           }
 
-        if( Math.random() >= 0.9375 )
+        if( rng.uniform(0,1) >= 0.9375 )
           // create near-duplicates on diagonal
-          for( let k=Math.random()*(M-1) | 0; k-- > 0; )
-          {
-            let i = (Math.random()*(M-1) | 0) + 1,
-                j =  Math.random()* M    | 0;
-
-            const factor = 1 + Number.EPSILON*Math.random()*(200 - 100);
-
+          for( let k = rng.int(0,M); k-- > 0; )
+          {    let i = rng.int(1,M),
+                   j = rng.int(0,M);
+            const               factor = 1 + Number.EPSILON * rng.uniform(-100,+100);
             diag[i] = diag[j] * factor;
-
-            if( 0 === diag[i] ) diag[i] = Number.MIN_VALUE*Math.random()*(200 - 100);
+            if( 0 === diag[i] ) diag[i] = Number.MIN_VALUE * rng.uniform(0,100);
           }
 
         if(      0 !== diag[0] ) throw new Error('Assertion failed.');
@@ -172,18 +155,18 @@ describe('svd_dc', () => {
         const A = tabulate([M,N], 'float64', () => 0);
         for( let i=0; i < M; i++ ) {
           A.set([  i,i], diag[i]);
-          A.set([mid,i], rng());
+          A.set([mid,i], rand());
         }
 
-        const L = rand_ortho('float64', M),
-              R = rand_ortho('float64', N);
+        const L = rng.ortho('float64', M),
+              R = rng.ortho('float64', N);
 
         Object.freeze(L.data.buffer);
         Object.freeze(A.data.buffer);
         Object.freeze(R.data.buffer);
         yield [L,A,R];
       }
-    }()
+    }
   ).it('_svd_dc_neves works for random square examples', ([L,A,R]) => {
     const [M,N] = A.shape.slice(-2),
            mid  = M >>> 1;
@@ -193,10 +176,10 @@ describe('svd_dc', () => {
     expect(R.dtype).toBe('float64')
 
     // check orthogonality
-    { const I = eye(M);
+    { const                                 I = eye(M);
       expect(matmul2(L,L.T)).toBeAllCloseTo(I);
       expect(matmul2(L.T,L)).toBeAllCloseTo(I); }
-    { const I = eye(N);
+    { const                                 I = eye(N);
       expect(matmul2(R,R.T)).toBeAllCloseTo(I);
       expect(matmul2(R.T,R)).toBeAllCloseTo(I); }
 
@@ -246,10 +229,10 @@ describe('svd_dc', () => {
     Object.freeze(V.data.buffer);
 
     // check orthogonality
-    { const I = eye(M);
+    { const                                 I = eye(M);
       expect(matmul2(U,U.T)).toBeAllCloseTo(I);
       expect(matmul2(U.T,U)).toBeAllCloseTo(I); }
-    { const I = eye(N);
+    { const                                 I = eye(N);
       expect(matmul2(V,V.T)).toBeAllCloseTo(I);
       expect(matmul2(V.T,V)).toBeAllCloseTo(I); }
 
@@ -265,28 +248,26 @@ describe('svd_dc', () => {
     for( let i=1; i < M; i++ )
       expect( sv[i-1] ).not.toBeLessThan( sv[i] );
     expect( sv[M-1] ).not.toBeLessThan(0);
-  })
+  });
 
 
   forEachItemIn(
-    function*(){
-      for( let run=0; run < 128; run++ )
-      for( let N=2; N < 48; N++ )
+    function*(rng){
+      for( let run=0; run++ <  8; )
+      for( let   N=1;   N++ < 48; )
       {
-        const M = N-1;
-
-        const rng = () => (Math.random()*2-1) * (Math.random() < 0.875);
-
-        const A = tabulate([M,N], 'float64', () => 0);
+        const M = N-1,
+              A = tabulate([M,N], 'float64', () => 0),
+           rand = () => rng.uniform(-4,+4) * (rng.uniform(0,1) < 0.875);
         for( let i=0; i < M; i++ ) {
-          A.set( [i,i  ], rng() );
-          A.set( [i,i+1], rng() );
+          A.set( [i,i  ], rand() );
+          A.set( [i,i+1], rand() );
         }
 
         Object.freeze(A.data.buffer);
         yield A;
       }
-    }()
+    }
   ).it('_svd_dc_bidiag works for random examples', A => {
     const [M,N] = A.shape.slice(-2);
 
@@ -314,221 +295,15 @@ describe('svd_dc', () => {
                                                            V_off + (M+1)*(M+1)) );
 
     // check orthogonality
-    { const I = eye(M);
+    { const                                 I = eye(M);
       expect(matmul2(U,U.T)).toBeAllCloseTo(I);
       expect(matmul2(U.T,U)).toBeAllCloseTo(I); }
-    { const I = eye(N);
+    { const                                 I = eye(N);
       expect(matmul2(V,V.T)).toBeAllCloseTo(I);
       expect(matmul2(V.T,V)).toBeAllCloseTo(I); }
 
     const USV = matmul(U,S,V.T);
 
     expect(USV).toBeAllCloseTo(A);
-  })
-
-
-  const test_accuracy = A =>
-  {
-    expect(A.ndim).toBe(2);
-
-    const [M,N]= A.shape,   L = Math.min(M,N),
-       [U,sv,V]= svd_dc(A), D = diag_mat(sv);
-
-    for( let i=1; i < sv.shape[0]; i++ )
-    {
-      expect(sv(i-1)).not.toBeLessThan(sv(i))
-      expect(sv(i  )).not.toBeLessThan(-0.0)
-    }
-
-    const a = matmul(U,D,V);
-
-    const A_TOL = eps(A.dtype) * 4 * Math.max(M,N) * norm(A),
-          U_TOL = eps(A.dtype) * 4 * M,
-          V_TOL = eps(A.dtype) * 4 * N;
-
-    const I = eye( Math.min(M,N) );
-    if( M >= N ) {
-      expect( matmul2(U.T,U) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
-      expect( matmul2(V.T,V) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
-    }
-    if( M <= N ) {
-      expect( matmul2(U,U.T) ).toBeAllCloseTo(I, {rtol:0, atol:U_TOL})
-      expect( matmul2(V,V.T) ).toBeAllCloseTo(I, {rtol:0, atol:V_TOL})
-    }
-    expect(D).toBeDiagonal()
-
-    const        diff = zip_elems([A,a], (x,y) => x-y);
-    expect( norm(diff) ).not.toBeGreaterThan(A_TOL);
-  };
-
-
-  for( const dr of [0,1] )
-  for( const dc of [0,1] )
-  if( 1 !== dr*dc )
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
-
-      function* sizes() {
-        const steps_per_binade = 4;
-
-        for( let run=0; run < 16; run++ )
-        {
-          for( let N=1; N < 16; N++ )
-            yield N;
-
-          for( let run=4*steps_per_binade; run <= 8*steps_per_binade; run++ )
-            yield Math.round(2**(run/steps_per_binade))
-        }
-      }
-
-      for( const L of sizes() )
-      {
-        const M = L+dr,
-              N = L+dc;
-        const shape = [M,N],
-                  A = tabulate(shape, 'float64', () => Math.random() < 0.1 ? 0 : Math.random()*2-1);
-
-        // CREATE SOME RANK DEFICIENCIES
-        if( Math.random() < 0.25 ) {
-          for( let i=0; i < M; i++ )
-            if( Math.random() < 0.01 ) {
-              const l = randInt(0,M),
-                scale = Math.random()*4 - 2;
-              for( let j=0; j < N; j++ ) A.set( [i,j], scale*A(l,j) );
-            }
-        }
-        Object.freeze(A.data.buffer)
-        yield A
-      }
-    }()
-  ).it(
-    `svd_dc is accurate for random matrices with aspect ratio [N+${dr},N+${dc}]`,
-    test_accuracy
-  );
-
-
-  for( const [rng,suffix] of [
-    [() =>                           Math.random()*8 - 4, ''                      ],
-    [() => Math.random() < 0.1 ? 0 : Math.random()*8 - 4, ' with occasional zeros']
-  ])
-    forEachItemIn(
-      function*(){
-        const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
-
-        function* shapes() {
-          const steps_per_binade = 4;
-
-          for( let M=8; M > 1; M-- )
-          for( let N=8; N > 1; N-- )
-            yield [M,N];
-
-          for( let run=1024; run-- > 0; )
-          {
-            const M = randInt(1,64),
-                  N = randInt(1,64);
-            yield [M,N];
-          }
-        }
-
-        for( const [M,N] of shapes() )
-        {
-          const A = tabulate([M,N], 'float64', rng);
-          Object.freeze(A.data.buffer)
-          yield A
-        }
-      }()
-    ).it(
-      'svd_dc is accurate for random matrices'+suffix,
-      test_accuracy
-    );
-
-
-  forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
-
-      function* shapes() {
-        const steps_per_binade = 4;
-
-        for( let M=8; M > 1; M-- )
-        for( let N=8; N > 1; N-- )
-          yield [M,N];
-
-        for( let run=1024; run-- > 0; )
-        {
-          const M = randInt(1,64),
-                N = randInt(1,64);
-          yield [M,N];
-        }
-      }
-
-      for( const [M,N] of shapes() )
-      {
-        const                         sparseness = Math.random(),
-          rng = () => Math.random() < sparseness ? 0 : Math.random()*8 - 4;
-
-        const A = tabulate([M,N], 'float64', rng);
-        Object.freeze(A.data.buffer)
-        yield A
-      }
-    }()
-  ).it(
-    'svd_dc is accurate for random sparse matrices',
-    test_accuracy
-  );
-
-
-// FIXME make the following test pass:
-//  forEachItemIn(
-//    function*(){
-//      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
-//
-//      function* shapes() {
-//        for( let M=8; M > 1; M-- )
-//        for( let N=8; N > 1; N-- )
-//          yield [M,N];
-//
-//        for( let run=1024; run-- > 0; )
-//        {
-//          const M = randInt(1,64),
-//                N = randInt(1,64);
-//          yield [M,N];
-//        }
-//      }
-//
-//      for( const [M,N] of shapes() )
-//        yield _rand_rows0(M,N);
-//    }()
-//  ).it(
-//    'svd_dc is accurate for random matrices with zero rows',
-//    test_accuracy
-//  );
-
-
-// FIXME make the following test pass:
-//  forEachItemIn(
-//    function*(){
-//      const randInt = (from,until) => Math.floor( Math.random() * (until-from) ) + from;
-//
-//      function* shapes() {
-//        for( let M=8; M > 1; M-- )
-//        for( let N=8; N > 1; N-- )
-//          yield [M,N];
-//
-//        for( let run=1024; run-- > 0; )
-//        {
-//          const M = randInt(1,64),
-//                N = randInt(1,64);
-//          yield [M,N];
-//        }
-//      }
-//
-//      for( const [M,N] of shapes() )
-//        yield _rand_cols0(M,N);
-//    }()
-//  ).it(
-//    'svd_dc is accurate for random matrices with zero columns',
-//    test_accuracy
-//  );
-})
+  });
+});

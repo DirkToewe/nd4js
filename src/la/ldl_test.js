@@ -35,36 +35,34 @@ describe('LDLᵀ Decomposition', () => {
 
 
   forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
-
-      for( let run=4096; run-- > 0; )
+    function*(rng){
+      for( let run=2048; run-- > 0; )
       {
-        let ndim = randInt(0,4),
-          shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
-        shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
+        let ndim = rng.int(0,4),
+          shapes = [ Array.from({length: ndim}, () => rng.int(1,4)) ]
+        shapes.splice( rng.int(0,2), 0, shapes[0].slice( rng.int(0,ndim+1) ) )
 
         for( let d=ndim; d > 0; d-- )
-        for( let i=randInt(0,2); i-- > 0; ) {
-          const    shape = shapes[randInt(0,2)],
+        for( let i=rng.int(0,2); i-- > 0; ) {
+          const    shape = shapes[rng.int(0,2)],
                j = shape.length - d
           if(0<=j) shape[j] = 1
         }
 
-        const M = randInt(1,24); shapes[0].push(M,M)
-        const N = randInt(1,24); shapes[1].push(M,N)
+        const M = rng.int(1,32); shapes[0].push(M,M)
+        const N = rng.int(1,32); shapes[1].push(M,N)
 
-        const y = tabulate(shapes[1],'float64', () => Math.random()*2-1),
+        const y = tabulate(shapes[1],'float64', () => rng.uniform(-4,+4) ),
               LD= tabulate(shapes[0],'float64', (...indices) => {
                 const [i,j] = indices.slice(-2);
-                return i===j ?(Math.random()*1.6 + 0.4) * (Math.random() < 0.5 ? +1 : -1)
+                return i===j ? rng.uniform( 0.4, 1.6) * (rng.bool() ? +1 : -1)
                      : i < j ? 0
-                     :         Math.random()*2.4 - 1.2;
+                     :         rng.uniform(-1.2,+1.2);
               })
 
         yield [LD,y]
       }
-    }()
+    }
   ).it('ldl_solve works on random examples', ([LD,y]) => {
     const x = ldl_solve(LD,y),
           L = LD.mapElems( 'float64', (L,...idx) => { const [i,j] = idx.slice(-2); return i===j ? 1 : L } ),
@@ -76,25 +74,23 @@ describe('LDLᵀ Decomposition', () => {
 
 
   forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
-
-      for( let run=1536; run-- > 0; )
+    function*(rng){
+      for( let run=733; run-- > 0; )
       {
-        const shape = Int32Array.from({ length: randInt(2,6) }, () => randInt(1,8) );
+        const shape = Int32Array.from({ length: rng.int(2,6) }, () => rng.int(1,4) );
               shape[shape.length-2] =
-              shape[shape.length-1] = randInt(1,32);
+              shape[shape.length-1] = rng.int(1,32);
 
         const L = tabulate(shape,'float64',(...indices) => {
           const [i,j] = indices.slice(-2);
           if( i < j ) return 0;
           if( i===j ) return 1;
-                      return Math.random()*2.4 - 1.2;
+                      return rng.uniform(-1.2,+1.2);
         });
 
         const D = tabulate(shape,'float64',(...indices) => {
           const [i,j] = indices.slice(-2);
-          if( i===j ) return (Math.random()*1.6 + 0.4) * (Math.random() < 0.5 ? +1 : -1);
+          if( i===j ) return rng.uniform(0.4,1.6) * (rng.bool() ? +1 : -1);
                       return  0;
         });
 
@@ -103,7 +99,7 @@ describe('LDLᵀ Decomposition', () => {
 
         yield [L,D];
       }
-    }()
+    }
   ).it('ldl_decomp works on random examples', ([L,D]) => {
     expect(L).toBeLowerTriangular();
     expect(D).toBeDiagonal();
@@ -129,20 +125,19 @@ describe('LDLᵀ Decomposition', () => {
 
 
   forEachItemIn(
-    function*(){
-
-      for( let N=3; N < 1024; N = N*1.4 | 0 )
+    function*(rng){
+      for( let N=3; N < 768; N = N*1.4 | 0 )
       {
         const A = new NDArray(
             Int32Array.of(N,N),
-          Float64Array.from({length: N*N}, () => Math.random()*8 - 4)
+          Float64Array.from({length: N*N}, () => rng.uniform(-4,+4) )
         );
         const         LDLT = zip_elems([A,A.T], 'float64', (a,at) => (a+at)/2);
         Object.freeze(LDLT.data.buffer)
         Object.freeze(LDLT)
         yield         LDLT
       }
-    }()
+    }
   ).it('ldl_decomp works on random large examples', LDLT => {
     const ld  = ldl_decomp(LDLT),
           l   = ld.mapElems('float64', (L,i,j) => i===j ? 1 : L),

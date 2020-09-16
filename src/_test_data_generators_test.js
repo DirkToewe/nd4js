@@ -1,19 +1,19 @@
 'use strict';
 
-/* This file is part of ND.JS.
+/* This file is part of ND4JS.
  *
- * ND.JS is free software: you can redistribute it and/or modify
+ * ND4JS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ND.JS is distributed in the hope that it will be useful,
+ * ND4JS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
+ * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
 import {forEachItemIn, CUSTOM_MATCHERS} from './jasmine_utils'
@@ -25,7 +25,8 @@ describe('_shuffle', () => {
     jasmine.addMatchers(CUSTOM_MATCHERS)
   })
 
-  const chi_square_table = [
+  // χ²-table; α = 0.001;
+  const chiq = [
     10.828,
     13.816,
     16.266,
@@ -57,56 +58,35 @@ describe('_shuffle', () => {
     58.301,
     59.703,
     61.098,
-    62.487,
-    63.870,
-    65.247,
-    66.619,
-    67.985,
-    69.346,
-    70.703,
-    72.055,
-    73.402,
-    74.745,
-    76.084,
-    77.419,
-    78.750,
-    80.077,
-    81.400,
-    82.720,
-    84.037,
-    85.351
+    62.487
   ];
 
-  forEachItemIn(
-    function*(){
-      for( let N=1; N++ < 6; ) {
-        const array = Int32Array.from({length: N}, (_,i) => i);
-        Object.freeze(array.buffer);
-        yield array;
+
+  for( let N=1; N++ < 8; )
+    it(`passes chi-squared test shuffling an Int32Array of length ${N}`, () => {
+      const array =       Int32Array.from({length: N}, (_,i) => i),
+            freqs = new Float64Array(N*N);
+
+      const M = 17*1024*1024;
+
+      for( let repeat=0; repeat++ < M; )
+      {
+        const    arr = array.slice();
+        _shuffle(arr);
+        for( let i=N; i-- > 0; )
+          freqs[N*i + arr[i]] += 1;
       }
-    }()
-  ).it('passes chi-squared test', array => {
-    const N = array.length,
-      freqs = Array.from(array, () => array.map(()=>0) );
 
-    const M = 16*1024*1024;
+      const E = M/N;
 
-    for( let repeat=0; repeat++ < M; )
-    {
-      const arr = array.slice();
-      _shuffle(arr);
       for( let i=N; i-- > 0; )
-        freqs[i][arr[i]] += 1;
-    }
-
-    const E = M/N;
-
-    for( const row of freqs )
-    {
-      let chi = 0;
-      for( const n of row )
-        chi += (n-E)**2 / E;
-      expect(chi).toBeLessThan(chi_square_table[N-2]);
-    }
-  });
+      {
+        let chi = 0;
+        for( let j=N; j-- > 0; ) {
+          const   d = freqs[N*i+j] - E;
+          chi += d*d / E;
+        }
+        expect(chi).toBeLessThan(chiq[N-2]);
+      }
+    });
 })

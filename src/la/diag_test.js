@@ -29,10 +29,10 @@ describe('diag', () => {
   forEachItemIn(
     function*(){
       function* shapes() {
-        for( let i=1; i <= 8; i++ )
-        for( let j=1; j <= 8; j++ ) { yield [i,j]
-        for( let k=1; k <= 8; k++ ) { yield [i,j,k]
-        for( let l=1; l <= 8; l++ ) { yield [i,j,k,l] }}}
+        for( let i=0; i++ < 7; )
+        for( let j=0; j++ < 7; ) { yield [i,j]
+        for( let k=0; k++ < 7; ) { yield [i,j,k]
+        for( let l=0; l++ < 7; ) { yield [i,j,k,l] }}}
       }
 
       for( const shape of shapes() )
@@ -44,7 +44,7 @@ describe('diag', () => {
           yield [A,off]
       }
     }()
-  ).it('diag works on generated examples', ([A,off]) => {
+  ).it('diag works given generated shapes', ([A,off]) => {
     const D = diag(A,off)
 
     for( const [idx,D_idx] of D.elems() )
@@ -69,7 +69,7 @@ describe('diag', () => {
       for( const shape of shapes() )
         yield tabulate( shape, 'int32', (...idx) => idx.reduce((flat,s) => 10*flat+s+1, 0) )
     }()
-  ).it('diag_mat works on generated examples', D => {
+  ).it('diag_mat works given generated examples', D => {
     const A = diag_mat(D)
     expect(A).toBeDiagonal()
     for( const [idx,D_idx] of D.elems() )

@@ -60,8 +60,8 @@ export function generic_test_line_search_bounded_with_test_fn( line_search, test
         nNoProgress    = 0;
 
     forEachItemIn(
-      function*(){
-        const N = Math.round( 2**(16/test_fn.nIn) );
+      function*(rng){
+        const N = Math.round( 2**(11.11/test_fn.nIn) );
 
         const samples = cartesian_prod(
           ...x_range.map( r => linspace(...r,N) )
@@ -71,13 +71,13 @@ export function generic_test_line_search_bounded_with_test_fn( line_search, test
         for( const x0 of samples )
         {
           ++nSamples;
-          const αMax = Math.random()*64;
+          const  αMax = rng.uniform(0,64);
           yield [αMax, x0];
         }
 
-        expect(nBoundsReached).toBeLessThan(nSamples*0.006) // <- less than 0.5% fail rate
-        expect(nNoProgress   ).toBeLessThan(nSamples*0.002) // <- less than 0.2% fail rate
-      }()
+        expect(nBoundsReached).toBeLessThan(nSamples*0.01)
+        expect(nNoProgress   ).toBeLessThan(nSamples*0.01)
+      }
     ).it(`works given generated ${test_fn.name} examples`, ([αMax, x0]) => {
       x0 = Object.freeze(x0);
 
@@ -168,7 +168,7 @@ export function generic_test_line_search_bounded_with_test_fn( line_search, test
       expect(α).toBeGreaterThanOrEqual(0);
       expect(α).toBeAllLessOrClose(αMax);
 
-      expect( f - f0 ).toBeAllLessOrClose( fRed*α*p0, {atol: 1e-4} )
+      expect( f - f0 ).toBeAllLessOrClose( fRed*α*p0, {atol: 1e-3} )
     });
   }
 }

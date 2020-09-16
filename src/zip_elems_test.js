@@ -16,9 +16,13 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
+import {Complex128Array} from './dt';
+import {forEachItemIn} from './jasmine_utils'
 import {NDArray} from './nd_array'
 import {zip_elems} from './zip_elems'
-import {forEachItemIn} from './jasmine_utils'
+
+import {is_array} from './arrays/is_array'
+import {Comparator as ArrayComparator} from './arrays/comparator';
 
 
 describe('zip_elems', () => {
@@ -55,78 +59,94 @@ describe('zip_elems', () => {
     ])
   })
 
-  forEachItemIn(
-    function*(){
-      const shapePairs = (...shape) => {
-        shape = Int32Array.from(shape)
 
-        function* shapePairs(d, shapeA, shapeB)
+  const ARR_TYPES = Object.freeze([
+    [     'int32',      Int32Array],
+    [   'float64',    Float64Array],
+    ['complex128', Complex128Array],
+    [    'object',           Array]
+  ]);
+
+  for( const [A_str, A_type] of ARR_TYPES )
+  for( const [B_str, B_type] of ARR_TYPES )
+  for( const dtype of [
+    [],
+    [undefined],
+    [     'int32'],
+    [   'float64'],
+    ['complex128'],
+    ['object']
+  ])
+    forEachItemIn(
+      function*(){
+
+        function shapePairs(...shape)
         {
-          if( shape.length === d )
-            yield Object.freeze([
-              Int32Array.from(shapeA),
-              Int32Array.from(shapeB)
-            ])
-          else {
-            yield* shapePairs(d+1, [...shapeA,shape[d]], [...shapeB,shape[d]])
-            yield* shapePairs(d+1, [...shapeA,      1 ], [...shapeB,shape[d]])
-            yield* shapePairs(d+1, [...shapeA,shape[d]], [...shapeB,      1 ])
-            yield* shapePairs(d+1, [...shapeA,      1 ], [...shapeB,      1 ])
-            if( shapeA.length === 0 ) yield* shapePairs(d+1, [], [...shapeB,      1 ])
-            if( shapeB.length === 0 ) yield* shapePairs(d+1, [...shapeA,      1 ], [])
+          Object.freeze(shape);
+          if( ! shape.every(s => s > 0) )
+            throw new Error('Assertion failed.');
+          const                     len = shape.length,
+            shapeA = new Int32Array(len),
+            shapeB = new Int32Array(len);
+
+          function* shapePairs(d)
+          {
+            if( shape.length === d ) {
+              for( let m=-1; m++ < len && (m===0 || shapeA[m-1]===1); )
+              for( let n=-1; n++ < len && (n===0 || shapeB[n-1]===1); ) yield [shapeA.slice(m), shapeB.slice(n)];
+            }
+            else {
+              shapeA[d] = shapeB[d] = 1; yield* shapePairs(d+1);
+              for( let n=1; n++ < shape[d]; ) {
+                shapeA[d] = 1; shapeB[d] = n; yield* shapePairs(d+1);
+                shapeA[d] = n; shapeB[d] = 1; yield* shapePairs(d+1);
+                shapeA[d] = n; shapeB[d] = n; yield* shapePairs(d+1);
+              }
+            }
           }
+
+          return shapePairs(0);
         }
 
-        return shapePairs(0,[],[])
+        yield *shapePairs(4,4,3,2);
+      }()
+    ).it(`works on generated example pairs of types (${A_str.padStart(10)},${B_str.padStart(10)}) -> ${dtype.map(x => `${x}`).join('').padStart(10)}`, ([shapeA,shapeB]) => {
+      // console.log([...shapeA],[...shapeB])
+      const shape = Int32Array.from(
+        { length: Math.max(shapeA.length,shapeB.length)},
+        (_,i) => Math.max(
+          shapeA[shapeA.length-1-i] || 1,
+          shapeB[shapeB.length-1-i] || 1
+        )
+      ).reverse()
+      Object.freeze(shape.buffer)
+
+      function toA(indices){ return shapeA.map( (shp,i) => indices[i+shape.length-shapeA.length] % shp ) }
+      function toB(indices){ return shapeB.map( (shp,i) => indices[i+shape.length-shapeB.length] % shp ) }
+
+      const a = new NDArray(shapeA, A_type.from({ length: shapeA.reduce((a,b) => a*b, 1) }, (_,i) => (i+1)*1000 ) ),
+            b = new NDArray(shapeB, B_type.from({ length: shapeB.reduce((a,b) => a*b, 1) }, (_,i) => (i+1)      ) );
+      Object.freeze(a.data.buffer);
+      Object.freeze(b.data.buffer);
+
+      const mapper = (aVal,bVal,...indices) => {
+        expect(aVal).toEqual( a(...toA(indices)) )
+        expect(bVal).toEqual( b(...toB(indices)) )
+        return aVal + bVal
       }
 
-      for( let i=2; i <= 4; i++ ) { yield* shapePairs(i)
-      for( let j=2; j <= 4; j++ ) { yield* shapePairs(i,j)
-      for( let k=2; k <= 4; k++ ) { yield* shapePairs(i,j,k)
-      for( let l=2; l <= 4; l++ ) { yield* shapePairs(i,j,k,l) }}}}
-    }()
-  ).it('works on generated example pairs', ([shapeA,shapeB]) => {
-    const shape = Int32Array.from(
-      { length: Math.max(shapeA.length,shapeB.length)},
-      (_,i) => Math.max(
-        shapeA[shapeA.length-1-i] || 1,
-        shapeB[shapeB.length-1-i] || 1
-      )
-    ).reverse()
-    Object.freeze(shape.buffer)
+      const  c = zip_elems([a,b], ...dtype, mapper)
+      expect(c.dtype).toBe( dtype[0] || 'object' );
+      expect(c.shape).toEqual(shape);
 
-    function toA(indices){ return shapeA.map( (shp,i) => indices[i+shape.length-shapeA.length] % shp ) }
-    function toB(indices){ return shapeB.map( (shp,i) => indices[i+shape.length-shapeB.length] % shp ) }
-
-    const a = new NDArray(shapeA, Int32Array.from({ length: shapeA.reduce((a,b) => a*b, 1) }, (_,i) => (i+1)*1000 ) ),
-          b = new NDArray(shapeB, Int32Array.from({ length: shapeB.reduce((a,b) => a*b, 1) }, (_,i) => (i+1)      ) )
-    Object.freeze(a.data.buffer)
-    Object.freeze(b.data.buffer)
-
-    function testWith( dtype, mapper )
-    {
-      const c = zip_elems([a,b], dtype, mapper)
-
-      expect(c.shape).toEqual(shape)
       for( const [indices,cVal] of c.elems() )
-        expect(cVal).toBe(
+        expect(cVal*1).toBe(
             a(...toA(indices))
           + b(...toB(indices))
-        )
-    }
-
-    const mapper = (aVal,bVal,...indices) => {
-      expect(aVal).toBe( a(...toA(indices)) )
-      expect(bVal).toBe( b(...toB(indices)) )
-      return aVal + bVal
-    }
-
-    testWith(mapper)
-    for( const dtype of [undefined,'int32','float32','float64','complex128','object'] )
-      testWith
-    
-    expect( () => zip_elems([a,b], 'not_a_type', mapper) ).toThrow()
-  })
+        );
+      
+      expect( () => zip_elems([a,b], 'not_a_type', mapper) ).toThrow();
+    })
 
   forEachItemIn(
     function*(){

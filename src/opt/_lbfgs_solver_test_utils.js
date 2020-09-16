@@ -30,7 +30,7 @@ import {matmul,
  *  The are filtered to result in a sufficiently well-conditioned
  *  (positive definite) Hessian approximation.
  */
-export function* _rand_updates( N )
+export function* _rand_updates_v2( rng, N )
 {
   if( N%1 !== 0 ) throw new Error('Assertion failed.');
   if( ! (0 < N) ) throw new Error('Assertion failed.');
@@ -41,11 +41,11 @@ export function* _rand_updates( N )
 
   loop:for(;;)
   {
-    const dx = Float64Array.from({length: N}, () => Math.random()*2-1),
-          dg = Float64Array.from({length: N}, () => Math.random()*2-1); // <- avoid underflow
+    const dx = Float64Array.from({length: N}, () => rng.normal() ),
+          dg = Float64Array.from({length: N}, () => rng.normal() ); // <- avoid underflow
 
-    const sx = (Math.random()*2 + 0.5) / Math.hypot(...dx),
-          sg = (Math.random()*2 + 0.5) / Math.hypot(...dg);
+    const sx = rng.uniform(0.5, 2) / Math.hypot(...dx),
+          sg = rng.uniform(0.5, 2) / Math.hypot(...dg);
 
     for( let i=N; i-- > 0; ) {
       dx[i] *= sx;

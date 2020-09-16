@@ -29,7 +29,7 @@ describe('nd.rand_normal', () => {
   it('Passes Jarque–Bera test', () => {
     // https://de.wikipedia.org/wiki/Jarque-Bera-Test
     // I'm no statistician, so ... please don't laugh if this test is implemented incorrectly :P
-    const length = 32*1024*1024;
+    const length = 4*1024*1024;
 
     const vals = Float64Array.from({length}, () => rand_normal());
 
@@ -40,7 +40,8 @@ describe('nd.rand_normal', () => {
 
     const JB = length/6 * (S*S + (C-3)*(C-3)/4);
 
-    expect(JB).toBeLessThan(9.2); // α ≈ 0.01
+    // expect(JB).toBeLessThan(9.2); // α ≈ 0.01
+    expect(JB).toBeLessThan(10.597); // α ≈ 0.005
   });
 
   forEachItemIn(

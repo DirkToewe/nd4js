@@ -32,9 +32,9 @@ describe('tri', () => {
   forEachItemIn(
     function*(){
       function* shapes() {
-        for( let M = 1; M <= 48; M++ )
-        for( let N = M; N <= 48; N++ )
-        for( let O = 1; O <= 48; O++ ) yield [M,N,O];
+        for( let M = 1; M <= 24; M++ )
+        for( let N = M; N <= 24; N++ )
+        for( let O = 1; O <= 24; O++ ) yield [M,N,O];
       }
       for( const [M,N,O] of shapes() )
       {
@@ -68,9 +68,9 @@ describe('tri', () => {
   forEachItemIn(
     function*(){
       function* shapes() {
-        for( let M = 1; M <= 48; M++ )
-        for( let N = M; N <= 48; N++ )
-        for( let O = 1; O <= 48; O++ ) yield [M,N,O];
+        for( let M = 1; M <= 24; M++ )
+        for( let N = M; N <= 24; N++ )
+        for( let O = 1; O <= 24; O++ ) yield [M,N,O];
       }
       for( const [M,N,O] of shapes() )
       {
@@ -161,10 +161,10 @@ describe('tri', () => {
     function*(){
       const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
 
-      for( let run=1024; run-- > 0; )
+      for( let run=733; run-- > 0; )
       {
-        let ndim = randInt(2,6),
-          shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
+        let ndim = randInt(0,4),
+          shapes = [ Array.from({length: ndim}, () => randInt(1,6)) ]
         shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
 
         for( let d=ndim; d > 0; d-- )
@@ -174,8 +174,8 @@ describe('tri', () => {
           if(0<=j) shape[j] = 1
         }
 
-        const M = randInt(1,24); shapes[0].push(M,M)
-        const N = randInt(1,24); shapes[1].push(M,N)
+        const M = randInt(1,32); shapes[0].push(M,M)
+        const N = randInt(1,32); shapes[1].push(M,N)
 
         const y = tabulate(shapes[1],'float64', () => Math.random()*2-1),
               L = tabulate(shapes[0],'float64', (...indices) => {
@@ -202,10 +202,10 @@ describe('tri', () => {
     function*(){
       const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
 
-      for( let run=1024; run-- > 0; )
+      for( let run=733; run-- > 0; )
       {
-        let ndim = randInt(2,6),
-          shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
+        let ndim = randInt(0,4),
+          shapes = [ Array.from({length: ndim}, () => randInt(1,6)) ]
         shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
 
         for( let d=ndim; d > 0; d-- )
@@ -215,8 +215,8 @@ describe('tri', () => {
           if(0<=j) shape[j] = 1
         }
 
-        const M = randInt(1,24); shapes[0].push(M,M);
-        const N = randInt(1,24); shapes[1].push(M,N);
+        const M = randInt(1,32); shapes[0].push(M,M);
+        const N = randInt(1,32); shapes[1].push(M,N);
 
         const y = tabulate(shapes[1],'float64', () => Math.random()*2-1),
               U = tabulate(shapes[0],'float64', (...indices) => {

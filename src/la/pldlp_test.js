@@ -19,7 +19,6 @@
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {NDArray} from '../nd_array'
 import {tabulate} from '../tabulate'
-import {_shuffle} from '../_test_data_generators'
 import {zip_elems} from '../zip_elems'
 
 import {diag,
@@ -46,49 +45,47 @@ describe('PLDLᵀPᵀ Decomposition (Bunch-Kaufman LDLᵀ)', () => {
 
 
   forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
-
-      for( let run=1024; run-- > 0; )
+    function*(rng){
+      for( let run=512; run-- > 0; )
       {
-        let ndim = randInt(0,5),
-          shapes = Array.from({length: ndim}, () => randInt(1,8));
+        let ndim = rng.int(0,5),
+          shapes = Array.from({length: ndim}, () => rng.int(1,8));
         shapes = [
           shapes,
-          shapes.slice( randInt(0,ndim) )
+          shapes.slice( rng.int(0,ndim+1) )
         ];
-        _shuffle(shapes);
+        rng.shuffle(shapes);
 
         for( let d=ndim; d > 0; d-- )
-        for( let i=randInt(0,2); i-- > 0; ) {
-          const     shape = shapes[randInt(0,2)],
+        for( let i=rng.int(0,2); i-- > 0; ) {
+          const     shape = shapes[rng.int(0,2)],
                 j = shape.length - d
           if(0<=j)  shape[j] = 1
         }
 
-        const N = randInt(1,24);
+        const N = rng.int(1,24);
         shapes[0].push(N,N);
         shapes[1].push(N  );
 
         const P = tabulate(shapes[1],  'int32', (...idx) => idx.pop() ),
              LD = tabulate(shapes[0],'float64', (...indices) => {
                const [i,j] = indices.slice(-2);
-               return i===j ?(Math.random()*1.6 + 0.4) * (Math.random() < 0.5 ? +1 : -1)
+               return i===j ? rng.uniform( 0.4, 1.6) * (rng.bool() ? +1 : -1)
                     : i < j ? 0
-                    :         Math.random()*2.4 - 1.2;
+                    :         rng.uniform(-1.2,+1.2);
              });
 
         for( let P_off=0; P_off < P.data.length; P_off+=N )
         {
           const p = P.data.subarray(P_off,P_off+N);
-          _shuffle(p);
+          rng.shuffle(p);
           for( let i=1; i < N; i++ )
-            p[i++] ^= -(Math.random() < 0.25);
+            p[i++] ^= -(rng.uniform(0,1) < 0.25);
         }
 
         yield [LD,P]
       }
-    }()
+    }
   ).it('pldlp_l works on random examples', ([LD,P]) => {
     const Pi = P.reshape(...P.shape, 1);
 
@@ -107,49 +104,47 @@ describe('PLDLᵀPᵀ Decomposition (Bunch-Kaufman LDLᵀ)', () => {
 
 
   forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
-
-      for( let run=1024; run-- > 0; )
+    function*(rng){
+      for( let run=733; run-- > 0; )
       {
-        let ndim = randInt(0,5),
-          shapes = Array.from({length: ndim}, () => randInt(1,8));
+        let ndim = rng.int(0,6),
+          shapes = Array.from({length: ndim}, () => rng.int(1,4));
         shapes = [
           shapes,
-          shapes.slice( randInt(0,ndim) )
+          shapes.slice( rng.int(0,ndim+1) )
         ];
-        _shuffle(shapes);
+        rng.shuffle(shapes);
 
         for( let d=ndim; d > 0; d-- )
-        for( let i=randInt(0,2); i-- > 0; ) {
-          const     shape = shapes[randInt(0,2)],
+        for( let i=rng.int(0,2); i-- > 0; ) {
+          const     shape = shapes[rng.int(0,2)],
                 j = shape.length - d
           if(0<=j)  shape[j] = 1
         }
 
-        const N = randInt(1,24);
+        const N = rng.int(1,24);
         shapes[0].push(N,N);
         shapes[1].push(N  );
 
         const P = tabulate(shapes[1],  'int32', (...idx) => idx.pop() ),
              LD = tabulate(shapes[0],'float64', (...indices) => {
                const [i,j] = indices.slice(-2);
-               return i===j ?(Math.random()*1.6 + 0.4) * (Math.random() < 0.5 ? +1 : -1)
+               return i===j ? rng.uniform( 0.4, 1.6) * (rng.bool() ? +1 : -1)
                     : i < j ? 0
-                    :         Math.random()*2.4 - 1.2;
+                    :         rng.uniform(-1.2,+1.2);
              });
 
         for( let P_off=0; P_off < P.data.length; P_off+=N )
         {
           const p = P.data.subarray(P_off,P_off+N);
-          _shuffle(p);
+          rng.shuffle(p);
           for( let i=1; i < N; i++ )
-            p[i++] ^= -(Math.random() < 0.25);
+            p[i++] ^= -(rng.uniform(0,1) < 0.25);
         }
 
         yield [LD,P]
       }
-    }()
+    }
   ).it('pldlp_d works on random examples', ([LD,P]) => {
     const Pi = P.reshape(...P.shape, 1);
 
@@ -169,49 +164,47 @@ describe('PLDLᵀPᵀ Decomposition (Bunch-Kaufman LDLᵀ)', () => {
 
 
   forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
-
-      for( let run=4096; run-- > 0; )
+    function*(rng){
+      for( let run=1733; run-- > 0; )
       {
-        let ndim = randInt(0,5),
-          shapes = Array.from({length: ndim}, () => randInt(1,8));
+        let ndim = rng.int(0,5),
+          shapes = Array.from({length: ndim}, () => rng.int(1,8));
         shapes = [
           shapes,
-          shapes.slice( randInt(0,ndim) )
+          shapes.slice( rng.int(0,ndim+1) )
         ];
-        _shuffle(shapes);
+        rng.shuffle(shapes);
 
         for( let d=ndim; d > 0; d-- )
-        for( let i=randInt(0,2); i-- > 0; ) {
-          const     shape = shapes[randInt(0,2)],
+        for( let i=rng.int(0,2); i-- > 0; ) {
+          const     shape = shapes[rng.int(0,2)],
                 j = shape.length - d
           if(0<=j)  shape[j] = 1
         }
 
-        const N = randInt(1,24);
+        const N = rng.int(1,24);
         shapes[0].push(N,N);
         shapes[1].push(N  );
 
         const P = tabulate(shapes[1],  'int32', (...idx) => idx.pop() ),
              LD = tabulate(shapes[0],'float64', (...indices) => {
                const [i,j] = indices.slice(-2);
-               return i===j ?(Math.random()*1.6 + 0.4) * (Math.random() < 0.5 ? +1 : -1)
+               return i===j ? rng.uniform( 0.4,  1.6) * (rng.bool() ? +1 : -1)
                     : i < j ? 0
-                    :         Math.random()*2.4 - 1.2;
+                    :         rng.uniform(-1.2, +1.2);
              });
 
         for( let P_off=0; P_off < P.data.length; P_off+=N )
         {
           const p = P.data.subarray(P_off,P_off+N);
-          _shuffle(p);
+          rng.shuffle(p);
           for( let i=1; i < N; i++ )
-            p[i++] ^= -(Math.random() < 0.25);
+            p[i++] ^= -(rng.uniform(0,1) < 0.25);
         }
 
         yield [LD,P]
       }
-    }()
+    }
   ).it('pldlp_p works on random examples', ([LD,P]) => {
     const Q = P.mapElems( p => p ^ -(p<0) );
 
@@ -221,53 +214,51 @@ describe('PLDLᵀPᵀ Decomposition (Bunch-Kaufman LDLᵀ)', () => {
 
 
   forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
-
-      for( let run=4096; run-- > 0; )
+    function*(rng){
+      for( let run=1024; run-- > 0; )
       {
-        let ndim = randInt(0,4),
-          shapes = Array.from({length: ndim}, () => randInt(1,8));
+        let ndim = rng.int(0,4),
+          shapes = Array.from({length: ndim}, () => rng.int(1,8));
         shapes = [
           shapes,
-          shapes.slice( randInt(0,ndim) ),
-          shapes.slice( randInt(0,ndim) )
+          shapes.slice( rng.int(0,ndim+1) ),
+          shapes.slice( rng.int(0,ndim+1) )
         ];
-        _shuffle(shapes);
+        rng.shuffle(shapes);
 
         for( let d=ndim; d > 0; d-- )
-        for( let i=randInt(0,2); i-- > 0; ) {
-          const    shape = shapes[randInt(0,2)],
+        for( let i=rng.int(0,2); i-- > 0; ) {
+          const    shape = shapes[rng.int(0,2)],
                j = shape.length - d
           if(0<=j) shape[j] = 1
         }
 
-        const M = randInt(1,24),
-              N = randInt(1,24);
+        const M = rng.int(1,24),
+              N = rng.int(1,24);
         shapes[0].push(M,M);
         shapes[1].push(M  );
         shapes[2].push(M,N);
 
-        const y = tabulate(shapes[2],'float64', () => Math.random()*2-1),
+        const y = tabulate(shapes[2],'float64', () => rng.uniform(-2,+2) ),
               P = tabulate(shapes[1],  'int32', (...idx) => idx.pop() ),
               LD= tabulate(shapes[0],'float64', (...indices) => {
                 const [i,j] = indices.slice(-2);
-                return i===j ?(Math.random()*1.6 + 0.4) * (Math.random() < 0.5 ? +1 : -1)
+                return i===j ? rng.uniform( 0.4, 1.6) * (rng.bool() ? +1 : -1)
                      : i < j ? 0
-                     :         Math.random()*2.4 - 1.2;
+                     :         rng.uniform(-1.2,+1.2);
               });
 
         for( let P_off=0; P_off < P.data.length; P_off += M )
         {
           const p = P.data.subarray(P_off,P_off+M);
-          _shuffle(p);
+          rng.shuffle(p);
           for( let i=1; i < M; i++ )
-            p[i++] ^= -(Math.random() < 0.25);
+            p[i++] ^= -(rng.uniform(0,1) < 0.25);
         }
 
         yield [LD,P,y]
       }
-    }()
+    }
   ).it('pldlp_solve works on random examples', ([LD,P,Y]) => {
     const Pi = P.reshape(...P.shape, 1);
 
@@ -283,27 +274,25 @@ describe('PLDLᵀPᵀ Decomposition (Bunch-Kaufman LDLᵀ)', () => {
 
 
   forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
-
-      for( let run=512; run-- > 0; )
+    function*(rng){
+      for( let run=137; run-- > 0; )
       {
-        let ndim = randInt(2,6),
-          shapes = [ Array.from({length: ndim}, () => randInt(1,8)) ]
-        shapes.splice( randInt(0,2), 0, shapes[0].slice( randInt(0,ndim) ) )
+        let ndim = rng.int(2,6),
+          shapes = [ Array.from({length: ndim}, () => rng.int(1,8)) ]
+        shapes.splice( rng.int(0,2), 0, shapes[0].slice( rng.int(0,ndim+1) ) )
 
         for( let d=ndim; d > 0; d-- )
-        for( let i=randInt(0,2); i-- > 0; ) {
-          const    shape = shapes[randInt(0,2)],
+        for( let i=rng.int(0,2); i-- > 0; ) {
+          const    shape = shapes[rng.int(0,2)],
                j = shape.length - d
           if(0<=j) shape[j] = 1
         }
 
-        const M = randInt(1,24); shapes[0].push(M,M)
-        const N = randInt(1,24); shapes[1].push(M,N)
+        const M = rng.int(1,24); shapes[0].push(M,M)
+        const N = rng.int(1,24); shapes[1].push(M,N)
 
-        const y = tabulate(shapes[1],'float64', () => Math.random()*8-4),
-              A = tabulate(shapes[0],'float64', () => Math.random()*8-4),
+        const y = tabulate(shapes[1],'float64', () => rng.uniform(-4,+4) ),
+              A = tabulate(shapes[0],'float64', () => rng.uniform(-4,+4) ),
               S = zip_elems([A,A.T], 'float64', (a,aT) => (a+aT) / 2);
         Object.freeze(S.data.buffer)
         Object.freeze(S)
@@ -312,7 +301,7 @@ describe('PLDLᵀPᵀ Decomposition (Bunch-Kaufman LDLᵀ)', () => {
 
         yield [S,y]
       }
-    }()
+    }
   ).it('pldlp_decomp + pldlp_solve works on random examples', ([S,Y]) => {
     const [LD,P] = pldlp_decomp(S),
               X  = pldlp_solve(LD,P,Y),
@@ -364,23 +353,21 @@ describe('PLDLᵀPᵀ Decomposition (Bunch-Kaufman LDLᵀ)', () => {
 
 
   forEachItemIn(
-    function*(){
-      const randInt = (from,until) => Math.floor(Math.random()*(until-from)) + from
-
+    function*(rng){
       for( let run=1024; run-- > 0; )
       {
-        const shape = Int32Array.from({ length: randInt(2,6) }, () => randInt(1,8) );
+        const shape = Int32Array.from({ length: rng.int(2,6) }, () => rng.int(1,4) );
               shape[shape.length-2] =
-              shape[shape.length-1] = randInt(1,32);
+              shape[shape.length-1] = rng.int(1,32);
 
-        const A = tabulate(shape,'float64',(...indices) => Math.random()*8 - 4),
+        const A = tabulate(shape,'float64',(...indices) => rng.uniform(-4,+4) ),
               S = zip_elems([A,A.T], 'float64', (a,aT) => (a+aT) / 2);
         Object.freeze(S);
         Object.freeze(S.data.buffer);
 
         yield S;
       }
-    }()
+    }
   ).it('pldlp_decomp works on random examples', S => {
     expect(S.shape[S.ndim-2])
      .toBe(S.shape[S.ndim-1]);
@@ -410,19 +397,19 @@ describe('PLDLᵀPᵀ Decomposition (Bunch-Kaufman LDLᵀ)', () => {
 
 
   forEachItemIn(
-    function*(){
-      for( let N=3; N < 1024; N = N*1.4 | 0 )
+    function*(rng){
+      for( let N=3; N < 733; N = N*1.4 | 0 )
       {
         const A = new NDArray(
             Int32Array.of(N,N),
-          Float64Array.from({length: N*N}, () => Math.random()*8 - 4)
+          Float64Array.from({length: N*N}, () => rng.uniform(-4,+4) )
         );
         const         S = zip_elems([A,A.T], 'float64', (a,aT) => (a+aT) / 2);
         Object.freeze(S.data.buffer)
         Object.freeze(S)
         yield         S
       }
-    }()
+    }
   ).it('pldlp_decomp works on random large examples', S => {
     expect(S.shape[S.ndim-2])
      .toBe(S.shape[S.ndim-1]);

@@ -36,10 +36,10 @@ describe('istr', () => {
     function*(){
       function* shapes() {
         yield[]
-        for( let i=1; i <= 6; i++ ) { yield [i]
-        for( let j=1; j <= 6; j++ ) { yield [i,j]
-        for( let k=1; k <= 6; k++ ) { yield [i,j,k]
-        for( let l=1; l <= 6; l++ ) { yield [i,j,k,l] }}}}
+        for( let i=1; i <= 5; i++ ) { yield [i]
+        for( let j=1; j <= 5; j++ ) { yield [i,j]
+        for( let k=1; k <= 5; k++ ) { yield [i,j,k]
+        for( let l=1; l <= 5; l++ ) { yield [i,j,k,l] }}}}
       }
 
       for( const dtype of ['int32', 'float32', 'float64', 'complex128'] )
