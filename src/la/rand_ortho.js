@@ -22,8 +22,17 @@ import {rand_normal} from '../rand_normal'
 import {FrobeniusNorm} from './norm'
 
 
+let WARN = true;
+
+
 export function rand_ortho( dtype, ...shape )
 {
+  if(WARN) {
+     WARN = false;
+     console.warn(
+       new Error('nd.la.rand_ortho is deprecated, use nd.rand.AleaRNG instead.')
+     );
+  }
   // REFERENCES:
   //   - https://blogs.sas.com/content/iml/2012/03/28/generating-a-random-orthogonal-matrix.html
   if( ! (dtype in ARRAY_TYPES) ) {

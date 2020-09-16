@@ -16,6 +16,8 @@
  * along with ND4JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
+let WARN = true;
+
 
 export function shuffle(
   array,
@@ -29,6 +31,13 @@ export function shuffle(
   from, until
 )
 {
+  if(WARN) {
+    WARN = false;
+    console.warn(
+      new Error('arrays.shuffle is deprecated, use nd.rand.AleaRNG instead.')
+    );
+  }
+
   if( array.length%1 !== 0 )
     throw new Error('Assertion failed.');
 

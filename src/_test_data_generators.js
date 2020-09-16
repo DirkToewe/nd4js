@@ -40,8 +40,18 @@ export function _rand_int(from,until)
 //}
 
 
+let SHUFFLE_WARN = true;
+
+
 export function _shuffle( array, from, until )
 {
+  if(SHUFFLE_WARN) {
+    SHUFFLE_WARN = false;
+    console.warn(
+      new Error('_shuffle deprecated, use nd.rand.AleaRNG instead.')
+    );
+  }
+
   if( array.length%1 !== 0 )
     throw new Error('Assertion failed.');
 
@@ -140,8 +150,18 @@ export function _rand_cols0(...shape)
 }
 
 
+let RAND_RANKDEF_WARN = true;
+
+
 export function _rand_rankdef(...shape)
 {
+  if(RAND_RANKDEF_WARN) {
+    RAND_RANKDEF_WARN = false;
+    console.warn(
+      new Error('_rand_rankdef deprecated, use nd.rand.AleaRNG instead.')
+    );
+  }
+
   if( !(2 <= shape.length) ) throw new Error('Assertion failed.');
 
   const N = shape.pop(),
