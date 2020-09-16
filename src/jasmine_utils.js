@@ -16,8 +16,9 @@
  * along with ND.JS. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {NDArray, asarray} from './nd_array'
+import {asarray} from './nd_array'
 import math from './math'
+import {TestRNG} from './_test_rng'
 
 
 function unravel( flat, shape ) {
@@ -166,6 +167,42 @@ export const CUSTOM_MATCHERS = {
     }
   }),
 
+  toBeAllGreaterOrClose: (util, customEq) => ({
+    compare(act, exp, { rtol=1e-5, atol=1e-8 } = {})
+    {
+      if( Object.is(act,exp) && 'number' !== typeof act )
+        console.warn('Actual and expected are identical.')
+      act = asarray(act);
+      exp = asarray(exp);
+      const                   clothless = (x,y) => x >= y || is_close_float(rtol,atol)(x,y);
+      return toBeAll(act,exp, clothless, 'be all greater than or close to');
+    }
+  }),
+
+  toBeAllLess: (util, customEq) => ({
+    compare(act, exp, { rtol=1e-5, atol=1e-8 } = {})
+    {
+      if( Object.is(act,exp) && 'number' !== typeof act )
+        console.warn('Actual and expected are identical.')
+      act = asarray(act);
+      exp = asarray(exp);
+      const                   clothless = (x,y) => x < y && !is_close_float(rtol,atol)(x,y);
+      return toBeAll(act,exp, clothless, 'be all less than and not close to');
+    }
+  }),
+
+  toBeAllGreater: (util, customEq) => ({
+    compare(act, exp, { rtol=1e-5, atol=1e-8 } = {})
+    {
+      if( Object.is(act,exp) && 'number' !== typeof act )
+        console.warn('Actual and expected are identical.')
+      act = asarray(act);
+      exp = asarray(exp);
+      const                   clothless = (x,y) => x > y && !is_close_float(rtol,atol)(x,y);
+      return toBeAll(act,exp, clothless, 'be all greater than and not close to');
+    }
+  }),
+
   toBeCloseTo: (util, customEq) => ({
     compare(act, exp, { rtol=1e-5, atol=1e-8 } = {})
     {
@@ -228,76 +265,91 @@ const ARRAY_TYPES = [Array, Int8Array,  Uint8Array, Uint8ClampedArray,
               Float32Array, Int16Array, Uint16Array, 
               Float64Array, Int32Array, Uint32Array]
 
-export const forEachItemIn = items => ({
-  it: (description, specFn, timeout) => {
-    if( 'string' !== typeof description )
-      throw new Error('description must be string.')
+export const forEachItemIn = itemsOrGenerator =>
+{
+  if( Symbol.iterator in itemsOrGenerator
+    &&                   itemsOrGenerator instanceof Function )
+    throw new Error('forEachItemIn(itemsOrGenerator): itemsOrGenerator cannot be both Function and iterable.');
 
-    let item, i;
+  return {
+    it: (description, specFn, timeout) => {
+      if( itemsOrGenerator instanceof Function )
+      {
+        
+        itemsOrGenerator = itemsOrGenerator( new TestRNG(description) );
+      }
+      const items = itemsOrGenerator[Symbol.iterator]();
+      itemsOrGenerator = undefined;
 
-    const spec = it(description, () => new Promise( (resolve,reject) => {
-      const iter = items[Symbol.iterator]()
-      i = -1
+      if( 'string' !== typeof description )
+        throw new Error('description must be string.')
 
-      const intervalID = setInterval( () => {
-        try {
-          const t0 = performance.now()
+      let item, i;
 
-          for(;;)
-          {
-            const { value, done } = iter.next()
-            ++i
+      const spec = it(description, () => new Promise( (resolve,reject) => {
+        const iter = items[Symbol.iterator]()
+        i = -1
 
-            if(done) {
-              if( 0 === i )
-                throw new Error('forEachItemIn: items may not be empty.')
-//              console.log(`${i} tests ↴`)
-              clearInterval(intervalID)
-              return resolve()
-            }
+        const intervalID = setInterval( () => {
+          try {
+            const t0 = performance.now()
 
-            specFn(item=value)
-
-            if( 250 < performance.now() - t0 )
-              return
-          }
-        }
-        catch(err) {
-          clearInterval(intervalID)
-          return reject(err)
-        }
-      }, 0)
-    }), timeout)
-
-
-    if( spec !== undefined )
-      spec.addExpectationResult = (passed, data, isError) => {
-        if( passed )
-          return
-        try {
-          if( !passed )
-          {
-            function msg( msg )
+            for(;;)
             {
-              let str = toStr(item)
-              if( /\n/.test(str) )
-                str = '\n' + str
-              return `For item[${i}] = ${str}:\n${msg}`
+              const { value, done } = iter.next()
+              ++i
+
+              if(done) {
+                if( 0 === i )
+                  throw new Error('forEachItemIn: items may not be empty.')
+  //              console.log(`${i} tests ↴`)
+                clearInterval(intervalID)
+                return resolve()
+              }
+
+              specFn(item=value)
+
+              if( 250 < performance.now() - t0 )
+                return
             }
-
-            if( 'message' in data ) data      .message = msg(data      .message)
-            else                    data.error.message = msg(data.error.message)
           }
-        }
-        catch(err) {
-          console.error(err)
-        }
-        finally {
-          Object.getPrototypeOf(spec).addExpectationResult.call(spec, passed, data, isError)
-        }
-      };
+          catch(err) {
+            clearInterval(intervalID)
+            return reject(err)
+          }
+        }, 0)
+      }), timeout)
 
 
-    return spec;
-  }
-});
+      if( spec !== undefined )
+        spec.addExpectationResult = (passed, data, isError) => {
+          if( passed )
+            return
+          try {
+            if( !passed )
+            {
+              function msg( msg )
+              {
+                let str = toStr(item)
+                if( /\n/.test(str) )
+                  str = '\n' + str
+                return `For item[${i}] = ${str}:\n${msg}`
+              }
+
+              if( 'message' in data ) data      .message = msg(data      .message)
+              else                    data.error.message = msg(data.error.message)
+            }
+          }
+          catch(err) {
+            console.error(err)
+          }
+          finally {
+            Object.getPrototypeOf(spec).addExpectationResult.call(spec, passed, data, isError)
+          }
+        };
+
+
+      return spec;
+    }
+  };
+}

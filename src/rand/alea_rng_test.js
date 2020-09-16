@@ -24,6 +24,7 @@ import {eye} from "../la/eye";
 import {matmul2} from "../la/matmul";
 
 import {AleaRNG} from './alea_rng';
+import { SEEDS } from "./alea_rng_test_data";
 import {alea as AleaRef, alea} from 'seedrandom';
 import {cartesian_prod,
         linspace,
