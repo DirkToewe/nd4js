@@ -1,11 +1,14 @@
-const path = require('path'),
-   webpack = require('webpack')
+const     path = require('path'),
+       webpack = require('webpack'),
+  WorkerPlugin = require('worker-plugin');
+ 
 //   ClosurePlugin = require('closure-webpack-plugin');
 
 const cfg_module = {
   rules: [{
     test: /\.js$/,
     include: path.resolve(__dirname, 'src'),
+    // exclude: /(.*_test\.js)|(.*\.py)|(.*_test_data\.js)/,
     use: {
       loader: 'babel-loader',
       options: {
@@ -29,6 +32,11 @@ module.exports = [
       libraryTarget: 'umd',
       globalObject: "this"
     },
+    plugins: [
+      new WorkerPlugin({
+        globalObject: 'this'
+      })
+    ],
     module: cfg_module,
   },
   {
@@ -41,6 +49,11 @@ module.exports = [
       libraryTarget: 'umd',
       globalObject: "this"
     },
+    plugins: [
+      new WorkerPlugin({
+        globalObject: 'this'
+      })
+    ],
     module: cfg_module
   }
 ]
