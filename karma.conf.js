@@ -1,6 +1,9 @@
-const os = require('os');
+const       os = require('os'),
+  WorkerPlugin = require('worker-plugin');
 
-const HOUR = 60*60*1000
+const SEC = 1000,
+      MIN = 60*SEC,
+     HOUR = 60*MIN;
 
 const browsers = [
   'FirefoxHeadless',
@@ -13,12 +16,13 @@ const tested_files = [
 
 const reporters = [
 //  'spec'
-  'progress'
+//  'progress'
+  'progress-bar'
 ];
 
 
-const nExecutors = Math.min( browsers.some(b => b.startsWith('Firefox')) ? 12 : 24, // <- Firefox can't seem handle more than 12
-                   Math.max( 1, Math.floor(os.cpus().length / browsers.length) ));
+const nExecutors = Math.min( browsers.some(b => b.includes('Firefox')) ? 12 : 24, // <- Firefox can't seem handle more than 12
+                   Math.max( 1, Math.floor(os.cpus().length / browsers.length) - 1 ));
 
 module.exports = config => {
   config.set({
@@ -29,12 +33,15 @@ module.exports = config => {
       'jasmine'
     ],
 
-//    browserDisconnectTolerance: 1e6,
-    browserDisconnectTimeout: 1*HOUR,
-    browserNoActivityTimeout: 1*HOUR,
-        browserSocketTimeout: 1*HOUR,
-          processKillTimeout: 1*HOUR,
+    // browserDisconnectTolerance: 10*SEC,
+    browserDisconnectTimeout: 5*MIN,
+    browserNoActivityTimeout: 5*MIN,
+        browserSocketTimeout: 5*MIN,
+          processKillTimeout: 5*MIN,
 //              captureTimeout: 1*HOUR,
+
+    autoWatch: false,
+//    reportSlowerThan: 5*SEC,
 
     plugins: [
       'karma-parallel',
@@ -44,6 +51,7 @@ module.exports = config => {
       'karma-webpack',
       'karma-spec-reporter',
       'karma-sourcemap-loader',
+      require('./progress_bar_reporter')
     ],
 
     parallelOptions: {
@@ -54,7 +62,8 @@ module.exports = config => {
     client: {
       jasmine: {
         random: false,
-        failFast: true,
+//        random: true,
+//        failFast: true,
         oneFailurePerSpec: true,
         stopSpecOnExpectationFailure: true,
                  timeoutInterval: 8*HOUR,
@@ -65,7 +74,12 @@ module.exports = config => {
 
     webpack: {
       mode: 'development',
-      devtool: 'inline-source-map'
+      devtool: 'inline-source-map',
+      plugins: [
+        new WorkerPlugin({
+          globalObject: 'this'
+        })
+      ]
     },
 
     files: tested_files,
@@ -81,6 +95,15 @@ module.exports = config => {
 
     specReporter: {
       showSpecTiming: true
+    },
+
+    customLaunchers: {
+      MyChromeHeadless: {
+        base: "ChromeHeadless",
+        flags: [
+          "--js-flags=\"--max_old_space_size=2048 --max_semi_space_size=1024\""
+        ]
+      }
     },
 
     browsers,
