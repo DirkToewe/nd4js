@@ -1,4 +1,4 @@
-<!DOCTYPE html><html><head><meta charset="utf-8"><title>ND4JS v1.2.0 Documentation</title></head><body style="font-family: monospace;"><h1>ND4JS v1.2.0 Documentation</h1><ul><li><a href="#nd.help">nd.help</a></li><li><a href="#nd.help_str">nd.help_str</a></li><li><a href="#nd.math">nd.math</a></li><li><a href="#nd.concat">nd.concat</a></li><li><a href="#nd.array">nd.array</a></li><li><a href="#nd.asarray">nd.asarray</a></li><li><a href="#nd.NDArray">nd.NDArray</a></li><li><a href="#nd.rand_normal">nd.rand_normal</a></li><li><a href="#nd.stack">nd.stack</a></li><li><a href="#nd.tabulate">nd.tabulate</a></li><li><a href="#nd.zip_elems">nd.zip_elems</a></li><li><a href="#nd.dt">nd.dt</a></li><li><a href="#nd.io">nd.io</a></li><li><a href="#nd.la">nd.la</a></li><li><a href="#nd.opt">nd.opt</a></li><li><a href="#nd.integrate">nd.integrate</a></li><li><a href="#nd.iter">nd.iter</a></li><li><a href="#nd.spatial">nd.spatial</a></li><li><a href="#nd.la._bidiag_decomp_horiz">nd.la._bidiag_decomp_horiz</a></li><li><a href="#nd.la.bidiag_decomp">nd.la.bidiag_decomp</a></li><li><a href="#nd.la.cholesky_decomp">nd.la.cholesky_decomp</a></li><li><a href="#nd.la.cholesky_solve">nd.la.cholesky_solve</a></li><li><a href="#nd.la.diag_mat">nd.la.diag_mat</a></li><li><a href="#nd.la.diag">nd.la.diag</a></li><li><a href="#nd.la.det_tri">nd.la.det_tri</a></li><li><a href="#nd.la.slogdet_tri">nd.la.slogdet_tri</a></li><li><a href="#nd.la.det">nd.la.det</a></li><li><a href="#nd.la.slogdet">nd.la.slogdet</a></li><li><a href="#nd.la.eigen">nd.la.eigen</a></li><li><a href="#nd.la.eigenvals">nd.la.eigenvals</a></li><li><a href="#nd.la.eigen_balance_pre">nd.la.eigen_balance_pre</a></li><li><a href="#nd.la.eigen_balance_post">nd.la.eigen_balance_post</a></li><li><a href="#nd.la.eye">nd.la.eye</a></li><li><a href="#nd.la.hessenberg_decomp">nd.la.hessenberg_decomp</a></li><li><a href="#nd.la.ldl_decomp">nd.la.ldl_decomp</a></li><li><a href="#nd.la.ldl_solve">nd.la.ldl_solve</a></li><li><a href="#nd.la.lstsq">nd.la.lstsq</a></li><li><a href="#nd.la.lu_decomp">nd.la.lu_decomp</a></li><li><a href="#nd.la.lu_solve">nd.la.lu_solve</a></li><li><a href="#nd.la.matmul2">nd.la.matmul2</a></li><li><a href="#nd.la.matmul">nd.la.matmul</a></li><li><a href="#nd.la.norm">nd.la.norm</a></li><li><a href="#nd.la.permute_rows">nd.la.permute_rows</a></li><li><a href="#nd.la.permute_cols">nd.la.permute_cols</a></li><li><a href="#nd.la.unpermute_rows">nd.la.unpermute_rows</a></li><li><a href="#nd.la.unpermute_cols">nd.la.unpermute_cols</a></li><li><a href="#nd.la.pldlp_decomp">nd.la.pldlp_decomp</a></li><li><a href="#nd.la.pldlp_solve">nd.la.pldlp_solve</a></li><li><a href="#nd.la.pldlp_l">nd.la.pldlp_l</a></li><li><a href="#nd.la.pldlp_d">nd.la.pldlp_d</a></li><li><a href="#nd.la.pldlp_p">nd.la.pldlp_p</a></li><li><a href="#nd.la.qr_decomp_full">nd.la.qr_decomp_full</a></li><li><a href="#nd.la.qr_decomp">nd.la.qr_decomp</a></li><li><a href="#nd.la.qr_lstsq">nd.la.qr_lstsq</a></li><li><a href="#nd.la.rand_ortho">nd.la.rand_ortho</a></li><li><a href="#nd.la.rank">nd.la.rank</a></li><li><a href="#nd.la.rrqr_decomp">nd.la.rrqr_decomp</a></li><li><a href="#nd.la.rrqr_decomp_full">nd.la.rrqr_decomp_full</a></li><li><a href="#nd.la.rrqr_rank">nd.la.rrqr_rank</a></li><li><a href="#nd.la.rrqr_lstsq">nd.la.rrqr_lstsq</a></li><li><a href="#nd.la.rrqr_solve">nd.la.rrqr_solve</a></li><li><a href="#nd.la.srrqr_decomp_full">nd.la.srrqr_decomp_full</a></li><li><a href="#nd.la.schur_eigenvals">nd.la.schur_eigenvals</a></li><li><a href="#nd.la.schur_eigen">nd.la.schur_eigen</a></li><li><a href="#nd.la.schur_decomp">nd.la.schur_decomp</a></li><li><a href="#nd.la.SingularMatrixSolveError">nd.la.SingularMatrixSolveError</a></li><li><a href="#nd.la.solve">nd.la.solve</a></li><li><a href="#nd.la.svd_decomp">nd.la.svd_decomp</a></li><li><a href="#nd.la.svd_rank">nd.la.svd_rank</a></li><li><a href="#nd.la.svd_solve">nd.la.svd_solve</a></li><li><a href="#nd.la.svd_lstsq">nd.la.svd_lstsq</a></li><li><a href="#nd.la.svd_dc">nd.la.svd_dc</a></li><li><a href="#nd.la.svd_jac_2sided">nd.la.svd_jac_2sided</a></li><li><a href="#nd.la.svd_jac_2sided_blocked">nd.la.svd_jac_2sided_blocked</a></li><li><a href="#nd.la.svd_jac_classic">nd.la.svd_jac_classic</a></li><li><a href="#nd.la.tril">nd.la.tril</a></li><li><a href="#nd.la.triu">nd.la.triu</a></li><li><a href="#nd.la.tril_solve">nd.la.tril_solve</a></li><li><a href="#nd.la.triu_solve">nd.la.triu_solve</a></li><li><a href="#nd.la.urv_decomp_full">nd.la.urv_decomp_full</a></li><li><a href="#nd.la.urv_lstsq">nd.la.urv_lstsq</a></li><li><a href="#nd.opt.line_search">nd.opt.line_search</a></li><li><a href="#nd.opt.test_fn">nd.opt.test_fn</a></li><li><a href="#nd.opt.lsq_dogleg_gen">nd.opt.lsq_dogleg_gen</a></li><li><a href="#nd.opt.fit_dogleg_gen">nd.opt.fit_dogleg_gen</a></li><li><a href="#nd.opt.fit_lin">nd.opt.fit_lin</a></li><li><a href="#nd.opt.min1d_gss">nd.opt.min1d_gss</a></li><li><a href="#nd.opt.min_lbfgs_gen">nd.opt.min_lbfgs_gen</a></li><li><a href="#nd.opt.lsq_lbfgs_gen">nd.opt.lsq_lbfgs_gen</a></li><li><a href="#nd.opt.min_lbfgsb_gen">nd.opt.min_lbfgsb_gen</a></li><li><a href="#nd.opt.LineSearchError">nd.opt.LineSearchError</a></li><li><a href="#nd.opt.LineSearchNoProgressError">nd.opt.LineSearchNoProgressError</a></li><li><a href="#nd.opt.LineSearchBisectionError">nd.opt.LineSearchBisectionError</a></li><li><a href="#nd.opt.LineSearchBoundReachedError">nd.opt.LineSearchBoundReachedError</a></li><li><a href="#nd.opt.more_thuente_abc">nd.opt.more_thuente_abc</a></li><li><a href="#nd.opt.more_thuente_u123">nd.opt.more_thuente_u123</a></li><li><a href="#nd.opt.strong_wolfe">nd.opt.strong_wolfe</a></li><li><a href="#nd.opt.lsq_lm_gen">nd.opt.lsq_lm_gen</a></li><li><a href="#nd.opt.fit_lm_gen">nd.opt.fit_lm_gen</a></li><li><a href="#nd.opt.num_grad">nd.opt.num_grad</a></li><li><a href="#nd.opt.num_grad_forward">nd.opt.num_grad_forward</a></li><li><a href="#nd.opt.root1d_bisect">nd.opt.root1d_bisect</a></li><li><a href="#nd.opt.line_search.LineSearchError">nd.opt.line_search.LineSearchError</a></li><li><a href="#nd.opt.line_search.LineSearchNoProgressError">nd.opt.line_search.LineSearchNoProgressError</a></li><li><a href="#nd.opt.line_search.LineSearchBisectionError">nd.opt.line_search.LineSearchBisectionError</a></li><li><a href="#nd.opt.line_search.LineSearchBoundReachedError">nd.opt.line_search.LineSearchBoundReachedError</a></li><li><a href="#nd.opt.line_search.more_thuente_abc">nd.opt.line_search.more_thuente_abc</a></li><li><a href="#nd.opt.line_search.more_thuente_u123">nd.opt.line_search.more_thuente_u123</a></li><li><a href="#nd.opt.line_search.strong_wolfe">nd.opt.line_search.strong_wolfe</a></li><li><a href="#nd.io.IS_LITTLE_ENDIAN">nd.io.IS_LITTLE_ENDIAN</a></li><li><a href="#nd.io.WHITESPACES">nd.io.WHITESPACES</a></li><li><a href="#nd.io.b64_decode">nd.io.b64_decode</a></li><li><a href="#nd.io.b64_decode_gen">nd.io.b64_decode_gen</a></li><li><a href="#nd.io.b64_encode">nd.io.b64_encode</a></li><li><a href="#nd.io.b64_encode_gen">nd.io.b64_encode_gen</a></li><li><a href="#nd.io.istr_parse">nd.io.istr_parse</a></li><li><a href="#nd.io.istr_stringify">nd.io.istr_stringify</a></li><li><a href="#nd.io.istr_stringify_gen">nd.io.istr_stringify_gen</a></li><li><a href="#nd.io.npy_serialize">nd.io.npy_serialize</a></li><li><a href="#nd.io.npy_serialize_gen">nd.io.npy_serialize_gen</a></li><li><a href="#nd.io.npy_deserialize">nd.io.npy_deserialize</a></li><li><a href="#nd.dt.ARRAY_TYPES">nd.dt.ARRAY_TYPES</a></li><li><a href="#nd.dt.eps">nd.dt.eps</a></li><li><a href="#nd.dt.cast_scalar">nd.dt.cast_scalar</a></li><li><a href="#nd.dt._check_dtype">nd.dt._check_dtype</a></li><li><a href="#nd.dt.dtypeof">nd.dt.dtypeof</a></li><li><a href="#nd.dt.super_dtype">nd.dt.super_dtype</a></li><li><a href="#nd.dt.is_subdtype">nd.dt.is_subdtype</a></li><li><a href="#nd.dt.Complex">nd.dt.Complex</a></li><li><a href="#nd.dt.Complex128Array">nd.dt.Complex128Array</a></li><li><a href="#nd.NDArray.length_STATIC">nd.NDArray.length [STATIC]</a></li><li><a href="#nd.NDArray.name_STATIC">nd.NDArray.name [STATIC]</a></li><li><a href="#nd.NDArray.prototype_STATIC">nd.NDArray.prototype [STATIC]</a></li><li><a href="#nd.NDArray.constructor">nd.NDArray.constructor</a></li><li><a href="#nd.NDArray.set">nd.NDArray.set</a></li><li><a href="#nd.NDArray.modify">nd.NDArray.modify</a></li><li><a href="#nd.NDArray._flat_idx">nd.NDArray._flat_idx</a></li><li><a href="#nd.NDArray.toString">nd.NDArray.toString</a></li><li><a href="#nd.NDArray.toNestedArray">nd.NDArray.toNestedArray</a></li><li><a href="#nd.NDArray.forEach">nd.NDArray.forEach</a></li><li><a href="#nd.NDArray.elems">nd.NDArray.elems</a></li><li><a href="#nd.NDArray.forElems">nd.NDArray.forElems</a></li><li><a href="#nd.NDArray.valueOf">nd.NDArray.valueOf</a></li><li><a href="#nd.NDArray.mapElems">nd.NDArray.mapElems</a></li><li><a href="#nd.NDArray.transpose">nd.NDArray.transpose</a></li><li><a href="#nd.NDArray.reshape">nd.NDArray.reshape</a></li><li><a href="#nd.NDArray.reduceElems">nd.NDArray.reduceElems</a></li><li><a href="#nd.NDArray.sliceElems">nd.NDArray.sliceElems</a></li><li><a href="#nd.dt.Complex.length_STATIC">nd.dt.Complex.length [STATIC]</a></li><li><a href="#nd.dt.Complex.name_STATIC">nd.dt.Complex.name [STATIC]</a></li><li><a href="#nd.dt.Complex.prototype_STATIC">nd.dt.Complex.prototype [STATIC]</a></li><li><a href="#nd.dt.Complex.constructor">nd.dt.Complex.constructor</a></li><li><a href="#nd.dt.Complex.add">nd.dt.Complex.add</a></li><li><a href="#nd.dt.Complex.sub">nd.dt.Complex.sub</a></li><li><a href="#nd.dt.Complex.mul">nd.dt.Complex.mul</a></li><li><a href="#nd.dt.Complex.div">nd.dt.Complex.div</a></li><li><a href="#nd.dt.Complex.equals">nd.dt.Complex.equals</a></li><li><a href="#nd.dt.Complex.abs">nd.dt.Complex.abs</a></li><li><a href="#nd.dt.Complex.arg">nd.dt.Complex.arg</a></li><li><a href="#nd.dt.Complex.conj">nd.dt.Complex.conj</a></li><li><a href="#nd.dt.Complex.toFixed">nd.dt.Complex.toFixed</a></li><li><a href="#nd.dt.Complex.sqrt">nd.dt.Complex.sqrt</a></li><li><a href="#nd.dt.Complex.toString">nd.dt.Complex.toString</a></li><li><a href="#nd.dt.Complex.valueOf">nd.dt.Complex.valueOf</a></li></ul><h2 id="nd.help">nd.help</h2><pre>Outputs a documentation string for the given method ND.JS method to the console. This method
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>ND4JS v1.3.0 Documentation</title></head><body style="font-family: monospace;"><h1>ND4JS v1.3.0 Documentation</h1><ul><li><a href="#nd.help">nd.help</a></li><li><a href="#nd.help_str">nd.help_str</a></li><li><a href="#nd.math">nd.math</a></li><li><a href="#nd.concat">nd.concat</a></li><li><a href="#nd.array">nd.array</a></li><li><a href="#nd.asarray">nd.asarray</a></li><li><a href="#nd.NDArray">nd.NDArray</a></li><li><a href="#nd.rand_normal">nd.rand_normal</a></li><li><a href="#nd.stack">nd.stack</a></li><li><a href="#nd.tabulate">nd.tabulate</a></li><li><a href="#nd.zip_elems">nd.zip_elems</a></li><li><a href="#nd.dt">nd.dt</a></li><li><a href="#nd.geom">nd.geom</a></li><li><a href="#nd.integrate">nd.integrate</a></li><li><a href="#nd.io">nd.io</a></li><li><a href="#nd.iter">nd.iter</a></li><li><a href="#nd.la">nd.la</a></li><li><a href="#nd.opt">nd.opt</a></li><li><a href="#nd.rand">nd.rand</a></li><li><a href="#nd.spatial">nd.spatial</a></li><li><a href="#nd.la._bidiag_decomp_horiz">nd.la._bidiag_decomp_horiz</a></li><li><a href="#nd.la.bidiag_decomp">nd.la.bidiag_decomp</a></li><li><a href="#nd.la.cholesky_decomp">nd.la.cholesky_decomp</a></li><li><a href="#nd.la.cholesky_solve">nd.la.cholesky_solve</a></li><li><a href="#nd.la.diag_mat">nd.la.diag_mat</a></li><li><a href="#nd.la.diag">nd.la.diag</a></li><li><a href="#nd.la.det_tri">nd.la.det_tri</a></li><li><a href="#nd.la.slogdet_tri">nd.la.slogdet_tri</a></li><li><a href="#nd.la.det">nd.la.det</a></li><li><a href="#nd.la.slogdet">nd.la.slogdet</a></li><li><a href="#nd.la.eigen">nd.la.eigen</a></li><li><a href="#nd.la.eigenvals">nd.la.eigenvals</a></li><li><a href="#nd.la.eigen_balance_pre">nd.la.eigen_balance_pre</a></li><li><a href="#nd.la.eigen_balance_post">nd.la.eigen_balance_post</a></li><li><a href="#nd.la.eye">nd.la.eye</a></li><li><a href="#nd.la.hessenberg_decomp">nd.la.hessenberg_decomp</a></li><li><a href="#nd.la.ldl_decomp">nd.la.ldl_decomp</a></li><li><a href="#nd.la.ldl_solve">nd.la.ldl_solve</a></li><li><a href="#nd.la.lstsq">nd.la.lstsq</a></li><li><a href="#nd.la.lu_decomp">nd.la.lu_decomp</a></li><li><a href="#nd.la.lu_solve">nd.la.lu_solve</a></li><li><a href="#nd.la.matmul2">nd.la.matmul2</a></li><li><a href="#nd.la.matmul">nd.la.matmul</a></li><li><a href="#nd.la.norm">nd.la.norm</a></li><li><a href="#nd.la.permute_rows">nd.la.permute_rows</a></li><li><a href="#nd.la.permute_cols">nd.la.permute_cols</a></li><li><a href="#nd.la.unpermute_rows">nd.la.unpermute_rows</a></li><li><a href="#nd.la.unpermute_cols">nd.la.unpermute_cols</a></li><li><a href="#nd.la.pldlp_decomp">nd.la.pldlp_decomp</a></li><li><a href="#nd.la.pldlp_solve">nd.la.pldlp_solve</a></li><li><a href="#nd.la.pldlp_l">nd.la.pldlp_l</a></li><li><a href="#nd.la.pldlp_d">nd.la.pldlp_d</a></li><li><a href="#nd.la.pldlp_p">nd.la.pldlp_p</a></li><li><a href="#nd.la.qr_decomp">nd.la.qr_decomp</a></li><li><a href="#nd.la.qr_decomp_full">nd.la.qr_decomp_full</a></li><li><a href="#nd.la.qr_lstsq">nd.la.qr_lstsq</a></li><li><a href="#nd.la.rand_ortho">nd.la.rand_ortho</a></li><li><a href="#nd.la.rank">nd.la.rank</a></li><li><a href="#nd.la.rrqr_decomp">nd.la.rrqr_decomp</a></li><li><a href="#nd.la.rrqr_decomp_full">nd.la.rrqr_decomp_full</a></li><li><a href="#nd.la.rrqr_rank">nd.la.rrqr_rank</a></li><li><a href="#nd.la.rrqr_lstsq">nd.la.rrqr_lstsq</a></li><li><a href="#nd.la.rrqr_solve">nd.la.rrqr_solve</a></li><li><a href="#nd.la.srrqr_decomp_full">nd.la.srrqr_decomp_full</a></li><li><a href="#nd.la.schur_eigenvals">nd.la.schur_eigenvals</a></li><li><a href="#nd.la.schur_eigen">nd.la.schur_eigen</a></li><li><a href="#nd.la.schur_decomp">nd.la.schur_decomp</a></li><li><a href="#nd.la.SingularMatrixSolveError">nd.la.SingularMatrixSolveError</a></li><li><a href="#nd.la.solve">nd.la.solve</a></li><li><a href="#nd.la.svd_decomp">nd.la.svd_decomp</a></li><li><a href="#nd.la.svd_rank">nd.la.svd_rank</a></li><li><a href="#nd.la.svd_solve">nd.la.svd_solve</a></li><li><a href="#nd.la.svd_lstsq">nd.la.svd_lstsq</a></li><li><a href="#nd.la.svd_dc">nd.la.svd_dc</a></li><li><a href="#nd.la.svd_jac_2sided">nd.la.svd_jac_2sided</a></li><li><a href="#nd.la.svd_jac_2sided_blocked">nd.la.svd_jac_2sided_blocked</a></li><li><a href="#nd.la.svd_jac_classic">nd.la.svd_jac_classic</a></li><li><a href="#nd.la.tril">nd.la.tril</a></li><li><a href="#nd.la.triu">nd.la.triu</a></li><li><a href="#nd.la.tril_solve">nd.la.tril_solve</a></li><li><a href="#nd.la.triu_solve">nd.la.triu_solve</a></li><li><a href="#nd.la.urv_decomp_full">nd.la.urv_decomp_full</a></li><li><a href="#nd.la.urv_lstsq">nd.la.urv_lstsq</a></li><li><a href="#nd.opt.line_search">nd.opt.line_search</a></li><li><a href="#nd.opt.test_fn">nd.opt.test_fn</a></li><li><a href="#nd.opt.min_dogleg_gen">nd.opt.min_dogleg_gen</a></li><li><a href="#nd.opt.lsq_dogleg_gen">nd.opt.lsq_dogleg_gen</a></li><li><a href="#nd.opt.tls_dogleg_gen">nd.opt.tls_dogleg_gen</a></li><li><a href="#nd.opt.odr_dogleg_gen">nd.opt.odr_dogleg_gen</a></li><li><a href="#nd.opt.fit_dogleg_gen">nd.opt.fit_dogleg_gen</a></li><li><a href="#nd.opt.fit_lin">nd.opt.fit_lin</a></li><li><a href="#nd.opt.min1d_gss">nd.opt.min1d_gss</a></li><li><a href="#nd.opt.min_lbfgs_gen">nd.opt.min_lbfgs_gen</a></li><li><a href="#nd.opt.lsq_lbfgs_gen">nd.opt.lsq_lbfgs_gen</a></li><li><a href="#nd.opt.fit_lbfgs_gen">nd.opt.fit_lbfgs_gen</a></li><li><a href="#nd.opt.min_lbfgsb_gen">nd.opt.min_lbfgsb_gen</a></li><li><a href="#nd.opt.LineSearchError">nd.opt.LineSearchError</a></li><li><a href="#nd.opt.LineSearchNoProgressError">nd.opt.LineSearchNoProgressError</a></li><li><a href="#nd.opt.LineSearchBisectionError">nd.opt.LineSearchBisectionError</a></li><li><a href="#nd.opt.LineSearchBoundReachedError">nd.opt.LineSearchBoundReachedError</a></li><li><a href="#nd.opt.more_thuente_abc">nd.opt.more_thuente_abc</a></li><li><a href="#nd.opt.more_thuente_u123">nd.opt.more_thuente_u123</a></li><li><a href="#nd.opt.strong_wolfe">nd.opt.strong_wolfe</a></li><li><a href="#nd.opt.lsq_lm_gen">nd.opt.lsq_lm_gen</a></li><li><a href="#nd.opt.tls_lm_gen">nd.opt.tls_lm_gen</a></li><li><a href="#nd.opt.odr_lm_gen">nd.opt.odr_lm_gen</a></li><li><a href="#nd.opt.fit_lm_gen">nd.opt.fit_lm_gen</a></li><li><a href="#nd.opt.num_grad">nd.opt.num_grad</a></li><li><a href="#nd.opt.num_grad_forward">nd.opt.num_grad_forward</a></li><li><a href="#nd.opt.OptimizationError">nd.opt.OptimizationError</a></li><li><a href="#nd.opt.OptimizationNoProgressError">nd.opt.OptimizationNoProgressError</a></li><li><a href="#nd.opt.root1d_bisect">nd.opt.root1d_bisect</a></li><li><a href="#nd.opt.root1d_brent">nd.opt.root1d_brent</a></li><li><a href="#nd.opt.root1d_illinois">nd.opt.root1d_illinois</a></li><li><a href="#nd.opt.line_search.LineSearchError">nd.opt.line_search.LineSearchError</a></li><li><a href="#nd.opt.line_search.LineSearchNoProgressError">nd.opt.line_search.LineSearchNoProgressError</a></li><li><a href="#nd.opt.line_search.LineSearchBisectionError">nd.opt.line_search.LineSearchBisectionError</a></li><li><a href="#nd.opt.line_search.LineSearchBoundReachedError">nd.opt.line_search.LineSearchBoundReachedError</a></li><li><a href="#nd.opt.line_search.more_thuente_abc">nd.opt.line_search.more_thuente_abc</a></li><li><a href="#nd.opt.line_search.more_thuente_u123">nd.opt.line_search.more_thuente_u123</a></li><li><a href="#nd.opt.line_search.strong_wolfe">nd.opt.line_search.strong_wolfe</a></li><li><a href="#nd.io.IS_LITTLE_ENDIAN">nd.io.IS_LITTLE_ENDIAN</a></li><li><a href="#nd.io.WHITESPACES">nd.io.WHITESPACES</a></li><li><a href="#nd.io.b64_decode">nd.io.b64_decode</a></li><li><a href="#nd.io.b64_decode_gen">nd.io.b64_decode_gen</a></li><li><a href="#nd.io.b64_encode">nd.io.b64_encode</a></li><li><a href="#nd.io.b64_encode_gen">nd.io.b64_encode_gen</a></li><li><a href="#nd.io.istr_parse">nd.io.istr_parse</a></li><li><a href="#nd.io.istr_stringify">nd.io.istr_stringify</a></li><li><a href="#nd.io.istr_stringify_gen">nd.io.istr_stringify_gen</a></li><li><a href="#nd.io.npy_serialize">nd.io.npy_serialize</a></li><li><a href="#nd.io.npy_serialize_gen">nd.io.npy_serialize_gen</a></li><li><a href="#nd.io.npy_deserialize">nd.io.npy_deserialize</a></li><li><a href="#nd.dt.ARRAY_TYPES">nd.dt.ARRAY_TYPES</a></li><li><a href="#nd.dt.eps">nd.dt.eps</a></li><li><a href="#nd.dt.cast_scalar">nd.dt.cast_scalar</a></li><li><a href="#nd.dt._check_dtype">nd.dt._check_dtype</a></li><li><a href="#nd.dt.dtypeof">nd.dt.dtypeof</a></li><li><a href="#nd.dt.super_dtype">nd.dt.super_dtype</a></li><li><a href="#nd.dt.is_subdtype">nd.dt.is_subdtype</a></li><li><a href="#nd.dt.Complex">nd.dt.Complex</a></li><li><a href="#nd.dt.Complex128Array">nd.dt.Complex128Array</a></li><li><a href="#nd.NDArray.length_STATIC">nd.NDArray.length [STATIC]</a></li><li><a href="#nd.NDArray.name_STATIC">nd.NDArray.name [STATIC]</a></li><li><a href="#nd.NDArray.prototype_STATIC">nd.NDArray.prototype [STATIC]</a></li><li><a href="#nd.NDArray.constructor">nd.NDArray.constructor</a></li><li><a href="#nd.NDArray.set">nd.NDArray.set</a></li><li><a href="#nd.NDArray.modify">nd.NDArray.modify</a></li><li><a href="#nd.NDArray._flat_idx">nd.NDArray._flat_idx</a></li><li><a href="#nd.NDArray.toString">nd.NDArray.toString</a></li><li><a href="#nd.NDArray.toNestedArray">nd.NDArray.toNestedArray</a></li><li><a href="#nd.NDArray.forEach">nd.NDArray.forEach</a></li><li><a href="#nd.NDArray.elems">nd.NDArray.elems</a></li><li><a href="#nd.NDArray.forElems">nd.NDArray.forElems</a></li><li><a href="#nd.NDArray.valueOf">nd.NDArray.valueOf</a></li><li><a href="#nd.NDArray.mapElems">nd.NDArray.mapElems</a></li><li><a href="#nd.NDArray.transpose">nd.NDArray.transpose</a></li><li><a href="#nd.NDArray.reshape">nd.NDArray.reshape</a></li><li><a href="#nd.NDArray.reduceElems">nd.NDArray.reduceElems</a></li><li><a href="#nd.NDArray.sliceElems">nd.NDArray.sliceElems</a></li><li><a href="#nd.dt.Complex.length_STATIC">nd.dt.Complex.length [STATIC]</a></li><li><a href="#nd.dt.Complex.name_STATIC">nd.dt.Complex.name [STATIC]</a></li><li><a href="#nd.dt.Complex.prototype_STATIC">nd.dt.Complex.prototype [STATIC]</a></li><li><a href="#nd.dt.Complex.constructor">nd.dt.Complex.constructor</a></li><li><a href="#nd.dt.Complex.add">nd.dt.Complex.add</a></li><li><a href="#nd.dt.Complex.sub">nd.dt.Complex.sub</a></li><li><a href="#nd.dt.Complex.mul">nd.dt.Complex.mul</a></li><li><a href="#nd.dt.Complex.div">nd.dt.Complex.div</a></li><li><a href="#nd.dt.Complex.equals">nd.dt.Complex.equals</a></li><li><a href="#nd.dt.Complex.abs">nd.dt.Complex.abs</a></li><li><a href="#nd.dt.Complex.arg">nd.dt.Complex.arg</a></li><li><a href="#nd.dt.Complex.conj">nd.dt.Complex.conj</a></li><li><a href="#nd.dt.Complex.toFixed">nd.dt.Complex.toFixed</a></li><li><a href="#nd.dt.Complex.sqrt">nd.dt.Complex.sqrt</a></li><li><a href="#nd.dt.Complex.toString">nd.dt.Complex.toString</a></li><li><a href="#nd.dt.Complex.valueOf">nd.dt.Complex.valueOf</a></li></ul><h2 id="nd.help">nd.help</h2><pre>Outputs a documentation string for the given method ND.JS method to the console. This method
 is intended to be used in interactive mode to explore and learn the ND.JS API.
 
 This method is only available in the non-minfied version of ND.JS.
@@ -262,13 +262,13 @@ Examples
 &gt;&gt;&gt; console.log( e.toString() )
   [[11,12,13,14],
    [21,22,23,24]]
-</pre><h2 id="nd.dt">nd.dt</h2><pre>No documentation available.</pre><h2 id="nd.io">nd.io</h2><pre>No documentation available.</pre><h2 id="nd.la">nd.la</h2><pre>The Linear Algebra subpackage of ND.JS. Contains methods for the handling and decomposition
+</pre><h2 id="nd.dt">nd.dt</h2><pre>No documentation available.</pre><h2 id="nd.geom">nd.geom</h2><pre>No documentation available.</pre><h2 id="nd.integrate">nd.integrate</h2><pre>No documentation available.</pre><h2 id="nd.io">nd.io</h2><pre>No documentation available.</pre><h2 id="nd.iter">nd.iter</h2><pre>No documentation available.</pre><h2 id="nd.la">nd.la</h2><pre>The Linear Algebra subpackage of ND.JS. Contains methods for the handling and decomposition
 of matrices as well as solvers for linear equations and linear least square systems.
 
 As convention the last two axes of an `NDArray` are considered as the matrix dimensions.
 Higher dimensional arrays are considered "arrays of matrices" and the broadcasting rules
 apply for the leading dimenions, i.e. for all dimensions of the shape except the last two.
-</pre><h2 id="nd.opt">nd.opt</h2><pre>No documentation available.</pre><h2 id="nd.integrate">nd.integrate</h2><pre>No documentation available.</pre><h2 id="nd.iter">nd.iter</h2><pre>No documentation available.</pre><h2 id="nd.spatial">nd.spatial</h2><pre>No documentation available.</pre><h2 id="nd.la._bidiag_decomp_horiz">nd.la._bidiag_decomp_horiz</h2><pre>No documentation available.</pre><h2 id="nd.la.bidiag_decomp">nd.la.bidiag_decomp</h2><pre>Computes the Upper Bidiagonal Decomposition of a matrix. Bidiagonal
+</pre><h2 id="nd.opt">nd.opt</h2><pre>No documentation available.</pre><h2 id="nd.rand">nd.rand</h2><pre>No documentation available.</pre><h2 id="nd.spatial">nd.spatial</h2><pre>No documentation available.</pre><h2 id="nd.la._bidiag_decomp_horiz">nd.la._bidiag_decomp_horiz</h2><pre>No documentation available.</pre><h2 id="nd.la.bidiag_decomp">nd.la.bidiag_decomp</h2><pre>Computes the Upper Bidiagonal Decomposition of a matrix. Bidiagonal
 Decomposition is a common preprocessing step for the Singular Value
 Decomposition.
 
@@ -611,29 +611,10 @@ Examples
 ...        LDL  = nd.la.matmul(L,D,L.T),
 ...       PLDL  = nd.la.unpermute_rows( LDL,P),
 ...       PLDLP = nd.la.unpermute_cols(PLDL,P);
-... console.log('PLDLᵀPᵀ =
-' + PLDLP);
+... console.log('PLDLᵀPᵀ =\n' + PLDLP);
   [[ 25, -50],
    [-50, 101]]
-</pre><h2 id="nd.la.pldlp_solve">nd.la.pldlp_solve</h2><pre>No documentation available.</pre><h2 id="nd.la.pldlp_l">nd.la.pldlp_l</h2><pre>No documentation available.</pre><h2 id="nd.la.pldlp_d">nd.la.pldlp_d</h2><pre>No documentation available.</pre><h2 id="nd.la.pldlp_p">nd.la.pldlp_p</h2><pre>No documentation available.</pre><h2 id="nd.la.qr_decomp_full">nd.la.qr_decomp_full</h2><pre>Computes the (full) QR Decomposition of a matrix. The QR
-Decomposition can be used to solve both Linear Equations
-and Linear Least Square problems with high numeric accuracy.
-Under normal circumstances, the incomplete QR Decomposition
-(`nd.la.qr_decomp`) is to be preferred over this method
-as it may be significantly more memory efficient.
-
-Parameters
-----------
-A: NDArray[...,N,M]
-  The matrix for which the QR Decomposition is computed.
-
-Returns
--------
-Q: NDArray[...,N,N]
-  An orthogonal square matrix, i.e. `Q @ Q.T == Q.T @ Q == nd.la.eye(N)`.
-R: NDArray[...,N,M]
-  An upper triangular matrix, such that: `A = Q @ R`
-</pre><h2 id="nd.la.qr_decomp">nd.la.qr_decomp</h2><pre>Computes the (economic) QR Decomposition of a matrix. The
+</pre><h2 id="nd.la.pldlp_solve">nd.la.pldlp_solve</h2><pre>No documentation available.</pre><h2 id="nd.la.pldlp_l">nd.la.pldlp_l</h2><pre>No documentation available.</pre><h2 id="nd.la.pldlp_d">nd.la.pldlp_d</h2><pre>No documentation available.</pre><h2 id="nd.la.pldlp_p">nd.la.pldlp_p</h2><pre>No documentation available.</pre><h2 id="nd.la.qr_decomp">nd.la.qr_decomp</h2><pre>Computes the (economic) QR Decomposition of a matrix. The
 QR Decomposition can be used to solve both Linear Equations
 and Linear Least Square problems with high numeric accuracy.
 Under normal circumstances, this method is to
@@ -650,6 +631,24 @@ Returns
 Q: NDArray[...,N,min(N,M)]
   An orthogonal rectangular matrix, i.e. `Q.T @ Q == nd.la.eye(min(N,M))`.
 R: NDArray[...,min(N,M),M]
+  An upper triangular matrix, such that: `A = Q @ R`
+</pre><h2 id="nd.la.qr_decomp_full">nd.la.qr_decomp_full</h2><pre>Computes the (full) QR Decomposition of a matrix. The QR
+Decomposition can be used to solve both Linear Equations
+and Linear Least Square problems with high numeric accuracy.
+Under normal circumstances, the incomplete QR Decomposition
+(`nd.la.qr_decomp`) is to be preferred over this method
+as it may be significantly more memory efficient.
+
+Parameters
+----------
+A: NDArray[...,N,M]
+  The matrix for which the QR Decomposition is computed.
+
+Returns
+-------
+Q: NDArray[...,N,N]
+  An orthogonal square matrix, i.e. `Q @ Q.T == Q.T @ Q == nd.la.eye(N)`.
+R: NDArray[...,N,M]
   An upper triangular matrix, such that: `A = Q @ R`
 </pre><h2 id="nd.la.qr_lstsq">nd.la.qr_lstsq</h2><pre>Given the QR Decompostion and the right hand side of a full-rank
 linear equation system, this method solves it. If the Linear
@@ -687,7 +686,42 @@ R: NDArray[...,min(N,M),M]
 P: NDArray[...,M]
   The permuted column indices, such that:
   `(Q @ R)[:,j] == A[:,P[j]]`
-</pre><h2 id="nd.la.rrqr_decomp_full">nd.la.rrqr_decomp_full</h2><pre>No documentation available.</pre><h2 id="nd.la.rrqr_rank">nd.la.rrqr_rank</h2><pre>No documentation available.</pre><h2 id="nd.la.rrqr_lstsq">nd.la.rrqr_lstsq</h2><pre>No documentation available.</pre><h2 id="nd.la.rrqr_solve">nd.la.rrqr_solve</h2><pre>No documentation available.</pre><h2 id="nd.la.srrqr_decomp_full">nd.la.srrqr_decomp_full</h2><pre>No documentation available.</pre><h2 id="nd.la.schur_eigenvals">nd.la.schur_eigenvals</h2><pre>No documentation available.</pre><h2 id="nd.la.schur_eigen">nd.la.schur_eigen</h2><pre>No documentation available.</pre><h2 id="nd.la.schur_decomp">nd.la.schur_decomp</h2><pre>Computes the (real) Schur Decomposition of a matrix. The
+</pre><h2 id="nd.la.rrqr_decomp_full">nd.la.rrqr_decomp_full</h2><pre>No documentation available.</pre><h2 id="nd.la.rrqr_rank">nd.la.rrqr_rank</h2><pre>No documentation available.</pre><h2 id="nd.la.rrqr_lstsq">nd.la.rrqr_lstsq</h2><pre>No documentation available.</pre><h2 id="nd.la.rrqr_solve">nd.la.rrqr_solve</h2><pre>No documentation available.</pre><h2 id="nd.la.srrqr_decomp_full">nd.la.srrqr_decomp_full</h2><pre>Computes the full strong Rank-Revealing QR Decomposition of a matrix.
+
+Parameters
+----------
+A: NDArray[...,M,N]
+  The matrix for which the QR Decomposition is computed.
+opt: {
+  dtol: float &gt;= 1,
+    Threshold for the column swaps. Columns are swapped for as long as the
+    determinant of the upper left quadrant of the (partially triangularized)
+    matrix increases by at least a factor of `dtol`. The larger `dtol`, the
+    faster the decomposition is. The closer to 1 `dtol` is, the more accurate
+    the rank determination.
+  ztol: float &gt;= 0
+    Tolerance for the rank determination. If the lower right quadrant of the
+    (partially triangularized) matrix is less than or equal to ztol, it is
+    considered to be zero.
+}
+
+Returns
+-------
+Q: NDArray[...,M,M]
+  An orthogonal rectangular matrix, i.e. `Q.T @ Q == nd.la.eye(min(N,M))`.
+R: NDArray[...,M,N]
+  An upper triangular matrix, where `R[i,i] &gt;= R[j,j]` if and only if `i &lt;= j`.
+P: NDArray[...,N]
+  The permuted column indices, such that:
+  `(Q @ R)[:,j] == A[:,P[j]]`
+ranks: NDArray[...]
+  The rank or batch of ranks of the individual matrices.
+
+References
+----------
+.. [1] "Efficient Algorithms for Computing a Strong Rank-Revealing QR Factorization",
+        Ming Gu and Stanley C. Eisenstat
+</pre><h2 id="nd.la.schur_eigenvals">nd.la.schur_eigenvals</h2><pre>No documentation available.</pre><h2 id="nd.la.schur_eigen">nd.la.schur_eigen</h2><pre>No documentation available.</pre><h2 id="nd.la.schur_decomp">nd.la.schur_decomp</h2><pre>Computes the (real) Schur Decomposition of a matrix. The
 Schur Decomposition is used to compute the Eigenvalues and
 Eigenvectors.
 
@@ -871,7 +905,203 @@ Returns
 -------
 x: NDArray[...,N,M]
   Such that `U @ x = y`.
-</pre><h2 id="nd.la.urv_decomp_full">nd.la.urv_decomp_full</h2><pre>No documentation available.</pre><h2 id="nd.la.urv_lstsq">nd.la.urv_lstsq</h2><pre>No documentation available.</pre><h2 id="nd.opt.line_search">nd.opt.line_search</h2><pre>No documentation available.</pre><h2 id="nd.opt.test_fn">nd.opt.test_fn</h2><pre>No documentation available.</pre><h2 id="nd.opt.lsq_dogleg_gen">nd.opt.lsq_dogleg_gen</h2><pre>No documentation available.</pre><h2 id="nd.opt.fit_dogleg_gen">nd.opt.fit_dogleg_gen</h2><pre>No documentation available.</pre><h2 id="nd.opt.fit_lin">nd.opt.fit_lin</h2><pre>Fits a parameter-linear linear function using Linear Regression or Ridge Regression.
+</pre><h2 id="nd.la.urv_decomp_full">nd.la.urv_decomp_full</h2><pre>Computes the (full) URV decomposition of a matrix. The URV decomposition
+is also known as complete orthogonal decomposition. Amongs other things,
+the URV decomposition can be used (as a faster alternative to the SVD)
+for finding the minimum-norm solution to under-determined least-squares
+problems.
+
+Parameters
+----------
+A: NDArray[...,M,N]
+  The matrix (or batch of matrices) that is to be URV decomposed.
+
+Returns
+-------
+U: NDArray[...,M,M]
+  An orthogonal, square matrix.
+R: NDArray[...,M,N]
+  An upper triangular, square matrix.
+V: NDArray[...,N,N]
+  An orthogonal, square matrix, such that `A = U @ R @ V`
+</pre><h2 id="nd.la.urv_lstsq">nd.la.urv_lstsq</h2><pre>No documentation available.</pre><h2 id="nd.opt.line_search">nd.opt.line_search</h2><pre>No documentation available.</pre><h2 id="nd.opt.test_fn">nd.opt.test_fn</h2><pre>No documentation available.</pre><h2 id="nd.opt.min_dogleg_gen">nd.opt.min_dogleg_gen</h2><pre>No documentation available.</pre><h2 id="nd.opt.lsq_dogleg_gen">nd.opt.lsq_dogleg_gen</h2><pre>No documentation available.</pre><h2 id="nd.opt.tls_dogleg_gen">nd.opt.tls_dogleg_gen</h2><pre>No documentation available.</pre><h2 id="nd.opt.odr_dogleg_gen">nd.opt.odr_dogleg_gen</h2><pre>Orthogonal least squares regression fit of a function to the given sample
+points using the Dogleg trust region method. This method minimizes
+the following least-squares problem:
+
+  minimize F(p,x) = ∑ᵢ (f(x[i,:]) - y[i,:])²   +   ∑ᵢⱼ dx[i,j]²
+
+Parameters
+----------
+x: float[n_samples(,n_inputs)]
+  Function inputs of the sample points that the function is fit through.
+y: float[n_samples(,n_outputs)]
+  Function outputs of the sample points that the function is fit through.
+fgg: (p: float[n_params]) =&gt; (x: float[n_inputs]) =&gt; [f: float, dfdp: float[(n_outputs,)n_params], dfdx: float[(n_outputs)(,n_inputs)]]
+  Function whose parameters is fitted. Returns the function value and its
+  gradients with respect to its parameters and its gradients with respect
+  to its function input `x`.
+p0: float[n_params]
+  Starting values for the parameters for fitting.
+opt : {
+  dx0: float[n_samples(,n_inputs)]
+    [optional] Starting value for the function inputs delta for fitting.
+  r0: float
+    [optional] Starting value for trust region radius.
+  rMin: float
+    [optional] Lower trust region radius bounds.
+  rNewton: float
+    [optional] If the Gauss-Newton is inside the trust region, the trust radius is set to
+    `rNewton` times the distance to the Gauss-Newton point.
+  shrinkLower: float ∈ (0,shrinkUpper]
+    [optional] During a single iteration, the trust region radius may at most decrease by this factor.
+  shrinkUpper: float ∈ [shrinkLower,1)
+    [optional] During a single iteration, the trust region radius may at least decrease by this factor.
+  grow: float
+    [optional] During a single iteration, the trust region radius may increase by this factor.
+  expectGainMin: float
+    [optional] The iteration is expected to provide at least `expectGainMin` of the predicted improvement.
+    Otherwise the trust region is shrunk.
+  expectGainMax: float
+    [optional] The iteration is expected to provide at most `expectGainMax` of the predicted improvement.
+    Otherwise the trust region is increased.
+  stuckLimit: int
+    [optional] The maximum number of consecutive function calls allowed without any minimization progress.
+}
+
+Returns
+-------
+Iterator&lt;[
+  p: float[n_params]
+    Current parameter values of the iteration.
+  dx: float[n_samples(,n_inputs)]
+    Current function inputs delta, a.k.a. residuals in the function inputs.
+  mse: float
+    Mean squared error.
+  dmse_dp: float[n_params]
+    Gradient of the mean squared error with respect to the parameters.
+  dmse_ddx: float[n_samples(,n_inputs)]
+    Gradient of the mean squared error with respect to the function inputs delta `dx`.
+  dy: float[n_samples(,n_outputs)]
+    Residuals in the function ouputs.
+]&gt;
+
+References
+----------
+.. [1] https://en.wikipedia.org/wiki/Powell%27s_dog_leg_method
+.. [2] https://en.wikipedia.org/wiki/Total_least_squares
+
+Example
+-------
+&gt;&gt;&gt; // generate some data with the underlying function: y = 7 - 3*x0 + x1
+... let x = Array.from({length: 8}, (_,i) =&gt;
+...         Array.from({length: 8}, (_,j) =&gt; [i-4,j-4] )).flat();
+... let y = x.map( ([x0,x1]) =&gt; 7 - 3*x0 + x1 );
+...
+... // add some uniform noise both in x and y
+... x = x.map( xi =&gt; xi.map(x =&gt; x + Math.random()*0.2-0.1) );
+... y = y.map(              y =&gt; y + Math.random()*0.2-0.1  );
+...
+... // model function whose parameter are to be fitted
+... const fgg = ([p0,p1,p2]) =&gt; ([x0,x1]) =&gt; {
+...   const f   =  p0 + p1*x0 + p2*x1,
+...        dfdp = [ 1,     x0,     x1 ],
+...        dfdx = [     p1   ,  p1    ];
+...     return [f, dfdp, dfdx];
+... }
+...
+... let p, dx, mse, dmse_dp, dmse_ddx;
+... try {
+...   for( [p, dx, mse, dmse_dp, dmse_ddx] of nd.opt.odr_dogleg_gen(x,y, fgg, [0,0,0]) )
+...   {
+...     if(  nd.la.norm(dmse_dp ) &lt;= 1e-6
+...       &amp;&amp; nd.la.norm(dmse_ddx) &lt;= 1e-6 )
+...       break;
+...   }
+... }
+... catch(err) {
+...   if( !(err instanceof nd.opt.OptimizationNoProgressError) )
+...     throw err;
+... }
+...
+... console.log('P = ' + p);
+  P = [ 6.967630316177548, -2.9919053487374145, 1.0098254712960533 ]
+</pre><h2 id="nd.opt.fit_dogleg_gen">nd.opt.fit_dogleg_gen</h2><pre>Nonlinear least squares fit of a function to the given sample points using
+the (single) Dogleg trust region method.
+
+Parameters
+----------
+x: float[n_samples,n_inputs]
+  Function inputs of the sample points that the function is fit through.
+y: float[n_samples]
+  Function outputs of the sample points that the function is fit through.
+fg: (params: float[n_params]) =&gt; (x: float[n_inputs]) =&gt; [f: float, g: float[n_params]]
+  Function whose parameters is fitted. Returns the function value and its
+  gradients with respect to its parameters.
+p0: float[n_params]
+  Starting values for the parameters for fitting.
+opt : {
+  r0: float
+    [optional] Starting value for trust region radius.
+  rMin: float
+    [optional] Lower trust region radius bounds.
+  rMax: float
+    [optional] Upper trust region radius bounds.
+  rTol: float
+    [optional] Relative tolerance by which the iteration adheres to the trust region radius.
+  shrinkLower: float ∈ (0,shrinkUpper]
+    [optional] During a single iteration, the trust region radius may at most decrease by this factor.
+  shrinkUpper: float ∈ [shrinkLower,1)
+    [optional] During a single iteration, the trust region radius may at least decrease by this factor.
+  grow: float
+    [optional] During a single iteration, the trust region radius may increase by this factor.
+  expectGainMin: float
+    [optional] The iteration is expected to provide at least `expectGainMin` of the predicted improvement.
+    Otherwise the trust region is shrunk.
+  expectGainMax: float
+    [optional] The iteration is expected to provide at most `expectGainMax` of the predicted improvement.
+    Otherwise the trust region is increased.
+}
+
+Returns
+-------
+Iterator&lt;[
+  p: float[n_params]
+    Current parameter values of the iteration.
+  mse: float
+    Mean squared error.
+  mse_grad: float[n_params]
+    Gradient of the mean squared error with respect to the parameters.
+  res: float[]
+    Residuals of the fit.
+  res_jac: float[]
+    Jaciobian of the residuals with respect to the parameters.
+]&gt;
+
+References
+----------
+.. [1] https://en.wikipedia.org/wiki/Powell%27s_dog_leg_method
+
+Example
+-------
+&gt;&gt;&gt; // Determine half-life of beer using dataset from:
+... // "Multivariate Analyses of Beer Foam Stand" by James J. Hackbart
+... const time = nd.array([[ 0,    15,    30,    45,    60,   90,   120,   150,   180,   210,   240,   270,   300   ]]).T,
+...     height = nd.array( [17.40, 15.10, 13.10, 11.60, 10.60, 8.70,  7.40,  6.35,  5.40,  4.50,  3.80,  3.30,  2.90] );
+... 
+... // Exponential decay function.
+... const fG = ([H0, c]) =&gt; ([t]) =&gt; [
+...    H0 * 2**(-t*c),
+...   [     2**(-t*c),                    // &lt;- d(fG) / d(H0)
+...    H0 * 2**(-t*c) * Math.log(2) * -t] // &lt;- d(fG) / d(c)
+... ];
+... 
+... for( const [[H0, c], mse, mse_grad] of nd.opt.fit_dogleg_gen(time, height, fG, /*p0=*/[1,1]) )
+...   if( nd.la.norm(mse_grad) &lt;= 1e-5 ) {
+...     console.log({H0, half_life: 1/c});
+...     break;
+...   }
+  { H0: 16.386111804437096, half_life: 108.02447353397987 }
+</pre><h2 id="nd.opt.fit_lin">nd.opt.fit_lin</h2><pre>Fits a parameter-linear linear function using Linear Regression or Ridge Regression.
 
 Parameters
 ----------
@@ -1025,7 +1255,7 @@ Example
 ... }
 ... console.log('Solution:', x);
   Solution: [ 0.9999999998879853, 0.9999999997700713 ]
-</pre><h2 id="nd.opt.lsq_lbfgs_gen">nd.opt.lsq_lbfgs_gen</h2><pre>No documentation available.</pre><h2 id="nd.opt.min_lbfgsb_gen">nd.opt.min_lbfgsb_gen</h2><pre>Iteratively minimizes a function using the L-BFGS-B method which supports bound-constraits.
+</pre><h2 id="nd.opt.lsq_lbfgs_gen">nd.opt.lsq_lbfgs_gen</h2><pre>No documentation available.</pre><h2 id="nd.opt.fit_lbfgs_gen">nd.opt.fit_lbfgs_gen</h2><pre>No documentation available.</pre><h2 id="nd.opt.min_lbfgsb_gen">nd.opt.min_lbfgsb_gen</h2><pre>Iteratively minimizes a function using the L-BFGS-B method which supports bound-constraits.
 An indefinite number of solutions is returned unless the line search does not make any further
 progress, in which case a `LineSearchNoProgressError` is thrown. The user must check for a
 proper stopping condition her-/himself.
@@ -1094,7 +1324,110 @@ Example
 ... }
 ... console.log('Solution:', x);
   Solution: [ 0, 0 ]
-</pre><h2 id="nd.opt.LineSearchError">nd.opt.LineSearchError</h2><pre>No documentation available.</pre><h2 id="nd.opt.LineSearchNoProgressError">nd.opt.LineSearchNoProgressError</h2><pre>No documentation available.</pre><h2 id="nd.opt.LineSearchBisectionError">nd.opt.LineSearchBisectionError</h2><pre>No documentation available.</pre><h2 id="nd.opt.LineSearchBoundReachedError">nd.opt.LineSearchBoundReachedError</h2><pre>No documentation available.</pre><h2 id="nd.opt.more_thuente_abc">nd.opt.more_thuente_abc</h2><pre>No documentation available.</pre><h2 id="nd.opt.more_thuente_u123">nd.opt.more_thuente_u123</h2><pre>No documentation available.</pre><h2 id="nd.opt.strong_wolfe">nd.opt.strong_wolfe</h2><pre>No documentation available.</pre><h2 id="nd.opt.lsq_lm_gen">nd.opt.lsq_lm_gen</h2><pre>No documentation available.</pre><h2 id="nd.opt.fit_lm_gen">nd.opt.fit_lm_gen</h2><pre>Nonlinear least squares fit of a function to the given sample points using
+</pre><h2 id="nd.opt.LineSearchError">nd.opt.LineSearchError</h2><pre>No documentation available.</pre><h2 id="nd.opt.LineSearchNoProgressError">nd.opt.LineSearchNoProgressError</h2><pre>No documentation available.</pre><h2 id="nd.opt.LineSearchBisectionError">nd.opt.LineSearchBisectionError</h2><pre>No documentation available.</pre><h2 id="nd.opt.LineSearchBoundReachedError">nd.opt.LineSearchBoundReachedError</h2><pre>No documentation available.</pre><h2 id="nd.opt.more_thuente_abc">nd.opt.more_thuente_abc</h2><pre>No documentation available.</pre><h2 id="nd.opt.more_thuente_u123">nd.opt.more_thuente_u123</h2><pre>No documentation available.</pre><h2 id="nd.opt.strong_wolfe">nd.opt.strong_wolfe</h2><pre>No documentation available.</pre><h2 id="nd.opt.lsq_lm_gen">nd.opt.lsq_lm_gen</h2><pre>No documentation available.</pre><h2 id="nd.opt.tls_lm_gen">nd.opt.tls_lm_gen</h2><pre>No documentation available.</pre><h2 id="nd.opt.odr_lm_gen">nd.opt.odr_lm_gen</h2><pre>Orthogonal least squares regression fit of a function to the given sample
+points using the Levenberg-Marquardt trust region method. This method minimizes
+the following least-squares problem:
+
+  minimize F(p,x) = ∑ᵢ (f(x[i,:]) - y[i,:])²   +   ∑ᵢⱼ dx[i,j]²
+
+Parameters
+----------
+x: float[n_samples(,n_inputs)]
+  Function inputs of the sample points that the function is fit through.
+y: float[n_samples(,n_outputs)]
+  Function outputs of the sample points that the function is fit through.
+fgg: (p: float[n_params]) =&gt; (x: float[n_inputs]) =&gt; [f: float, dfdp: float[(n_outputs,)n_params], dfdx: float[(n_outputs)(,n_inputs)]]
+  Function whose parameters is fitted. Returns the function value and its
+  gradients with respect to its parameters and its gradients with respect
+  to its function input `x`.
+p0: float[n_params]
+  Starting values for the parameters for fitting.
+opt : {
+  dx0: float[n_samples(,n_inputs)]
+    [optional] Starting value for the function inputs delta for fitting.
+  r0: float
+    [optional] Starting value for trust region radius.
+  rMin: float
+    [optional] Lower trust region radius bounds.
+  rMax: float
+    [optional] Upper trust region radius bounds.
+  rTol: float
+    [optional] Relative tolerance by which the iteration adheres to the trust region radius.
+  lmLower: float ∈ (0,1)
+    [optional] A small number that avoids that the Levenberg-Marquardt parameter becomes
+    too small too quickly during iteration.
+  shrinkLower: float ∈ (0,shrinkUpper]
+    [optional] During a single iteration, the trust region radius may at most decrease by this factor.
+  shrinkUpper: float ∈ [shrinkLower,1)
+    [optional] During a single iteration, the trust region radius may at least decrease by this factor.
+  grow: float
+    [optional] During a single iteration, the trust region radius may increase by this factor.
+  expectGainMin: float
+    [optional] The iteration is expected to provide at least `expectGainMin` of the predicted improvement.
+    Otherwise the trust region is shrunk.
+  expectGainMax: float
+    [optional] The iteration is expected to provide at most `expectGainMax` of the predicted improvement.
+    Otherwise the trust region is increased.
+}
+
+Returns
+-------
+Iterator&lt;[
+  p: float[n_params]
+    Current parameter values of the iteration.
+  dx: float[n_samples(,n_inputs)]
+    Current function inputs delta, a.k.a. residuals in the function inputs.
+  mse: float
+    Mean squared error.
+  dmse_dp: float[n_params]
+    Gradient of the mean squared error with respect to the parameters.
+  dmse_ddx: float[n_samples(,n_inputs)]
+    Gradient of the mean squared error with respect to the function inputs delta `dx`.
+  dy: float[n_samples(,n_outputs)]
+    Residuals in the function ouputs.
+]&gt;
+
+References
+----------
+.. [1] https://en.wikipedia.org/wiki/Levenberg%E2%80%93Marquardt_algorithm
+.. [2] https://en.wikipedia.org/wiki/Total_least_squares
+
+Example
+-------
+&gt;&gt;&gt; // generate some data with the underlying function: y = 7 - 3*x0 + x1
+... let x = Array.from({length: 8}, (_,i) =&gt;
+...         Array.from({length: 8}, (_,j) =&gt; [i-4,j-4] )).flat();
+... let y = x.map( ([x0,x1]) =&gt; 7 - 3*x0 + x1 );
+...
+... // add some uniform noise both in x and y
+... x = x.map( xi =&gt; xi.map(x =&gt; x + Math.random()*0.2-0.1) );
+... y = y.map(              y =&gt; y + Math.random()*0.2-0.1  );
+...
+... // model function whose parameter are to be fitted
+... const fgg = ([p0,p1,p2]) =&gt; ([x0,x1]) =&gt; {
+...   const f   =  p0 + p1*x0 + p2*x1,
+...        dfdp = [ 1,     x0,     x1 ],
+...        dfdx = [     p1   ,  p1    ];
+...     return [f, dfdp, dfdx];
+... }
+...
+... let p, dx, mse, dmse_dp, dmse_ddx;
+... try {
+...   for( [p, dx, mse, dmse_dp, dmse_ddx] of nd.opt.odr_lm_gen(x,y, fgg, [0,0,0]) )
+...   {
+...     if(  nd.la.norm(dmse_dp ) &lt;= 1e-6
+...       &amp;&amp; nd.la.norm(dmse_ddx) &lt;= 1e-6 )
+...       break;
+...   }
+... }
+... catch(err) {
+...   if( !(err instanceof nd.opt.OptimizationNoProgressError) )
+...     throw err;
+... }
+...
+... console.log('P = ' + p);
+  P = [ 7.021041391243395, -2.9909472084570687, 1.0073465017684218 ]
+</pre><h2 id="nd.opt.fit_lm_gen">nd.opt.fit_lm_gen</h2><pre>Nonlinear least squares fit of a function to the given sample points using
 the Levenberg-Marquardt trust region method.
 
 Parameters
@@ -1103,10 +1436,10 @@ x: float[n_samples,n_inputs]
   Function inputs of the sample points that the function is fit through.
 y: float[n_samples]
   Function outputs of the sample points that the function is fit through.
-fg: (params: float[nParam]) =&gt; (x: float[nDim]) =&gt; [f: float, g: float[nParam]]
-  Functions whose parameters are fitted. Returns the function value and its
+fg: (params: float[n_params]) =&gt; (x: float[n_inputs]) =&gt; [f: float, g: float[n_params]]
+  Function whose parameters is fitted. Returns the function value and its
   gradients with respect to its parameters.
-p0: float[nParam]
+p0: float[n_params]
   Starting values for the parameters for fitting.
 opt : {
   r0: float
@@ -1137,11 +1470,11 @@ opt : {
 Returns
 -------
 Iterator&lt;[
-  p: float[nParam]
+  p: float[n_params]
     Current parameter values of the iteration.
   mse: float
     Mean squared error.
-  mse_grad: float[nParam]
+  mse_grad: float[n_params]
     Gradient of the mean squared error with respect to the parameters.
   res: float[]
     Residuals of the fit.
@@ -1173,7 +1506,7 @@ Example
 ...     break;
 ...   }
   { H0: 16.386111806695105, half_life: 108.02447348677644 }
-</pre><h2 id="nd.opt.num_grad">nd.opt.num_grad</h2><pre>No documentation available.</pre><h2 id="nd.opt.num_grad_forward">nd.opt.num_grad_forward</h2><pre>No documentation available.</pre><h2 id="nd.opt.root1d_bisect">nd.opt.root1d_bisect</h2><pre>Finds a single root of a continuous univariate function using the bisection method.
+</pre><h2 id="nd.opt.num_grad">nd.opt.num_grad</h2><pre>No documentation available.</pre><h2 id="nd.opt.num_grad_forward">nd.opt.num_grad_forward</h2><pre>No documentation available.</pre><h2 id="nd.opt.OptimizationError">nd.opt.OptimizationError</h2><pre>No documentation available.</pre><h2 id="nd.opt.OptimizationNoProgressError">nd.opt.OptimizationNoProgressError</h2><pre>No documentation available.</pre><h2 id="nd.opt.root1d_bisect">nd.opt.root1d_bisect</h2><pre>Finds a single root of a continuous univariate function using the bisection method.
 
 Parameters
 ----------
@@ -1192,6 +1525,57 @@ x0: float
 References
 ----------
 .. [1] https://en.wikipedia.org/wiki/Bisection_method
+
+Example
+-------
+&gt;&gt;&gt; const sqrt9 = nd.opt.root1d_bisect(x =&gt; x*x-9, 0, 9);
+... console.log('sqrt(9) =', sqrt9);
+  sqrt(9) = 3
+</pre><h2 id="nd.opt.root1d_brent">nd.opt.root1d_brent</h2><pre>Finds a single root of a continuous univariate function using Brent's method.
+
+Parameters
+----------
+F: float =&gt; float
+  Continuous function for which a root is to be found.
+x1: float
+  One side of the range containing a root. F(x1) and F(x2) must have opposite signs (or be zero).
+x2: float
+  Other side of the range containing a root. F(x1) and F(x2) must have opposite signs (or be zero).
+
+Returns
+-------
+x0: float
+  A root of F, i.e. F(x0) ≈ 0.
+
+References
+----------
+ .. [1] https://en.wikipedia.org/wiki/Brent's_method
+
+Example
+-------
+&gt;&gt;&gt; const sqrt9 = nd.opt.root1d_bisect(x =&gt; x*x-9, 0, 9);
+... console.log('sqrt(9) =', sqrt9);
+  sqrt(9) = 3
+</pre><h2 id="nd.opt.root1d_illinois">nd.opt.root1d_illinois</h2><pre>Finds a single root of a continuous univariate function using the bisection Ford's (Illinois-type) method.
+
+Parameters
+----------
+F: float =&gt; float
+  Continuous function for which a root is to be found.
+x1: float
+  One side of the range containing a root. F(x1) and F(x2) must have opposite signs (or be zero).
+x2: float
+  Other side of the range containing a root. F(x1) and F(x2) must have opposite signs (or be zero).
+
+Returns
+-------
+x0: float
+  A root of F, i.e. F(x0) ≈ 0.
+
+References
+----------
+.. [1] https://en.wikipedia.org/wiki/False_position_method
+.. [2] "Improved Algorithms Of Illinois-Type For The Numerical Solution Of Nonlinear Equations"
 
 Example
 -------
