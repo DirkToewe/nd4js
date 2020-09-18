@@ -17,7 +17,6 @@
  */
 
 import {eps, ARRAY_TYPES} from '../dt'
-import math from '../math'
 import {asarray, NDArray} from '../nd_array'
 
 import {_giv_rot_qr,

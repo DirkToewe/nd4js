@@ -19,7 +19,7 @@
 import {schur_decomp,
         schur_eigen,
         schur_eigenvals} from './schur'
-import {asarray, NDArray} from '../nd_array'
+import {NDArray} from '../nd_array'
 import {ARRAY_TYPES} from '../dt'
 import {zip_elems} from '../zip_elems'
 import math from '../math'

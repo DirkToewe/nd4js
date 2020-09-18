@@ -60,6 +60,13 @@ export function svd_rank( sv )
 
 export function svd_solve(U,sv,V, y)
 {
+  if( y == undefined ) {
+    if( V != undefined )
+      throw new Error('svd_lstsq(Q,R,P, y): Either 2 ([Q,R,P], y) or 4 arguments (Q,R,P, y) expected.')
+    y = sv;
+     [U,sv,V] = U;
+  }
+
   U = asarray(U)
   sv= asarray(sv)
   V = asarray(V)
@@ -95,12 +102,11 @@ export function svd_solve(U,sv,V, y)
 
 export function svd_lstsq(U,sv,V, y)
 {
-  if( y == undefined )
-  {
+  if( y == undefined ) {
     if( V != undefined )
       throw new Error('svd_lstsq(Q,R,P, y): Either 2 ([Q,R,P], y) or 4 arguments (Q,R,P, y) expected.')
-    y = R
-    ([U,sv,V] = Q)
+    y = sv;
+     [U,sv,V] = U;
   }
 
   U  = asarray(U ); if( U .ndim < 2 ) throw new Error('svd_lstsq(U,sv,V, y): U.ndim must be at least 2.' )

@@ -17,7 +17,6 @@
  */
 
 import {ARRAY_TYPES} from '../dt'
-import {KahanSum} from '../kahan_sum'
 import {asarray, NDArray} from '../nd_array'
 
 

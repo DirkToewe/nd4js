@@ -21,8 +21,6 @@ import {NDArray} from '../nd_array'
 import {tabulate} from '../tabulate'
 import {zip_elems} from '../zip_elems'
 
-import {diag,
-        diag_mat} from './diag'
 import {ldl_decomp,
         ldl_solve} from './ldl'
 import {matmul} from './matmul'

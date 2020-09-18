@@ -19,7 +19,6 @@
 import {SingularMatrixSolveError} from './singular_matrix_solve_error'
 import {asarray, NDArray} from '../nd_array'
 import {eps, ARRAY_TYPES} from '../dt'
-import {unpermute_rows} from './permute'
 import {FrobeniusNorm} from './norm'
 import {_giv_rot_qr,
         _giv_rot_rows} from './_giv_rot'

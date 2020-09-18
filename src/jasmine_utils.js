@@ -273,13 +273,10 @@ export const forEachItemIn = itemsOrGenerator =>
 
   return {
     it: (description, specFn, timeout) => {
-      if( itemsOrGenerator instanceof Function )
-      {
-        
-        itemsOrGenerator = itemsOrGenerator( new TestRNG(description) );
-      }
+                if( itemsOrGenerator instanceof Function )
+                    itemsOrGenerator = itemsOrGenerator( new TestRNG(description) );
       const items = itemsOrGenerator[Symbol.iterator]();
-      itemsOrGenerator = undefined;
+                    itemsOrGenerator = undefined;
 
       if( 'string' !== typeof description )
         throw new Error('description must be string.')

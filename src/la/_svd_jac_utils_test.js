@@ -18,8 +18,7 @@
 
 import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 
-import {diag,
-        diag_mat} from './diag'
+import {diag_mat} from './diag'
 import {eye} from './eye';
 import {matmul, matmul2} from './matmul'
 import {_svd_jac_post,

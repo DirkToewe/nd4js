@@ -20,7 +20,6 @@ import {forEachItemIn, CUSTOM_MATCHERS} from '../jasmine_utils'
 import {matmul, matmul2} from './matmul'
 import {array, NDArray} from '../nd_array'
 import {zip_elems} from '../zip_elems'
-import {tabulate} from '../tabulate'
 import {Complex128Array} from '../dt/complex_array'
 import math from '../math'
 
