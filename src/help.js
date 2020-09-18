@@ -960,6 +960,65 @@ Example
 `
 
 
+nd.opt.root1d_brent.__doc__ = `\
+Finds a single root of a continuous univariate function using Brent's method.
+
+Parameters
+----------
+F: float => float
+  Continuous function for which a root is to be found.
+x1: float
+  One side of the range containing a root. F(x1) and F(x2) must have opposite signs (or be zero).
+x2: float
+  Other side of the range containing a root. F(x1) and F(x2) must have opposite signs (or be zero).
+
+Returns
+-------
+x0: float
+  A root of F, i.e. F(x0) ≈ 0.
+
+References
+----------
+ .. [1] https://en.wikipedia.org/wiki/Brent's_method
+
+Example
+-------
+>>> const sqrt9 = nd.opt.root1d_bisect(x => x*x-9, 0, 9);
+... console.log('sqrt(9) =', sqrt9);
+  sqrt(9) = 3
+`
+
+
+nd.opt.root1d_illinois.__doc__ = `\
+Finds a single root of a continuous univariate function using the bisection Ford's (Illinois-type) method.
+
+Parameters
+----------
+F: float => float
+  Continuous function for which a root is to be found.
+x1: float
+  One side of the range containing a root. F(x1) and F(x2) must have opposite signs (or be zero).
+x2: float
+  Other side of the range containing a root. F(x1) and F(x2) must have opposite signs (or be zero).
+
+Returns
+-------
+x0: float
+  A root of F, i.e. F(x0) ≈ 0.
+
+References
+----------
+.. [1] https://en.wikipedia.org/wiki/False_position_method
+.. [2] "Improved Algorithms Of Illinois-Type For The Numerical Solution Of Nonlinear Equations"
+
+Example
+-------
+>>> const sqrt9 = nd.opt.root1d_bisect(x => x*x-9, 0, 9);
+... console.log('sqrt(9) =', sqrt9);
+  sqrt(9) = 3
+`
+
+
 nd.opt.min1d_gss.__doc__ = `\
 Finds a single minimum of a continuous univariate function using Golden Section Search.
 
@@ -1067,10 +1126,10 @@ x: float[n_samples,n_inputs]
   Function inputs of the sample points that the function is fit through.
 y: float[n_samples]
   Function outputs of the sample points that the function is fit through.
-fg: (params: float[nParam]) => (x: float[nDim]) => [f: float, g: float[nParam]]
-  Functions whose parameters are fitted. Returns the function value and its
+fg: (params: float[n_params]) => (x: float[n_inputs]) => [f: float, g: float[n_params]]
+  Function whose parameters is fitted. Returns the function value and its
   gradients with respect to its parameters.
-p0: float[nParam]
+p0: float[n_params]
   Starting values for the parameters for fitting.
 opt : {
   r0: float
@@ -1098,11 +1157,11 @@ opt : {
 Returns
 -------
 Iterator<[
-  p: float[nParam]
+  p: float[n_params]
     Current parameter values of the iteration.
   mse: float
     Mean squared error.
-  mse_grad: float[nParam]
+  mse_grad: float[n_params]
     Gradient of the mean squared error with respect to the parameters.
   res: float[]
     Residuals of the fit.
@@ -1147,10 +1206,10 @@ x: float[n_samples,n_inputs]
   Function inputs of the sample points that the function is fit through.
 y: float[n_samples]
   Function outputs of the sample points that the function is fit through.
-fg: (params: float[nParam]) => (x: float[nDim]) => [f: float, g: float[nParam]]
-  Functions whose parameters are fitted. Returns the function value and its
+fg: (params: float[n_params]) => (x: float[n_inputs]) => [f: float, g: float[n_params]]
+  Function whose parameters is fitted. Returns the function value and its
   gradients with respect to its parameters.
-p0: float[nParam]
+p0: float[n_params]
   Starting values for the parameters for fitting.
 opt : {
   r0: float
@@ -1181,11 +1240,11 @@ opt : {
 Returns
 -------
 Iterator<[
-  p: float[nParam]
+  p: float[n_params]
     Current parameter values of the iteration.
   mse: float
     Mean squared error.
-  mse_grad: float[nParam]
+  mse_grad: float[n_params]
     Gradient of the mean squared error with respect to the parameters.
   res: float[]
     Residuals of the fit.
@@ -1220,73 +1279,216 @@ Example
 `;
 
 
-// nd.opt.odr_dogleg_gen.__doc__ = `\
-// Nonlinear total least squares (TLS) fit of a function to the given sample points. Also
-// known as orthogonal distance regression (ODR). This variant uses the (single) Dogleg
-// trust region method to solve the ODR problem. In other words this function minimizes
-// the following least-squares problem:
+nd.opt.odr_lm_gen.__doc__ = `\
+Orthogonal least squares regression fit of a function to the given sample
+points using the Levenberg-Marquardt trust region method. This method minimizes
+the following least-squares problem:
 
-//   minimize F(p,x) = ∑ᵢ (f(x[i,:]) - y[i,:])²   +   ∑ᵢⱼ dx[i,j]²
+  minimize F(p,x) = ∑ᵢ (f(x[i,:]) - y[i,:])²   +   ∑ᵢⱼ dx[i,j]²
 
-// Parameters
-// ----------
-// x: float[n_samples(,n_inputs)]
-//   Function inputs of the sample points that the function is fit through.
-// y: float[n_samples(,n_outputs)]
-//   Function outputs of the sample points that the function is fit through.
-// fgg: (params: float[nParam]) => (x: float[nDim]) => [f: float, dfdp: float[(n_outputs,)nParam], dfdx: float[(n_outputs,)n_inputs]]
-//   Functions whose parameters are fitted. Returns the function value and the derivatives of the function value w.r.t.
-//   the parameters p and input x.
-// p0: float[nParam]
-//   Starting values for the parameters for fitting.
-// opt : {
-//   dx0: float[n_samples(,n_inputs)]
-//     [optional] Starting value of the correction delta added to x.
-//   r0: float
-//     [optional] Starting value for trust region radius.
-//   rMin: float
-//     [optional] Lower trust region radius bounds.
-//   rNewton: float
-//     [optional] If the Gauss-Newton is inside the trust region, the trust radius is set to
-//     \`rNewton\` times the distance to the Gauss-Newton point.
-//   shrinkLower: float ∈ (0,shrinkUpper]
-//     [optional] During a single iteration, the trust region radius may at most decrease by this factor.
-//   shrinkUpper: float ∈ [shrinkLower,1)
-//     [optional] During a single iteration, the trust region radius may at least decrease by this factor.
-//   grow: float
-//     [optional] During a single iteration, the trust region radius may increase by this factor.
-//   expectGainMin: float
-//     [optional] The iteration is expected to provide at least \`expectGainMin\` of the predicted improvement.
-//     Otherwise the trust region is shrunk.
-//   expectGainMax: float
-//     [optional] The iteration is expected to provide at most \`expectGainMax\` of the predicted improvement.
-//     Otherwise the trust region is increased.
-//   stuckLimit: int
-//     [optional] The maximum number of consecutive function calls allowed without any minimization progress.
-// }
+Parameters
+----------
+x: float[n_samples(,n_inputs)]
+  Function inputs of the sample points that the function is fit through.
+y: float[n_samples(,n_outputs)]
+  Function outputs of the sample points that the function is fit through.
+fgg: (p: float[n_params]) => (x: float[n_inputs]) => [f: float, dfdp: float[(n_outputs,)n_params], dfdx: float[(n_outputs)(,n_inputs)]]
+  Function whose parameters is fitted. Returns the function value and its
+  gradients with respect to its parameters and its gradients with respect
+  to its function input \`x\`.
+p0: float[n_params]
+  Starting values for the parameters for fitting.
+opt : {
+  dx0: float[n_samples(,n_inputs)]
+    [optional] Starting value for the function inputs delta for fitting.
+  r0: float
+    [optional] Starting value for trust region radius.
+  rMin: float
+    [optional] Lower trust region radius bounds.
+  rMax: float
+    [optional] Upper trust region radius bounds.
+  rTol: float
+    [optional] Relative tolerance by which the iteration adheres to the trust region radius.
+  lmLower: float ∈ (0,1)
+    [optional] A small number that avoids that the Levenberg-Marquardt parameter becomes
+    too small too quickly during iteration.
+  shrinkLower: float ∈ (0,shrinkUpper]
+    [optional] During a single iteration, the trust region radius may at most decrease by this factor.
+  shrinkUpper: float ∈ [shrinkLower,1)
+    [optional] During a single iteration, the trust region radius may at least decrease by this factor.
+  grow: float
+    [optional] During a single iteration, the trust region radius may increase by this factor.
+  expectGainMin: float
+    [optional] The iteration is expected to provide at least \`expectGainMin\` of the predicted improvement.
+    Otherwise the trust region is shrunk.
+  expectGainMax: float
+    [optional] The iteration is expected to provide at most \`expectGainMax\` of the predicted improvement.
+    Otherwise the trust region is increased.
+}
 
-// Returns
-// -------
-// Iterator<[
-//   p: float[nParam]
-//     Current parameter values of the iteration.
-//   dx: float[n_samples(,n_inputs)]
-//     Current value of the correction delta added to x.
-//   mse: float
-//     Mean squared error.
-//   dmse_dp: float[nParam]
-//     Gradient of the mean squared error w.r.t. to the parameters p.
-//   dmse_dx: float[nParam]
-//     Gradient of the mean squared error w.r.t. to the sample inputs x.
-//   dy: float[]
-//     Residuals of the function outputs.
-// ]>
+Returns
+-------
+Iterator<[
+  p: float[n_params]
+    Current parameter values of the iteration.
+  dx: float[n_samples(,n_inputs)]
+    Current function inputs delta, a.k.a. residuals in the function inputs.
+  mse: float
+    Mean squared error.
+  dmse_dp: float[n_params]
+    Gradient of the mean squared error with respect to the parameters.
+  dmse_ddx: float[n_samples(,n_inputs)]
+    Gradient of the mean squared error with respect to the function inputs delta \`dx\`.
+  dy: float[n_samples(,n_outputs)]
+    Residuals in the function ouputs.
+]>
 
-// References
-// ----------
-// .. [1] https://en.wikipedia.org/wiki/Powell%27s_dog_leg_method
-// .. [2] https://en.wikipedia.org/wiki/Total_least_squares
-// `;
+References
+----------
+.. [1] https://en.wikipedia.org/wiki/Levenberg%E2%80%93Marquardt_algorithm
+.. [2] https://en.wikipedia.org/wiki/Total_least_squares
+
+Example
+-------
+>>> // generate some data with the underlying function: y = 7 - 3*x0 + x1
+... let x = Array.from({length: 8}, (_,i) =>
+...         Array.from({length: 8}, (_,j) => [i-4,j-4] )).flat();
+... let y = x.map( ([x0,x1]) => 7 - 3*x0 + x1 );
+...
+... // add some uniform noise both in x and y
+... x = x.map( xi => xi.map(x => x + Math.random()*0.2-0.1) );
+... y = y.map(              y => y + Math.random()*0.2-0.1  );
+...
+... // model function whose parameter are to be fitted
+... const fgg = ([p0,p1,p2]) => ([x0,x1]) => {
+...   const f   =  p0 + p1*x0 + p2*x1,
+...        dfdp = [ 1,     x0,     x1 ],
+...        dfdx = [     p1   ,  p1    ];
+...     return [f, dfdp, dfdx];
+... }
+...
+... let p, dx, mse, dmse_dp, dmse_ddx;
+... try {
+...   for( [p, dx, mse, dmse_dp, dmse_ddx] of nd.opt.odr_lm_gen(x,y, fgg, [0,0,0]) )
+...   {
+...     if(  nd.la.norm(dmse_dp ) <= 1e-6
+...       && nd.la.norm(dmse_ddx) <= 1e-6 )
+...       break;
+...   }
+... }
+... catch(err) {
+...   if( !(err instanceof nd.opt.OptimizationNoProgressError) )
+...     throw err;
+... }
+...
+... console.log('P = ' + p);
+  P = [ 7.021041391243395, -2.9909472084570687, 1.0073465017684218 ]
+`;
+
+
+nd.opt.odr_dogleg_gen.__doc__ = `\
+Orthogonal least squares regression fit of a function to the given sample
+points using the Dogleg trust region method. This method minimizes
+the following least-squares problem:
+
+  minimize F(p,x) = ∑ᵢ (f(x[i,:]) - y[i,:])²   +   ∑ᵢⱼ dx[i,j]²
+
+Parameters
+----------
+x: float[n_samples(,n_inputs)]
+  Function inputs of the sample points that the function is fit through.
+y: float[n_samples(,n_outputs)]
+  Function outputs of the sample points that the function is fit through.
+fgg: (p: float[n_params]) => (x: float[n_inputs]) => [f: float, dfdp: float[(n_outputs,)n_params], dfdx: float[(n_outputs)(,n_inputs)]]
+  Function whose parameters is fitted. Returns the function value and its
+  gradients with respect to its parameters and its gradients with respect
+  to its function input \`x\`.
+p0: float[n_params]
+  Starting values for the parameters for fitting.
+opt : {
+  dx0: float[n_samples(,n_inputs)]
+    [optional] Starting value for the function inputs delta for fitting.
+  r0: float
+    [optional] Starting value for trust region radius.
+  rMin: float
+    [optional] Lower trust region radius bounds.
+  rNewton: float
+    [optional] If the Gauss-Newton is inside the trust region, the trust radius is set to
+    \`rNewton\` times the distance to the Gauss-Newton point.
+  shrinkLower: float ∈ (0,shrinkUpper]
+    [optional] During a single iteration, the trust region radius may at most decrease by this factor.
+  shrinkUpper: float ∈ [shrinkLower,1)
+    [optional] During a single iteration, the trust region radius may at least decrease by this factor.
+  grow: float
+    [optional] During a single iteration, the trust region radius may increase by this factor.
+  expectGainMin: float
+    [optional] The iteration is expected to provide at least \`expectGainMin\` of the predicted improvement.
+    Otherwise the trust region is shrunk.
+  expectGainMax: float
+    [optional] The iteration is expected to provide at most \`expectGainMax\` of the predicted improvement.
+    Otherwise the trust region is increased.
+  stuckLimit: int
+    [optional] The maximum number of consecutive function calls allowed without any minimization progress.
+}
+
+Returns
+-------
+Iterator<[
+  p: float[n_params]
+    Current parameter values of the iteration.
+  dx: float[n_samples(,n_inputs)]
+    Current function inputs delta, a.k.a. residuals in the function inputs.
+  mse: float
+    Mean squared error.
+  dmse_dp: float[n_params]
+    Gradient of the mean squared error with respect to the parameters.
+  dmse_ddx: float[n_samples(,n_inputs)]
+    Gradient of the mean squared error with respect to the function inputs delta \`dx\`.
+  dy: float[n_samples(,n_outputs)]
+    Residuals in the function ouputs.
+]>
+
+References
+----------
+.. [1] https://en.wikipedia.org/wiki/Powell%27s_dog_leg_method
+.. [2] https://en.wikipedia.org/wiki/Total_least_squares
+
+Example
+-------
+>>> // generate some data with the underlying function: y = 7 - 3*x0 + x1
+... let x = Array.from({length: 8}, (_,i) =>
+...         Array.from({length: 8}, (_,j) => [i-4,j-4] )).flat();
+... let y = x.map( ([x0,x1]) => 7 - 3*x0 + x1 );
+...
+... // add some uniform noise both in x and y
+... x = x.map( xi => xi.map(x => x + Math.random()*0.2-0.1) );
+... y = y.map(              y => y + Math.random()*0.2-0.1  );
+...
+... // model function whose parameter are to be fitted
+... const fgg = ([p0,p1,p2]) => ([x0,x1]) => {
+...   const f   =  p0 + p1*x0 + p2*x1,
+...        dfdp = [ 1,     x0,     x1 ],
+...        dfdx = [     p1   ,  p1    ];
+...     return [f, dfdp, dfdx];
+... }
+...
+... let p, dx, mse, dmse_dp, dmse_ddx;
+... try {
+...   for( [p, dx, mse, dmse_dp, dmse_ddx] of nd.opt.odr_dogleg_gen(x,y, fgg, [0,0,0]) )
+...   {
+...     if(  nd.la.norm(dmse_dp ) <= 1e-6
+...       && nd.la.norm(dmse_ddx) <= 1e-6 )
+...       break;
+...   }
+... }
+... catch(err) {
+...   if( !(err instanceof nd.opt.OptimizationNoProgressError) )
+...     throw err;
+... }
+...
+... console.log('P = ' + p);
+  P = [ 6.967630316177548, -2.9919053487374145, 1.0098254712960533 ]
+`;
 
 
   //
@@ -2076,6 +2278,46 @@ x: NDArray[...,N,M]
 
 
 
+nd.la.srrqr_decomp_full.__doc__ = `\
+Computes the full strong Rank-Revealing QR Decomposition of a matrix.
+
+Parameters
+----------
+A: NDArray[...,M,N]
+  The matrix for which the QR Decomposition is computed.
+opt: {
+  dtol: float >= 1,
+    Threshold for the column swaps. Columns are swapped for as long as the
+    determinant of the upper left quadrant of the (partially triangularized)
+    matrix increases by at least a factor of \`dtol\`. The larger \`dtol\`, the
+    faster the decomposition is. The closer to 1 \`dtol\` is, the more accurate
+    the rank determination.
+  ztol: float >= 0
+    Tolerance for the rank determination. If the lower right quadrant of the
+    (partially triangularized) matrix is less than or equal to ztol, it is
+    considered to be zero.
+}
+
+Returns
+-------
+Q: NDArray[...,M,M]
+  An orthogonal rectangular matrix, i.e. \`Q.T @ Q == nd.la.eye(min(N,M))\`.
+R: NDArray[...,M,N]
+  An upper triangular matrix, where \`R[i,i] >= R[j,j]\` if and only if \`i <= j\`.
+P: NDArray[...,N]
+  The permuted column indices, such that:
+  \`(Q @ R)[:,j] == A[:,P[j]]\`
+ranks: NDArray[...]
+  The rank or batch of ranks of the individual matrices.
+
+References
+----------
+.. [1] "Efficient Algorithms for Computing a Strong Rank-Revealing QR Factorization",
+        Ming Gu and Stanley C. Eisenstat
+`
+
+
+
 nd.la.svd_decomp.__doc__ = `\
 Computes the Singular Value Decomposition (SVD) of a matrix.
 
@@ -2096,24 +2338,24 @@ V : NDArray[...,min(N,M),M]
 
 
 
-// nd.la.urv_decomp.__doc__ = `\
-// Computes the (full) URV decomposition of a matrix. The URV decomposition
-// is also known as complete orthogonal decomposition. Amongs other things,
-// the URV decomposition can be used (as a faster alternative to the SVD)
-// for finding the minimum-norm solution to under-determined least-squares
-// problems.
+nd.la.urv_decomp_full.__doc__ = `\
+Computes the (full) URV decomposition of a matrix. The URV decomposition
+is also known as complete orthogonal decomposition. Amongs other things,
+the URV decomposition can be used (as a faster alternative to the SVD)
+for finding the minimum-norm solution to under-determined least-squares
+problems.
 
-// Parameters
-// ----------
-// A: NDArray[...,M,N]
-//   The matrix (or batch of matrices) that is to be URV decomposed.
+Parameters
+----------
+A: NDArray[...,M,N]
+  The matrix (or batch of matrices) that is to be URV decomposed.
 
-// Returns
-// -------
-// U: NDArray[...,M,M]
-//   An orthogonal, square matrix.
-// R: NDArray[...,M,N]
-//   An upper triangular, square matrix.
-// V: NDArray[...,N,N]
-//   An orthogonal, square matrix, such that \`A = U @ R @ V\`
-// `
+Returns
+-------
+U: NDArray[...,M,M]
+  An orthogonal, square matrix.
+R: NDArray[...,M,N]
+  An upper triangular, square matrix.
+V: NDArray[...,N,N]
+  An orthogonal, square matrix, such that \`A = U @ R @ V\`
+`

@@ -264,6 +264,7 @@ Available operations and decompositions:
   * [Singular Value Decomposition (SVD)](https://dirktoewe.github.io/nd4js/doc.html#nd.la.svd_decomp)
   * [QR Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.qr_decomp)
   * [Rank-Revaling QR Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.rrqr_decomp)
+  * [Strong Rank-Revaling QR Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.drrqr_decomp)
   * [URV Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.urv_decomp_full)
   * [Cholesky Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.cholesky_decomp)
   * [LDLᵀ Decomposition](https://dirktoewe.github.io/nd4js/doc.html#nd.la.ldl_decomp)
@@ -280,9 +281,16 @@ Available operations and decompositions:
     * [Levenberg-Marquardt](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.lsq_lm_gen)
     * [Dogleg Method](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.lsq_dogleg_gen)
     * [L-BFGS](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.lsq_lbfgs_gen)
+  * Orthogonal Least-Squares Regression:
+    * [Levenberg-Marquardt](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.odr_lm_gen)
+    * [Dogleg Method](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.odr_dogleg_gen)
   * General Nonlinear Optimization
     * [L-BFGS Optimizer](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.min_lbfgs_gen)
     * [L-BFGS-B Optimizer (Bound Constrained)](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.min_lbfgsb_gen)
-  * [Bisection Solver 1D](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.root1d_bisect)
-  * [Golden Section Search Minimizer 1D](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.min1d_gss)
+  * 1D Derivative-Free Root Finding
+    * [Bisection](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.root1d_bisect)
+    * [Brent's method](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.root1d_brent)
+    * [Ford's (Illinois-type) method](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.root1d_illinois)
+  * 1D Derivative-Free Optimization
+    * [Golden Section Search 1D Minimizer](https://dirktoewe.github.io/nd4js/doc.html#nd.opt.min1d_gss)
 
