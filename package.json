@@ -28,7 +28,7 @@
     "glob": "^7.1.6",
     "jsdoc": "^3.6.5",
     "jsdoc-api": "^5.0.4",
-    "jsdom": "^13.2.0",
+    "jsdom": "^16.5.0",
     "karma": "^5.2.2",
     "karma-chrome-launcher": "^2.2.0",
     "karma-cli": "^2.0.0",
